@@ -32,6 +32,36 @@
 </style>
 </head>
 <body>
+<div id="pagesNotice" style="display:none;margin:8px auto;max-width:520px;padding:8px 12px;border-radius:8px;background:#2b2320;border:1px solid #7a5a3a;color:#e8c89a;font-size:12px;line-height:1.6;text-align:left">
+🐳 <b>联机暂不可用</b><br>
+当前是 GitHub Pages 静态版，没有房间服务器，联机对战开不了。<br>
+<b>单机部分完全正常</b>——本地对战照常玩。要联机请回本机站点。
+</div>
+<script>
+(function(){
+  // 只有在 GitHub Pages（无 /api/ 后端）时才提示
+  if(location.hostname.endsWith('.github.io')){
+    document.addEventListener('DOMContentLoaded', function(){
+      var el = document.getElementById('pagesNotice');
+      if(!el) return;
+      el.style.display = 'block';
+      // 禁用联机按钮，改为点击即提示
+      var btn = document.getElementById('onlineBtn');
+      if(btn){
+        btn.dataset.origText = btn.textContent;
+        btn.textContent = '联机：不可用（静态版）';
+        btn.style.opacity = '0.6';
+        btn.onclick = function(e){
+          e.preventDefault(); e.stopPropagation();
+          alert('🐳 联机暂不可用\n\n这是 GitHub Pages 静态版，没有房间服务器。\n单机对战完全正常，联机请回本机站点。');
+          return false;
+        };
+      }
+    });
+  }
+})();
+</script>
+
   <h1>🐳 后台控制台</h1>
   <div class="sub">只有你知道这个地方 · AI 的秘密后厨</div>
 
