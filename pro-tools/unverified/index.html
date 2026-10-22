@@ -19,6 +19,13 @@
   .half-h { font-size:12px; padding:4px 8px; border-radius:5px; margin-bottom:6px; }
   .half-h.ok { background:#13351f; color:#9fe6b8; border-left:3px solid #3ba55d; }
   .half-h.no { background:#2a1508; color:#ffbe7a; border-left:3px solid #ff9a40; }
+  .tabs { display:flex; gap:6px; margin:10px 0 12px; flex-wrap:wrap; }
+  .tab { flex:1 1 auto; min-width:70px; padding:9px 6px; font-size:13px; cursor:pointer;
+    background:#0b1a20; color:#8fb8c6; border:1px solid #2a5563; border-radius:8px;
+    font-family:inherit; transition:.15s; }
+  .tab:hover { background:#122c36; }
+  .tab.on { background:#1b4a5c; color:#bfeaf5; border-color:#4d9ab5; font-weight:700;
+    box-shadow:0 0 0 1px #4d9ab5 inset; }
   .empty { font-size:11px; color:#5a7a85; padding:6px 8px; }
 </style>
 </head>
@@ -33,7 +40,27 @@
     发现哪里算错了，欢迎直接说——挑出来修好的，会挪进「已审查」。
   </div>
 
-  <div class="cat">
+  <div class="tabs">
+    <button class="tab on" data-t="wenke">📖 文科</button>
+    <button class="tab" data-t="like">🔬 理科</button>
+    <button class="tab" data-t="shipin">🍵 食品标准</button>
+    <button class="tab" data-t="yule">🎲 娱乐</button>
+  </div>
+
+  <script>
+  (function(){
+    var tabs = document.querySelectorAll('.tab');
+    var cats = document.querySelectorAll('.cat');
+    function show(k){
+      tabs.forEach(function(b){ b.classList.toggle('on', b.dataset.t === k); });
+      cats.forEach(function(c){ c.style.display = (c.dataset.key === k) ? '' : 'none'; });
+      window.scrollTo({top:0, behavior:'smooth'});
+    }
+    tabs.forEach(function(b){ b.addEventListener('click', function(){ show(b.dataset.t); }); });
+  })();
+  </script>
+
+  <div class="cat" data-key="wenke">
     <h2>📖 文科</h2>
     <div class="tag">汉字 · 诗词 · 公文 · 古籍 · 历法</div>
 
@@ -82,7 +109,7 @@
     </div>
   </div>
 
-  <div class="cat">
+  <div class="cat" data-key="like" style="display:none">
     <h2>🔬 理科</h2>
     <div class="tag">工程 · 物理 · 化学 · 电子 · 医疗</div>
 
@@ -210,7 +237,7 @@
     </div>
   </div>
 
-  <div class="cat">
+  <div class="cat" data-key="shipin" style="display:none">
     <h2>🍵 食品标准</h2>
     <div class="tag">酱油 · 茶叶 · 酒类</div>
 
@@ -226,7 +253,7 @@
     </div>
   </div>
 
-  <div class="cat">
+  <div class="cat" data-key="yule" style="display:none">
     <h2>🎲 娱乐</h2>
     <div class="tag">概率 · 民俗 · 生活小工具</div>
 
@@ -255,7 +282,7 @@
   <div class="foot">这一区敞开给社区：<b>发现哪里算错了、数据不对，欢迎直接说</b><br>
     挑出来并修好的，会挪进「已审查」区</div>
 
-  <div class="ver">v2.0.0-按四区重分并标注审查状态 20261022</div>
+  <div class="ver">v2.1.0-四区分页切换 20261022</div>
 </div>
 </body>
 </html>
