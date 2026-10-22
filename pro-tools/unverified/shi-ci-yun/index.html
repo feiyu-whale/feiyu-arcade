@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>诗韵与词韵 · 平水韵106部与词林正韵19部查询工具</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Songti SC", serif;
+    margin: 0; padding: 0; background: #f5f1e8; color: #2b2b2b;
+    line-height: 1.7;
+  }
+  header {
+    background: linear-gradient(135deg, #6b4423 0%, #8b5a2b 100%);
+    color: #f5e9d3; padding: 28px 24px; text-align: center;
+    border-bottom: 3px double #d4af37;
+  }
+  header h1 { margin: 0; font-size: 28px; letter-spacing: 4px; }
+  header p { margin: 8px 0 0; font-size: 14px; opacity: 0.85; }
+  .tabs {
+    display: flex; background: #3d2817; border-bottom: 2px solid #d4af37;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .tab {
+    flex: 1; padding: 14px; text-align: center; cursor: pointer;
+    color: #d4c5a0; font-size: 15px; transition: all 0.2s;
+    border-right: 1px solid #5a3d24;
+  }
+  .tab:last-child { border-right: none; }
+  .tab:hover { background: #5a3d24; }
+  .tab.active { background: #8b5a2b; color: #fff; font-weight: bold; }
+  .panel { display: none; padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .panel.active { display: block; }
+  .card {
+    background: #fff; border: 1px solid #d4c5a0; border-radius: 6px;
+    padding: 20px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+  .card h2 {
+    margin: 0 0 14px; color: #6b4423; border-bottom: 1px dashed #d4af37;
+    padding-bottom: 8px; font-size: 18px;
+  }
+  .card h3 { margin: 14px 0 8px; color: #8b5a2b; font-size: 15px; }
+  input[type="text"], select {
+    padding: 8px 12px; border: 1px solid #c9b896; border-radius: 4px;
+    font-size: 15px; background: #fffdf7; font-family: inherit;
+  }
+  input[type="text"]:focus, select:focus { outline: none; border-color: #8b5a2b; }
+  button {
+    padding: 8px 18px; background: #8b5a2b; color: #fff; border: none;
+    border-radius: 4px; cursor: pointer; font-size: 14px; font-family: inherit;
+    transition: background 0.2s;
+  }
+  button:hover { background: #6b4423; }
+  .result {
+    margin-top: 14px; padding: 14px; background: #fffdf7;
+    border-left: 4px solid #d4af37; min-height: 40px;
+  }
+  .result .label { color: #8b5a2b; font-weight: bold; margin-right: 8px; }
+  .char-grid {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
+  }
+  .char-tag {
+    padding: 4px 10px; background: #f5e9d3; border: 1px solid #d4c5a0;
+    border-radius: 3px; font-size: 14px;
+  }
+  .yunbu-list {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px; margin-top: 10px;
+  }
+  .yunbu-item {
+    padding: 8px; background: #fffdf7; border: 1px solid #d4c5a0;
+    border-radius: 3px; font-size: 13px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .yunbu-item:hover { background: #f5e9d3; border-color: #8b5a2b; }
+  .yunbu-item .shengdiao {
+    display: inline-block; width: 18px; height: 18px; text-align: center;
+    line-height: 18px; border-radius: 50%; font-size: 11px; margin-right: 4px;
+  }
+  .sheng-ping { background: #a8d5a2; color: #2d5016; }
+  .sheng-shang { background: #f5d76e; color: #6b4423; }
+  .sheng-qu { background: #e89a7a; color: #6b2d1a; }
+  .sheng-ru { background: #c97b84; color: #fff; }
+  .filter-bar { margin-bottom: 14px; }
+  .filter-bar label { margin-right: 12px; font-size: 14px; }
+  pre {
+    background: #2b2b2b; color: #f5e9d3; padding: 14px; border-radius: 4px;
+    overflow-x: auto; font-size: 12px; line-height: 1.5;
+  }
+  code { background: #f5e9d3; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  .test-pass { color: #2d5016; }
+  .test-fail { color: #a02020; font-weight: bold; }
+  .test-summary {
+    padding: 12px; background: #fffdf7; border: 2px solid #d4af37;
+    border-radius: 4px; margin-top: 14px; font-size: 15px;
+  }
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+  th, td { border: 1px solid #d4c5a0; padding: 8px 12px; text-align: left; font-size: 14px; }
+  th { background: #f5e9d3; color: #6b4423; }
+  .warn {
+    padding: 10px 14px; background: #fff3cd; border-left: 4px solid #d4af37;
+    margin: 10px 0; font-size: 14px;
+  }
+  .version {
+    position: fixed; right: 12px; bottom: 8px; font-size: 11px;
+    color: #8b5a2b; opacity: 0.7;
+  }
+  .doc-section { margin-bottom: 22px; }
+  .doc-section h2 {
+    color: #6b4423; border-bottom: 2px solid #d4af37;
+    padding-bottom: 6px; margin-bottom: 12px;
+  }
+  .doc-section h3 { color: #8b5a2b; margin-top: 16px; }
+  .doc-section p { margin: 8px 0; }
+  .doc-section ul, .doc-section ol { margin: 8px 0 8px 20px; }
+  .doc-section li { margin: 4px 0; }
+  .scene-box {
+    background: #fffdf7; border: 1px solid #d4c5a0; border-radius: 4px;
+    padding: 14px; margin: 10px 0;
+  }
+  .scene-box h4 { margin: 0 0 8px; color: #8b5a2b; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>诗 韵 与 词 韵</h1>
+  <p>平水韵 106 韵部 · 词林正韵 19 部 · 查询与对照工具</p>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-panel="tool">工具使用</div>
+  <div class="tab" data-panel="source">JS 源码</div>
+  <div class="tab" data-panel="test">单元测试</div>
+  <div class="tab" data-panel="doc">使用说明书</div>
+</div>
+
+<!-- 工具使用面板 -->
+<div class="panel active" id="panel-tool">
+  <div class="card">
+    <h2>按韵部查字</h2>
+    <p style="font-size:14px;color:#666;">输入平水韵韵部名称（如「一东」「十五删」「入声九屑」），查询该韵部所含汉字。</p>
+    <div>
+      <select id="yunbuSelect" style="width:240px;"></select>
+      <button onclick="doQueryByYunbu()">查询</button>
+    </div>
+    <div class="result" id="resultYunbu">
+      <span style="color:#999;">请选择韵部后点击查询。</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>按字查韵部</h2>
+    <p style="font-size:14px;color:#666;">输入单个汉字，查询其所属平水韵韵部、声调、平仄，以及对应的词林正韵部。</p>
+    <div>
+      <input type="text" id="charInput" maxlength="1" placeholder="输入一个汉字" style="width:180px;">
+      <button onclick="doQueryByChar()">查询</button>
+    </div>
+    <div class="result" id="resultChar">
+      <span style="color:#999;">请输入一个汉字后点击查询。</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>词林正韵 19 部总览</h2>
+    <p style="font-size:14px;color:#666;">点击某一部，查看其包含的平水韵韵部。</p>
+    <div class="yunbu-list" id="cilinList"></div>
+    <div class="result" id="resultCilin" style="display:none;"></div>
+  </div>
+
+  <div class="card">
+    <h2>平水韵 106 韵部总览</h2>
+    <div class="filter-bar">
+      <label><input type="radio" name="filter" value="all" checked>全部</label>
+      <label><input type="radio" name="filter" value="平">平声</label>
+      <label><input type="radio" name="filter" value="上">上声</label>
+      <label><input type="radio" name="filter" value="去">去声</label>
+      <label><input type="radio" name="filter" value="入">入声</label>
+    </div>
+    <div class="yunbu-list" id="pingshuiList"></div>
+  </div>
+</div>
+
+<!-- JS 源码面板 -->
+<div class="panel" id="panel-source">
+  <div class="card">
+    <h2>核心源码（纯函数实现）</h2>
+    <p style="font-size:14px;color:#666;">以下为本工具的核心 JS 源码，所有函数均为纯函数，无外部依赖，可直接在浏览器中运行。</p>
+    <pre id="sourceCode"></pre>
+  </div>
+</div>
+
+<!-- 单元测试面板 -->
+<div class="panel" id="panel-test">
+  <div class="card">
+    <h2>单元测试（≥30 用例）</h2>
+    <p style="font-size:14px;color:#666;">纯 JS 实现，不依赖 Jest/Mocha。点击按钮运行全部测试。</p>
+    <button onclick="runAllTests()">运行全部测试</button>
+    <div class="test-summary" id="testSummary">尚未运行测试。</div>
+    <pre id="testLog" style="margin-top:14px;max-height:500px;overflow-y:auto;"></pre>
+  </div>
+</div>
+
+<!-- 使用说明书面板 -->
+<div class="panel" id="panel-doc">
+  <div class="card" id="docContent"></div>
+</div>
+
+<div class="version">v2.0.0-完整版 20261021</div>
+
+<script>
+/* ============================================================
+ *  诗韵与词韵 · 核心数据与算法
+ *  依据：《平水韵》（南宋·刘渊《壬子新刊礼部韵略》106 部体系）
+ *       《词林正韵》（清·戈载，道光元年 1821 年刊）
+ * ============================================================ */
+
+/**
+ * 平水韵 106 韵部数据。
+ * 结构：{ 韵部名: { shengdiao: '平'|'上'|'去'|'入', sub: '上平'|'下平'|'上声'|'去声'|'入声', chars: [字...] } }
+ * 注：chars 仅收录常用代表字，非完整字表。完整字表需查《平水韵》原书。
+ */
+const PINGSHUI_YUN = {
+  // ===== 上平声 15 韵 =====
+  '一东': { shengdiao: '平', sub: '上平', chars: ['东','同','铜','桐','空','中','忠','虫','终','戎','崇','弓','躬','宫','融','雄','熊','穹','穷','冯','风','枫','丰','充','隆','公','功','工','红','鸿','丛','翁','葱','聪','通','蓬','洪','蒙','笼','聋','胧'] },
+  '二冬': { shengdiao: '平', sub: '上平', chars: ['冬','农','宗','钟','龙','松','冲','容','蓉','庸','封','胸','雍','浓','从','逢','缝','踪','茸','峰','锋','烽','蜂','重','恭','供','凶','匈'] },
+  '三江': { shengdiao: '平', sub: '上平', chars: ['江','扛','窗','邦','缸','降','双','庞','撞','幢','桩','淙','腔','跫'] },
+  '四支': { shengdiao: '平', sub: '上平', chars: ['支','枝','移','为','垂','吹','碑','奇','宜','仪','皮','儿','离','施','知','驰','池','规','危','夷','师','姿','迟','眉','悲','之','芝','时','诗','棋','旗','辞','词','期','祠','基','疑','姬','丝','司','葵','医','帷','思','滋','持','随','痴','维'] },
+  '五微': { shengdiao: '平', sub: '上平', chars: ['微','薇','晖','辉','韦','围','帏','违','霏','菲','飞','妃','非','扉','肥','斐','诽','稀','希','衣','依','机','饥'] },
+  '六鱼': { shengdiao: '平', sub: '上平', chars: ['鱼','渔','初','书','舒','居','裾','车','渠','余','誉','舆','如','储','徐','除','疽','疽','闾','梳','蔬','疏','躇','躇','猪'] },
+  '七虞': { shengdiao: '平', sub: '上平', chars: ['虞','愚','娱','隅','区','驱','朱','珠','株','蛛','殊','儒','濡','襦','需','须','图','无','芜','巫','夫','跗','趺','肤','扶','符','芙','胡','壶','狐','孤','姑','辜','菇','菇'] },
+  '八齐': { shengdiao: '平', sub: '上平', chars: ['齐','黎','犁','梨','妻','萋','凄','堤','低','题','提','蹄','啼','鸡','稽','迷','泥','溪','西','栖','犀','嘶','撕','脐','齐','鼙','批','霓'] },
+  '九佳': { shengdiao: '平', sub: '上平', chars: ['佳','街','鞋','牌','柴','钗','差','涯','偕','阶','谐','崖','排','埋','乖','淮','蛙','蜗'] },
+  '十灰': { shengdiao: '平', sub: '上平', chars: ['灰','恢','魁','隈','回','徊','槐','梅','枚','媒','煤','雷','摧','堆','杯','开','哀','埃','台','苔','该','才','材','财','裁','栽','哉','来','莱','灾','猜','呆','腮','培','腮'] },
+  '十一真': { shengdiao: '平', sub: '上平', chars: ['真','因','茵','辛','新','薪','晨','辰','臣','人','仁','神','亲','申','身','宾','滨','槟','缤','邻','鳞','麟','珍','尘','陈','春','津','秦','频','苹','颦','银','垠','筠','巾','民','岷','泯'] },
+  '十二文': { shengdiao: '平', sub: '上平', chars: ['文','闻','纹','蚊','云','氛','分','纷','芬','焚','坟','群','军','君','钧','筋','勤','殷','熏','荤','醺','氲','芸','芹'] },
+  '十三元': { shengdiao: '平', sub: '上平', chars: ['元','原','源','园','猿','辕','坦','烦','繁','蕃','樊','翻','萱','喧','冤','言','轩','藩','魂','浑','温','孙','门','尊','存','蹲','敦','墩','吞','屯','豚','臀','盆','奔','论','坤','昏','婚','痕','根','恩'] },
+  '十四寒': { shengdiao: '平', sub: '上平', chars: ['寒','韩','翰','丹','单','安','鞍','难','餐','檀','坛','滩','弹','残','干','肝','竿','阑','栏','澜','兰','看','刊','丸','桓','纨','端','湍','酸','团','官','观','冠','鸾','銮','峦','欢','宽','盘','蟠','漫','汗','叹','摊','奸','剜','棺','钻','谩','瞒'] },
+  '十五删': { shengdiao: '平', sub: '上平', chars: ['删','潸','关','弯','还','环','鬟','寰','班','斑','颁','蛮','颜','奸','攀','顽','山','闲','艰','间','悭','潺','鳏','扳','纶','殷'] },
+
+  // ===== 下平声 15 韵 =====
+  '一先': { shengdiao: '平', sub: '下平', chars: ['先','前','千','阡','笺','天','坚','肩','贤','弦','烟','燕','莲','怜','田','填','钿','年','颠','巅','牵','妍','眠','渊','涓','捐','娟','边','编','悬','泉','船','仙','鞭','篇','宣','铅','连','钱','铨'] },
+  '二萧': { shengdiao: '平', sub: '下平', chars: ['萧','箫','挑','貂','刁','凋','雕','迢','条','跳','苕','调','枭','浇','聊','辽','寥','撩','寮','僚','尧','宵','消','绡','销','超','朝','潮','嚣','樵','谯','娇','焦','蕉','椒','饶','烧','遥','姚','摇','谣','瑶','韶','昭','招','飙','标','镳','瓢','苗','描','猫','要','腰'] },
+  '三肴': { shengdiao: '平', sub: '下平', chars: ['肴','巢','交','郊','茅','嘲','钞','抄','胶','爻','苞','梢','蛟','庖','匏','坳','敲','胞','抛','鲛','崤','铙','哮','梢','梢'] },
+  '四豪': { shengdiao: '平', sub: '下平', chars: ['豪','毫','操','髦','绦','刀','萄','猱','褒','高','糟','皋','蹈','膏','羔','篙','翱','袍','逃','槽','濠','壕','劳','涛','淘','陶','萄','叨','骚','搔','缫','臊','遭','曹','槽','漕'] },
+  '五歌': { shengdiao: '平', sub: '下平', chars: ['歌','多','罗','河','戈','阿','和','波','科','柯','陀','娥','蛾','鹅','萝','荷','过','磨','螺','禾','哥','娑','驼','蓑','搓','磋','蹉','魔','魔','摩','磨','魔','魔','魔','魔'] },
+  '六麻': { shengdiao: '平', sub: '下平', chars: ['麻','花','霞','家','茶','华','沙','车','牙','蛇','瓜','斜','邪','芽','嘉','瑕','纱','鸦','遮','叉','奢','涯','夸','巴','赊','加','枷','葭','笳','茄','嘉','嘉','嘉'] },
+  '七阳': { shengdiao: '平', sub: '下平', chars: ['阳','扬','香','乡','光','昌','堂','章','张','王','房','芳','长','塘','妆','常','凉','霜','藏','场','央','泱','鸯','秧','殃','佯','床','方','浆','觞','梁','娘','庄','黄','仓','皇','装','殇','襄','骧','相','湘','箱','缃','创','忘','芒','望','尝','偿','樯','枪','坊','囊','郎','唐','狂','强','肠','康','冈','苍','匡','荒','遑','行','妨','棠','翔','良','航','倡','伥','羌','庆','姜','僵','缰','疆','粮','穰','将','墙','桑','刚','祥','详','洋','徉','佯','粱','量','羊','伤','汤','鲂','樟'] },
+  '八庚': { shengdiao: '平', sub: '下平', chars: ['庚','更','羹','盲','鸣','晴','明','英','京','惊','荆','平','评','精','晶','睛','旌','卿','生','甥','笙','牲','擎','鲸','迎','行','衡','耕','萌','氓','宏','闳','茎','莺','樱','泓','橙','争','筝','清','情','名','成','城','诚','呈','程','声','正','征','兄','贞','侦','轻','倾','荣','莹','营','瀛','赢','盈','楹','莺','鹦','轰','铮','嵘','甥','笙','牲','擎','鲸'] },
+  '九青': { shengdiao: '平', sub: '下平', chars: ['青','经','泾','形','刑','陉','亭','庭','廷','霆','蜓','停','丁','馨','星','腥','醒','灵','龄','铃','苓','凌','零','翎','听','厅','汀','冥','铭','屏','萍','瓶','荧','萤','营','溟','暝','冥','冥'] },
+  '十蒸': { shengdiao: '平', sub: '下平', chars: ['蒸','承','丞','惩','澄','陵','凌','绫','菱','冰','膺','鹰','应','蝇','乘','升','胜','兴','缯','凭','仍','矜','称','灯','登','能','棱','朋','鹏','腾','滕','层','曾','增','憎','罾','应','应'] },
+  '十一尤': { shengdiao: '平', sub: '下平', chars: ['尤','邮','优','忧','流','留','榴','骝','刘','由','油','游','猷','悠','攸','牛','修','羞','秋','周','州','洲','舟','酬','仇','柔','俦','畴','筹','稠','丘','抽','瘳','遒','收','鸠','搜','泅','休','囚','求','裘','浮','谋','牟','眸','侔','矛','猴','喉','讴','沤','瓯'] },
+  '十二侵': { shengdiao: '平', sub: '下平', chars: ['侵','寻','林','霖','临','针','箴','斟','沈','音','阴','禽','擒','襟','吟','心','深','今','金','禁','衿','钦','琛','忱','参','岑','涔','琳','琴','芩','禽','擒','襟','吟'] },
+  '十三覃': { shengdiao: '平', sub: '下平', chars: ['覃','潭','谭','南','男','谙','庵','含','涵','蚕','惭','参','骖','三','毵','耽','担','簪','探','贪','谈','痰','昙','镡','潭','覃','谈'] },
+  '十四盐': { shengdiao: '平', sub: '下平', chars: ['盐','檐','廉','帘','嫌','严','占','髯','谦','签','纤','瞻','砭','炎','添','兼','尖','沾','阉','奁','拈','甜','恬','觇','钳','潜','黔','恬','甜','恬'] },
+  '十五咸': { shengdiao: '平', sub: '下平', chars: ['咸','函','缄','谗','衔','帆','凡','衫','岩','芟','监','馋','搀','芟','芟'] },
+
+  // ===== 上声 29 韵 =====
+  '一董': { shengdiao: '上', sub: '上声', chars: ['董','动','孔','总','笼','汞','桶','捅','蓊','侗','懵','蠓','湩','唪'] },
+  '二肿': { shengdiao: '上', sub: '上声', chars: ['肿','种','冢','宠','陇','垄','拥','冗','重','奉','捧','涌','踵','拱','竦','勇','悚','踊','蛹','俑','甬','恿','勇'] },
+  '三讲': { shengdiao: '上', sub: '上声', chars: ['讲','港','棒','蚌','项','棒','蚌','项','讲','港'] },
+  '四纸': { shengdiao: '上', sub: '上声', chars: ['纸','只','咫','是','枳','砥','氏','倚','彼','毁','委','诡','傀','累','妓','靡','尔','耳','儿','理','鲤','起','里','士','史','市','恃','峙','匕','比','鄙','几','己','纪','技','伎','祀','涘','俟','子','梓','紫','仔','秭','死','水','轨','宄','癸','垒','蕊','诔','蕾','美','尾','匪','菲','斐','匪','菲','斐'] },
+  '五尾': { shengdiao: '上', sub: '上声', chars: ['尾','鬼','苇','卉','几','斐','菲','匪','篚','岂','虺','癀','伟','韪','猥'] },
+  '六语': { shengdiao: '上', sub: '上声', chars: ['语','圉','御','吕','侣','旅','杼','伫','与','予','渚','煮','汝','茹','暑','黍','鼠','杵','处','女','许','距','炬','苎','杼','宁','贮','伫','宁','苎','杼'] },
+  '七麌': { shengdiao: '上', sub: '上声', chars: ['麌','雨','羽','禹','宇','舞','父','府','鼓','虎','古','股','贾','土','吐','圃','庾','户','树','煦','诩','努','组','肚','主','拄','煮','暑','署','鼠','黍','处','杵','女','汝','与','予','举','矩','拒','距','巨','拒','距','巨'] },
+  '八荠': { shengdiao: '上', sub: '上声', chars: ['荠','礼','体','米','启','陛','洗','底','抵','弟','递','涕','棣','济','挤','醴','蠡','礼','体','米','启','陛','洗','底','抵','弟','递','涕','棣'] },
+  '九蟹': { shengdiao: '上', sub: '上声', chars: ['蟹','解','骇','买','洒','楷','摆','拐','怪','擘','騃','廨','懈','隘','薤','瀣','瘥'] },
+  '十贿': { shengdiao: '上', sub: '上声', chars: ['贿','悔','罪','馁','每','块','汇','猥','璀','蕾','采','海','宰','载','在','倍','待','怠','殆','给','乃','奶','改','凯','恺','铠','慨','矮','乃','奶','改','凯','恺','铠','慨'] },
+  '十一轸': { shengdiao: '上', sub: '上声', chars: ['轸','敏','允','引','尽','紧','隼','泯','诊','畛','诊','轸','敏','允','引','尽','紧','隼','泯','诊','畛','诊','轸','敏','允','引','尽','紧','隼','泯','诊','畛'] },
+  '十二吻': { shengdiao: '上', sub: '上声', chars: ['吻','粉','蕴','愤','隐','谨','近','忿','槿','隐','谨','近','忿','槿','吻','粉','蕴','愤','隐','谨','近','忿','槿'] },
+  '十三阮': { shengdiao: '上', sub: '上声', chars: ['阮','远','本','晚','苑','返','阪','饭','偃','蹇','婉','琬','建','键','楗','蹇','婉','琬','阮','远','本','晚','苑','返','阪','饭','偃','蹇','婉','琬'] },
+  '十四旱': { shengdiao: '上', sub: '上声', chars: ['旱','暖','管','满','短','馆','缓','盥','碗','懒','伞','卵','散','伴','断','算','旦','但','诞','坦','纂','瓒','纂','瓒','旱','暖','管','满','短','馆','缓','盥','碗','懒','伞','卵','散','伴','断','算'] },
+  '十五潸': { shengdiao: '上', sub: '上声', chars: ['潸','眼','产','版','板','盏','产','版','板','盏','潸','眼','产','版','板','盏'] },
+  '十六铣': { shengdiao: '上', sub: '上声', chars: ['铣','善','典','浅','犬','辇','展','免','蹇','选','扁','软','件','卷','圈','遣','浅','显','践','扁','软','件','卷','圈','遣','浅','显','践'] },
+  '十七筱': { shengdiao: '上', sub: '上声', chars: ['筱','小','表','鸟','了','晓','少','扰','绕','绍','杳','窈','悄','兆','赵','肇','兆','赵','肇','筱','小','表','鸟','了','晓','少','扰','绕','绍','杳','窈','悄','兆','赵','肇'] },
+  '十八巧': { shengdiao: '上', sub: '上声', chars: ['巧','饱','卯','狡','爪','绞','搅','拗','咬','佼','佼','巧','饱','卯','狡','爪','绞','搅','拗','咬','佼'] },
+  '十九皓': { shengdiao: '上', sub: '上声', chars: ['皓','宝','藻','老','早','稻','讨','道','扫','嫂','好','倒','祷','捣','造','草','考','保','堡','抱','抱','皓','宝','藻','老','早','稻','讨','道','扫','嫂','好','倒','祷','捣','造','草','考','保','堡','抱'] },
+  '二十哿': { shengdiao: '上', sub: '上声', chars: ['哿','火','舸','柁','我','荷','可','果','裹','颗','朵','锁','堕','妥','坐','左','坷','叵','颇','笸','哿','火','舸','柁','我','荷','可','果','裹','颗','朵','锁','堕','妥','坐','左','坷','叵','颇','笸'] },
+  '二十一马': { shengdiao: '上', sub: '上声', chars: ['马','下','者','野','雅','瓦','寡','社','写','射','夏','假','贾','把','打','码','玛','码','马','下','者','野','雅','瓦','寡','社','写','射','夏','假','贾','把','打','码','玛'] },
+  '二十二养': { shengdiao: '上', sub: '上声', chars: ['养','痒','像','象','仰','朗','奖','桨','蒋','丈','两','想','享','掌','往','网','爽','广','长','壤','丈','养','痒','像','象','仰','朗','奖','桨','蒋','丈','两','想','享','掌','往','网','爽','广','长','壤'] },
+  '二十三梗': { shengdiao: '上', sub: '上声', chars: ['梗','影','景','井','岭','领','境','警','请','饼','永','骋','逞','颖','颍','整','冷','省','颈','梗','影','景','井','岭','领','境','警','请','饼','永','骋','逞','颖','颍','整','冷','省','颈'] },
+  '二十四迥': { shengdiao: '上', sub: '上声', chars: ['迥','炯','茗','挺','艇','酊','醒','并','顶','鼎','鼎','迥','炯','茗','挺','艇','酊','醒','并','顶','鼎'] },
+  '二十五有': { shengdiao: '上', sub: '上声', chars: ['有','酒','首','口','母','后','柳','友','妇','斗','狗','久','厚','手','叟','守','右','否','受','牖','偶','走','九','玖','酉','朽','肘','柳','有','酒','首','口','母','后','柳','友','妇','斗','狗','久','厚','手','叟','守','右','否','受','牖','偶','走'] },
+  '二十六寝': { shengdiao: '上', sub: '上声', chars: ['寝','饮','锦','品','枕','审','甚','禀','廪','沈','审','寝','饮','锦','品','枕','审','甚','禀','廪','沈','审'] },
+  '二十七感': { shengdiao: '上', sub: '上声', chars: ['感','揽','胆','淡','啖','坎','惨','敢','颔','撼','毯','胆','感','揽','胆','淡','啖','坎','惨','敢','颔','撼','毯'] },
+  '二十八俭': { shengdiao: '上', sub: '上声', chars: ['俭','琰','焰','掩','敛','点','染','店','忝','染','俭','琰','焰','掩','敛','点','染','店','忝'] },
+  '二十九豏': { shengdiao: '上', sub: '上声', chars: ['豏','槛','范','减','舰','犯','湛','斩','黯','范','豏','槛','范','减','舰','犯','湛','斩','黯'] },
+
+  // ===== 去声 30 韵 =====
+  '一送': { shengdiao: '去', sub: '去声', chars: ['送','梦','凤','洞','众','瓮','弄','冻','痛','栋','仲','中','讽','送','梦','凤','洞','众','瓮','弄','冻','痛','栋','仲','中','讽'] },
+  '二宋': { shengdiao: '去', sub: '去声', chars: ['宋','用','颂','诵','纵','讼','种','宋','用','颂','诵','纵','讼','种'] },
+  '三绛': { shengdiao: '去', sub: '去声', chars: ['绛','降','巷','撞','绛','降','巷','撞'] },
+  '四寘': { shengdiao: '去', sub: '去声', chars: ['寘','事','地','意','志','治','思','泪','吏','赐','字','器','利','位','记','异','备','坠','类','醉','翅','寘','事','地','意','志','治','思','泪','吏','赐','字','器','利','位','记','异','备','坠','类','醉','翅'] },
+  '五未': { shengdiao: '去', sub: '去声', chars: ['未','味','气','贵','沸','尉','慰','卉','未','味','气','贵','沸','尉','慰','卉'] },
+  '六御': { shengdiao: '去', sub: '去声', chars: ['御','处','去','虑','誉','署','据','驭','曙','助','絮','著','豫','恕','与','御','处','去','虑','誉','署','据','驭','曙','助','絮','著','豫','恕','与'] },
+  '七遇': { shengdiao: '去', sub: '去声', chars: ['遇','路','辂','赂','露','鹭','树','度','赋','固','步','暮','慕','素','怒','注','遇','路','辂','赂','露','鹭','树','度','赋','固','步','暮','慕','素','怒','注'] },
+  '八霁': { shengdiao: '去', sub: '去声', chars: ['霁','制','势','世','败','际','泰','外','艺','大','滞','厉','带','盖','害','艾','最','祭','霁','制','势','世','败','际','泰','外','艺','大','滞','厉','带','盖','害','艾','最','祭'] },
+  '九泰': { shengdiao: '去', sub: '去声', chars: ['泰','带','外','最','害','会','旆','霭','盖','大','沛','泰','带','外','最','害','会','旆','霭','盖','大','沛'] },
+  '十卦': { shengdiao: '去', sub: '去声', chars: ['卦','挂','画','话','怪','坏','卦','挂','画','话','怪','坏'] },
+  '十一队': { shengdiao: '去', sub: '去声', chars: ['队','内','辈','佩','退','碎','背','秽','对','废','悔','队','内','辈','佩','退','碎','背','秽','对','废','悔'] },
+  '十二震': { shengdiao: '去', sub: '去声', chars: ['震','信','印','进','润','阵','镇','刃','顺','慎','鬓','骏','烬','震','信','印','进','润','阵','镇','刃','顺','慎','鬓','骏','烬'] },
+  '十三问': { shengdiao: '去', sub: '去声', chars: ['问','闻','纹','运','晕','韵','训','粪','奋','忿','郡','问','闻','纹','运','晕','韵','训','粪','奋','忿','郡'] },
+  '十四愿': { shengdiao: '去', sub: '去声', chars: ['愿','万','建','健','宪','饭','蔓','怨','堰','献','愿','万','建','健','宪','饭','蔓','怨','堰','献'] },
+  '十五翰': { shengdiao: '去', sub: '去声', chars: ['翰','岸','汉','难','断','乱','叹','观','散','畔','换','算','腕','翰','岸','汉','难','断','乱','叹','观','散','畔','换','算','腕'] },
+  '十六谏': { shengdiao: '去', sub: '去声', chars: ['谏','雁','患','涧','间','宦','晏','办','盼','谏','雁','患','涧','间','宦','晏','办','盼'] },
+  '十七霰': { shengdiao: '去', sub: '去声', chars: ['霰','殿','面','县','变','箭','战','掾','荐','霰','殿','面','县','变','箭','战','掾','荐'] },
+  '十八啸': { shengdiao: '去', sub: '去声', chars: ['啸','笑','照','庙','妙','窍','诏','召','要','掉','啸','笑','照','庙','妙','窍','诏','召','要','掉'] },
+  '十九效': { shengdiao: '去', sub: '去声', chars: ['效','教','校','貌','效','教','校','貌'] },
+  '二十号': { shengdiao: '去', sub: '去声', chars: ['号','帽','报','导','盗','噪','灶','奥','告','暴','好','到','悼','劳','号','帽','报','导','盗','噪','灶','奥','告','暴','好','到','悼','劳'] },
+  '二十一箇': { shengdiao: '去', sub: '去声', chars: ['箇','个','贺','佐','大','箇','个','贺','佐','大'] },
+  '二十二禡': { shengdiao: '去', sub: '去声', chars: ['禡','驾','夜','下','谢','榭','罢','夏','暇','霸','借','赦','禡','驾','夜','下','谢','榭','罢','夏','暇','霸','借','赦'] },
+  '二十三漾': { shengdiao: '去', sub: '去声', chars: ['漾','量','让','望','忘','唱','盛','涨','障','上','将','漾','量','让','望','忘','唱','盛','涨','障','上','将'] },
+  '二十四敬': { shengdiao: '去', sub: '去声', chars: ['敬','命','政','令','镜','正','病','性','并','咏','庆','敬','命','政','令','镜','正','病','性','并','咏','庆'] },
+  '二十五径': { shengdiao: '去', sub: '去声', chars: ['径','定','听','胜','磬','应','乘','径','定','听','胜','磬','应','乘'] },
+  '二十六宥': { shengdiao: '去', sub: '去声', chars: ['宥','候','就','授','寿','秀','又','救','宥','候','就','授','寿','秀','又','救'] },
+  '二十七沁': { shengdiao: '去', sub: '去声', chars: ['沁','饮','禁','任','荫','沁','饮','禁','任','荫'] },
+  '二十八勘': { shengdiao: '去', sub: '去声', chars: ['勘','暗','滥','啖','担','憾','勘','暗','滥','啖','担','憾'] },
+  '二十九艳': { shengdiao: '去', sub: '去声', chars: ['艳','念','验','赡','店','占','敛','艳','念','验','赡','店','占','敛'] },
+  '三十陷': { shengdiao: '去', sub: '去声', chars: ['陷','鉴','监','凡','忏','陷','鉴','监','凡','忏'] },
+
+  // ===== 入声 17 韵 =====
+  '一屋': { shengdiao: '入', sub: '入声', chars: ['屋','木','竹','目','服','福','禄','谷','熟','肉','鹿','逐','轴','六','腹','伏','菊','哭','宿','叔','淑','菽','倏','孰','塾','竺','筑','畜','郁','衄','恧','肉','六','屋','木','竹','目','服','福','禄','谷','熟','肉','鹿','逐','轴','六','腹','伏','菊','哭','宿'] },
+  '二沃': { shengdiao: '入', sub: '入声', chars: ['沃','俗','玉','足','曲','粟','烛','属','录','辱','浴','沃','俗','玉','足','曲','粟','烛','属','录','辱','浴'] },
+  '三觉': { shengdiao: '入', sub: '入声', chars: ['觉','角','捉','卓','琢','涿','驳','觉','角','捉','卓','琢','涿','驳'] },
+  '四质': { shengdiao: '入', sub: '入声', chars: ['质','日','笔','出','室','实','疾','术','一','乙','壹','吉','秩','密','率','律','逸','失','栗','漆','毕','匹','质','日','笔','出','室','实','疾','术','一','乙','壹','吉','秩','密','率','律','逸','失','栗','漆','毕','匹'] },
+  '五物': { shengdiao: '入', sub: '入声', chars: ['物','拂','郁','佛','物','拂','郁','佛'] },
+  '六月': { shengdiao: '入', sub: '入声', chars: ['月','骨','发','阙','越','谒','没','伐','罚','卒','竭','窟','笏','月','骨','发','阙','越','谒','没','伐','罚','卒','竭','窟','笏'] },
+  '七曷': { shengdiao: '入', sub: '入声', chars: ['曷','达','末','阔','活','钵','脱','夺','褐','割','沫','拔','葛','渴','拨','豁','曷','达','末','阔','活','钵','脱','夺','褐','割','沫','拔','葛','渴','拨','豁'] },
+  '八黠': { shengdiao: '入', sub: '入声', chars: ['黠','札','猾','八','察','杀','刹','黠','札','猾','八','察','杀','刹'] },
+  '九屑': { shengdiao: '入', sub: '入声', chars: ['屑','节','雪','绝','烈','结','穴','说','血','舌','洁','别','缺','裂','热','折','铁','切','屑','节','雪','绝','烈','结','穴','说','血','舌','洁','别','缺','裂','热','折','铁','切'] },
+  '十药': { shengdiao: '入', sub: '入声', chars: ['药','薄','恶','略','作','乐','落','阁','鹤','爵','弱','约','脚','雀','幕','洛','壑','索','郭','博','错','药','薄','恶','略','作','乐','落','阁','鹤','爵','弱','约','脚','雀','幕','洛','壑','索','郭','博','错'] },
+  '十一陌': { shengdiao: '入', sub: '入声', chars: ['陌','石','客','白','泽','伯','迹','宅','席','策','碧','柏','魄','积','脉','迫','隔','厄','格','额','陌','石','客','白','泽','伯','迹','宅','席','策','碧','柏','魄','积','脉','迫','隔','厄','格','额'] },
+  '十二锡': { shengdiao: '入', sub: '入声', chars: ['锡','壁','历','击','绩','笛','敌','滴','觅','寂','锡','壁','历','击','绩','笛','敌','滴','觅','寂'] },
+  '十三职': { shengdiao: '入', sub: '入声', chars: ['职','国','德','食','极','色','力','息','得','直','黑','侧','识','职','国','德','食','极','色','力','息','得','直','黑','侧','识'] },
+  '十四缉': { shengdiao: '入', sub: '入声', chars: ['缉','辑','戢','立','集','邑','急','入','泣','湿','给','缉','辑','戢','立','集','邑','急','入','泣','湿','给'] },
+  '十五合': { shengdiao: '入', sub: '入声', chars: ['合','塔','答','纳','榻','杂','腊','合','塔','答','纳','榻','杂','腊'] },
+  '十六叶': { shengdiao: '入', sub: '入声', chars: ['叶','帖','接','蝶','涉','猎','捷','颊','妾','叶','帖','接','蝶','涉','猎','捷','颊','妾'] },
+  '十七洽': { shengdiao: '入', sub: '入声', chars: ['洽','峡','狭','甲','鸭','押','洽','峡','狭','甲','鸭','押'] }
+};
+
+/**
+ * 词林正韵 19 部数据。
+ * 依据：清·戈载《词林正韵》（道光元年 1821 年刊）。
+ * 结构：{ 部名: { pingshui: [平水韵韵部名...], desc: '说明' } }
+ */
+const CILIN_YUN = {
+  '第一部':   { pingshui: ['一东','二冬','一董','二肿','一送','二宋'], desc: '平声东冬，上声董肿，去声送宋' },
+  '第二部':   { pingshui: ['三江','七阳','三讲','二十二养','三绛','二十三漾'], desc: '平声江阳，上声讲养，去声绛漾' },
+  '第三部':   { pingshui: ['四支','五微','八齐','十灰','四纸','五尾','八荠','十贿','四寘','五未','八霁','九泰','十卦','十一队'], desc: '平声支微齐灰，上声纸尾荠贿，去声寘未霁泰卦队' },
+  '第四部':   { pingshui: ['六鱼','七虞','六语','七麌','六御','七遇'], desc: '平声鱼虞，上声语麌，去声御遇' },
+  '第五部':   { pingshui: ['九佳','九蟹','九泰','十卦'], desc: '平声佳（半），上声蟹（半），去声泰卦（半）' },
+  '第六部':   { pingshui: ['十一真','十二文','十三元','十四寒','十五删','一先','十一轸','十二吻','十三阮','十四旱','十五潸','十六铣','十二震','十三问','十四愿','十五翰','十六谏','十七霰'], desc: '平声真文元寒删先，上声轸吻阮旱潸铣，去声震问愿翰谏霰' },
+  '第七部':   { pingshui: ['二萧','三肴','四豪','十七筱','十八巧','十九皓','十八啸','十九效','二十号'], desc: '平声萧肴豪，上声筱巧皓，去声啸效号' },
+  '第八部':   { pingshui: ['五歌','二十哿','二十一箇'], desc: '平声歌，上声哿，去声箇' },
+  '第九部':   { pingshui: ['六麻','二十一马','二十二禡'], desc: '平声麻，上声马，去声禡' },
+  '第十部':   { pingshui: ['八庚','九青','十蒸','二十三梗','二十四迥','二十五有','二十四敬','二十五径','二十六宥'], desc: '平声庚青蒸，上声梗迥有（部分），去声敬径宥（部分）' },
+  '第十一部': { pingshui: ['十一尤','二十五有','二十六宥'], desc: '平声尤，上声有，去声宥' },
+  '第十二部': { pingshui: ['十二侵','二十六寝','二十七沁'], desc: '平声侵，上声寝，去声沁' },
+  '第十三部': { pingshui: ['十三覃','十四盐','十五咸','二十七感','二十八俭','二十九豏','二十八勘','二十九艳','三十陷'], desc: '平声覃盐咸，上声感俭豏，去声勘艳陷' },
+  '第十四部': { pingshui: ['一屋','二沃'], desc: '入声屋沃' },
+  '第十五部': { pingshui: ['三觉'], desc: '入声觉' },
+  '第十六部': { pingshui: ['四质','五物','六月','七曷','八黠','九屑'], desc: '入声质物月曷黠屑' },
+  '第十七部': { pingshui: ['十药'], desc: '入声药' },
+  '第十八部': { pingshui: ['十一陌','十二锡','十三职'], desc: '入声陌锡职' },
+  '第十九部': { pingshui: ['十四缉','十五合','十六叶','十七洽'], desc: '入声缉合叶洽' }
+};
+
+/* ============================================================
+ *  核心函数
+ * ============================================================ */
+
+/**
+ * 按平水韵韵部名查询该韵部所含汉字。
+ *
+ * @param {string} yunbu - 韵部名称，如 '一东'、'十五删'、'入声九屑'。
+ * @returns {{ yunbu: string, shengdiao: string, sub: string, chars: string[] }}
+ *          包含韵部名、声调、子类、汉字列表的对象。
+ * @throws {TypeError}  参数不是字符串时抛出。
+ * @throws {RangeError} 韵部名不存在时抛出。
+ * @example
+ * queryByYunbu('一东');
+ * // => { yunbu: '一东', shengdiao: '平', sub: '上平', chars: ['东','同',...] }
+ * @example
+ * queryByYunbu('入声九屑');
+ * // => { yunbu: '九屑', shengdiao: '入', sub: '入声', chars: ['屑','节','雪',...] }
+ */
+function queryByYunbu(yunbu) {
+  if (typeof yunbu !== 'string') {
+    throw new TypeError('queryByYunbu: 参数必须是字符串');
+  }
+  if (yunbu.length === 0) {
+    throw new RangeError('queryByYunbu: 韵部名不能为空');
+  }
+  // 支持带声调前缀的写法，如 '入声九屑'
+  let key = yunbu;
+  if (yunbu.indexOf('入声') === 0) key = yunbu.slice(2);
+  if (yunbu.indexOf('上声') === 0) key = yunbu.slice(2);
+  if (yunbu.indexOf('上平') === 0) key = yunbu.slice(2);
+  if (yunbu.indexOf('下平') === 0) key = yunbu.slice(2);
+  if (yunbu.indexOf('去声') === 0) key = yunbu.slice(2);
+  if (!PINGSHUI_YUN[key]) {
+    throw new RangeError('queryByYunbu: 韵部 "' + yunbu + '" 不存在');
+  }
+  const data = PINGSHUI_YUN[key];
+  return {
+    yunbu: key,
+    shengdiao: data.shengdiao,
+    sub: data.sub,
+    chars: data.chars.slice()
+  };
+}
+
+/**
+ * 按单个汉字查询其所属平水韵韵部。
+ *
+ * @param {string} char - 单个汉字。
+ * @returns {{ char: string, yunbu: string, shengdiao: string, sub: string, pingze: string }}
+ *          包含汉字、韵部、声调、子类、平仄的对象。
+ * @throws {TypeError}  参数不是字符串时抛出。
+ * @throws {RangeError} 参数不是单个汉字或该字不在韵书中时抛出。
+ * @example
+ * queryByChar('东');
+ * // => { char: '东', yunbu: '一东', shengdiao: '平', sub: '上平', pingze: '平' }
+ * @example
+ * queryByChar('雪');
+ * // => { char: '雪', yunbu: '九屑', shengdiao: '入', sub: '入声', pingze: '仄' }
+ */
+function queryByChar(char) {
+  if (typeof char !== 'string') {
+    throw new TypeError('queryByChar: 参数必须是字符串');
+  }
+  if (char.length !== 1) {
+    throw new RangeError('queryByChar: 参数必须是单个汉字');
+  }
+  const keys = Object.keys(PINGSHUI_YUN);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const data = PINGSHUI_YUN[key];
+    if (data.chars.indexOf(char) !== -1) {
+      return {
+        char: char,
+        yunbu: key,
+        shengdiao: data.shengdiao,
+        sub: data.sub,
+        pingze: data.shengdiao === '平' ? '平' : '仄'
+      };
+    }
+  }
+  throw new RangeError('queryByChar: 汉字 "' + char + '" 不在本工具收录范围内');
+}
+
+/**
+ * 查询平水韵韵部对应的词林正韵部。
+ *
+ * @param {string} pingshuiYunbu - 平水韵韵部名，如 '一东'、'九屑'。
+ * @returns {{ pingshui: string, cilin: string, desc: string }}
+ *          包含平水韵名、词林正韵部名、说明的对象。
+ * @throws {TypeError}  参数不是字符串时抛出。
+ * @throws {RangeError} 韵部名不存在或无法对应时抛出。
+ * @example
+ * getCilinDuizhao('一东');
+ * // => { pingshui: '一东', cilin: '第一部', desc: '平声东冬，上声董肿，去声送宋' }
+ * @example
+ * getCilinDuizhao('九屑');
+ * // => { pingshui: '九屑', cilin: '第十六部', desc: '入声质物月曷黠屑' }
+ */
+function getCilinDuizhao(pingshuiYunbu) {
+  if (typeof pingshuiYunbu !== 'string') {
+    throw new TypeError('getCilinDuizhao: 参数必须是字符串');
+  }
+  if (pingshuiYunbu.length === 0) {
+    throw new RangeError('getCilinDuizhao: 韵部名不能为空');
+  }
+  const keys = Object.keys(CILIN_YUN);
+  for (let i = 0; i < keys.length; i++) {
+    const cilinKey = keys[i];
+    const data = CILIN_YUN[cilinKey];
+    if (data.pingshui.indexOf(pingshuiYunbu) !== -1) {
+      return {
+        pingshui: pingshuiYunbu,
+        cilin: cilinKey,
+        desc: data.desc
+      };
+    }
+  }
+  throw new RangeError('getCilinDuizhao: 韵部 "' + pingshuiYunbu + '" 无法对应词林正韵');
+}
+
+/**
+ * 获取全部平水韵 106 韵部列表。
+ *
+ * @returns {Array<{ yunbu: string, shengdiao: string, sub: string, charCount: number }>}
+ *          包含 106 个韵部信息的数组。
+ * @example
+ * getAllYunbu().length; // => 106
+ * @example
+ * getAllYunbu()[0]; // => { yunbu: '一东', shengdiao: '平', sub: '上平', charCount: 41 }
+ */
+function getAllYunbu() {
+  const result = [];
+  const keys = Object.keys(PINGSHUI_YUN);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const data = PINGSHUI_YUN[key];
+    result.push({
+      yunbu: key,
+      shengdiao: data.shengdiao,
+      sub: data.sub,
+      charCount: data.chars.length
+    });
+  }
+  return result;
+}
+
+/**
+ * 获取指定韵部的声调（平/上/去/入）。
+ *
+ * @param {string} yunbu - 韵部名。
+ * @returns {string} '平' | '上' | '去' | '入'。
+ * @throws {TypeError}  参数不是字符串时抛出。
+ * @throws {RangeError} 韵部名不存在时抛出。
+ * @example
+ * getShengdiao('一东'); // => '平'
+ * @example
+ * getShengdiao('一董'); // => '上'
+ * @example
+ * getShengdiao('一屋'); // => '入'
+ */
+function getShengdiao(yunbu) {
+  if (typeof yunbu !== 'string') {
+    throw new TypeError('getShengdiao: 参数必须是字符串');
+  }
+  if (!PINGSHUI_YUN[yunbu]) {
+    throw new RangeError('getShengdiao: 韵部 "' + yunbu + '" 不存在');
+  }
+  return PINGSHUI_YUN[yunbu].shengdiao;
+}
+
+/**
+ * 判断单个汉字的平仄。
+ *
+ * @param {string} char - 单个汉字。
+ * @returns {string} '平' 或 '仄'。
+ * @throws {TypeError}  参数不是字符串时抛出。
+ * @throws {RangeError} 参数不是单个汉字或不在韵书中时抛出。
+ * @example
+ * getPingze('东'); // => '平'
+ * @example
+ * getPingze('董'); // => '仄'
+ * @example
+ * getPingze('屋'); // => '仄'
+ */
+function getPingze(char) {
+  const info = queryByChar(char);
+  return info.pingze;
+}
+
+/**
+ * 获取全部词林正韵 19 部列表。
+ *
+ * @returns {Array<{ cilin: string, pingshui: string[], desc: string }>}
+ *          包含 19 部信息的数组。
+ * @example
+ * getCilinAll().length; // => 19
+ */
+function getCilinAll() {
+  const result = [];
+  const keys = Object.keys(CILIN_YUN);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const data = CILIN_YUN[key];
+    result.push({
+      cilin: key,
+      pingshui: data.pingshui.slice(),
+      desc: data.desc
+    });
+  }
+  return result;
+}
+
+/**
+ * 按声调筛选平水韵韵部。
+ *
+ * @param {string} shengdiao - '平' | '上' | '去' | '入'。
+ * @returns {Array<{ yunbu: string, sub: string, charCount: number }>}
+ *          符合声调的韵部列表。
+ * @throws {TypeError}  参数不是字符串时抛出。
+ * @throws {RangeError} 声调值非法时抛出。
+ * @example
+ * filterByShengdiao('平').length; // => 30
+ * @example
+ * filterByShengdiao('入').length; // => 17
+ */
+function filterByShengdiao(shengdiao) {
+  if (typeof shengdiao !== 'string') {
+    throw new TypeError('filterByShengdiao: 参数必须是字符串');
+  }
+  if (['平','上','去','入'].indexOf(shengdiao) === -1) {
+    throw new RangeError('filterByShengdiao: 声调必须是 平/上/去/入 之一');
+  }
+  const result = [];
+  const keys = Object.keys(PINGSHUI_YUN);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const data = PINGSHUI_YUN[key];
+    if (data.shengdiao === shengdiao) {
+      result.push({
+        yunbu: key,
+        sub: data.sub,
+        charCount: data.chars.length
+      });
+    }
+  }
+  return result;
+}
+
+/* ============================================================
+ *  UI 逻辑
+ * ============================================================ */
+
+// 标签页切换
+document.querySelectorAll('.tab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.panel).classList.add('active');
+  });
+});
+
+// 初始化韵部下拉
+(function initYunbuSelect() {
+  const sel = document.getElementById('yunbuSelect');
+  const groups = { '上平': [], '下平': [], '上声': [], '去声': [], '入声': [] };
+  Object.keys(PINGSHUI_YUN).forEach(function(k) {
+    groups[PINGSHUI_YUN[k].sub].push(k);
+  });
+  Object.keys(groups).forEach(function(sub) {
+    const og = document.createElement('optgroup');
+    og.label = sub;
+    groups[sub].forEach(function(k) {
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = k + '（' + PINGSHUI_YUN[k].shengdiao + '声）';
+      og.appendChild(opt);
+    });
+    sel.appendChild(og);
+  });
+})();
+
+// 初始化平水韵列表
+function renderPingshuiList(filter) {
+  const list = document.getElementById('pingshuiList');
+  list.innerHTML = '';
+  Object.keys(PINGSHUI_YUN).forEach(function(k) {
+    const data = PINGSHUI_YUN[k];
+    if (filter && filter !== 'all' && data.shengdiao !== filter) return;
+    const div = document.createElement('div');
+    div.className = 'yunbu-item';
+    const cls = data.shengdiao === '平' ? 'sheng-ping' :
+                data.shengdiao === '上' ? 'sheng-shang' :
+                data.shengdiao === '去' ? 'sheng-qu' : 'sheng-ru';
+    div.innerHTML = '<span class="shengdiao ' + cls + '">' + data.shengdiao + '</span>' + k;
+    div.onclick = function() {
+      document.getElementById('yunbuSelect').value = k;
+      doQueryByYunbu();
+    };
+    list.appendChild(div);
+  });
+}
+renderPingshuiList('all');
+document.querySelectorAll('input[name="filter"]').forEach(function(r) {
+  r.addEventListener('change', function() { renderPingshuiList(r.value); });
+});
+
+// 初始化词林正韵列表
+(function initCilinList() {
+  const list = document.getElementById('cilinList');
+  Object.keys(CILIN_YUN).forEach(function(k) {
+    const data = CILIN_YUN[k];
+    const div = document.createElement('div');
+    div.className = 'yunbu-item';
+    div.innerHTML = '<strong>' + k + '</strong><br><span style="font-size:12px;color:#666;">' + data.desc + '</span>';
+    div.onclick = function() {
+      const res = document.getElementById('resultCilin');
+      res.style.display = 'block';
+      res.innerHTML = '<span class="label">' + k + '：</span>' + data.desc +
+        '<div class="char-grid">' +
+        data.pingshui.map(function(p) { return '<span class="char-tag">' + p + '</span>'; }).join('') +
+        '</div>';
+    };
+    list.appendChild(div);
+  });
+})();
+
+function doQueryByYunbu() {
+  const yunbu = document.getElementById('yunbuSelect').value;
+  const res = document.getElementById('resultYunbu');
+  try {
+    const data = queryByYunbu(yunbu);
+    const cilin = getCilinDuizhao(yunbu);
+    res.innerHTML =
+      '<div><span class="label">韵部：</span>' + data.yunbu + '（' + data.sub + '，' + data.shengdiao + '声）</div>' +
+      '<div><span class="label">词林正韵：</span>' + cilin.cilin + '（' + cilin.desc + '）</div>' +
+      '<div><span class="label">收录字（' + data.chars.length + ' 字，代表字）：</span></div>' +
+      '<div class="char-grid">' +
+      data.chars.map(function(c) { return '<span class="char-tag">' + c + '</span>'; }).join('') +
+      '</div>';
+  } catch (e) {
+    res.innerHTML = '<span style="color:#a02020;">' + e.message + '</span>';
+  }
+}
+
+function doQueryByChar() {
+  const char = document.getElementById('charInput').value.trim();
+  const res = document.getElementById('resultChar');
+  try {
+    const info = queryByChar(char);
+    const cilin = getCilinDuizhao(info.yunbu);
+    res.innerHTML =
+      '<div><span class="label">汉字：</span>' + info.char + '</div>' +
+      '<div><span class="label">平水韵：</span>' + info.yunbu + '（' + info.sub + '，' + info.shengdiao + '声，' + info.pingze + '）</div>' +
+      '<div><span class="label">词林正韵：</span>' + cilin.cilin + '（' + cilin.desc + '）</div>';
+  } catch (e) {
+    res.innerHTML = '<span style="color:#a02020;">' + e.message + '</span>';
+  }
+}
+
+/* ============================================================
+ *  单元测试（≥30 用例）
+ * ============================================================ */
+
+let _testPass = 0;
+let _testFail = 0;
+let _testLog = [];
+
+function assert(condition, message) {
+  if (condition) {
+    _testPass++;
+    _testLog.push('<span class="test-pass">✓ PASS</span>: ' + message);
+  } else {
+    _testFail++;
+    _testLog.push('<span class="test-fail">✗ FAIL</span>: ' + message);
+  }
+}
+
+function assertEqual(actual, expected, message) {
+  const ok = JSON.stringify(actual) === JSON.stringify(expected);
+  if (ok) {
+    _testPass++;
+    _testLog.push('<span class="test-pass">✓ PASS</span>: ' + message + ' (=' + JSON.stringify(expected) + ')');
+  } else {
+    _testFail++;
+    _testLog.push('<span class="test-fail">✗ FAIL</span>: ' + message +
+      ' | 期望: ' + JSON.stringify(expected) + ' | 实际: ' + JSON.stringify(actual));
+  }
+}
+
+function assertThrows(fn, errorType, message) {
+  try {
+    fn();
+    _testFail++;
+    _testLog.push('<span class="test-fail">✗ FAIL</span>: ' + message + ' (未抛出异常)');
+  } catch (e) {
+    if (e instanceof errorType) {
+      _testPass++;
+      _testLog.push('<span class="test-pass">✓ PASS</span>: ' + message + ' (抛出 ' + errorType.name + ')');
+    } else {
+      _testFail++;
+      _testLog.push('<span class="test-fail">✗ FAIL</span>: ' + message + ' (抛出 ' + e.constructor.name + '，期望 ' + errorType.name + ')');
+    }
+  }
+}
+
+function runAllTests() {
+  _testPass = 0;
+  _testFail = 0;
+  _testLog = [];
+
+  // ===== queryByYunbu 正常值 =====
+  assertEqual(queryByYunbu('一东').yunbu, '一东', 'queryByYunbu 正常值：一东');
+  assertEqual(queryByYunbu('一东').shengdiao, '平', 'queryByYunbu 一东声调为平');
+  assertEqual(queryByYunbu('一东').sub, '上平', 'queryByYunbu 一东子类为上平');
+  assert(queryByYunbu('一东').chars.indexOf('东') !== -1, 'queryByYunbu 一东包含"东"');
+  assert(queryByYunbu('一东').chars.indexOf('红') !== -1, 'queryByYunbu 一东包含"红"');
+  assertEqual(queryByYunbu('十五删').yunbu, '十五删', 'queryByYunbu 正常值：十五删');
+  assertEqual(queryByYunbu('十五删').shengdiao, '平', 'queryByYunbu 十五删声调为平');
+  assert(queryByYunbu('十五删').chars.indexOf('山') !== -1, 'queryByYunbu 十五删包含"山"');
+  assertEqual(queryByYunbu('入声九屑').yunbu, '九屑', 'queryByYunbu 支持带声调前缀：入声九屑');
+  assertEqual(queryByYunbu('入声九屑').shengdiao, '入', 'queryByYunbu 入声九屑声调为入');
+  assert(queryByYunbu('入声九屑').chars.indexOf('雪') !== -1, 'queryByYunbu 入声九屑包含"雪"');
+  assertEqual(queryByYunbu('一屋').shengdiao, '入', 'queryByYunbu 一屋声调为入');
+  assert(queryByYunbu('一屋').chars.indexOf('木') !== -1, 'queryByYunbu 一屋包含"木"');
+  assertEqual(queryByYunbu('七阳').sub, '下平', 'queryByYunbu 七阳子类为下平');
+  assertEqual(queryByYunbu('一董').shengdiao, '上', 'queryByYunbu 一董声调为上');
+  assertEqual(queryByYunbu('一送').shengdiao, '去', 'queryByYunbu 一送声调为去');
+
+  // ===== queryByYunbu 异常输入 =====
+  assertThrows(function() { queryByYunbu(null); }, TypeError, 'queryByYunbu(null) 抛 TypeError');
+  assertThrows(function() { queryByYunbu(undefined); }, TypeError, 'queryByYunbu(undefined) 抛 TypeError');
+  assertThrows(function() { queryByYunbu(123); }, TypeError, 'queryByYunbu(123) 抛 TypeError');
+  assertThrows(function() { queryByYunbu(''); }, RangeError, 'queryByYunbu("") 抛 RangeError');
+  assertThrows(function() { queryByYunbu('不存在的韵部'); }, RangeError, 'queryByYunbu("不存在的韵部") 抛 RangeError');
+  assertThrows(function() { queryByYunbu('一百零七'); }, RangeError, 'queryByYunbu("一百零七") 抛 RangeError');
+
+  // ===== queryByChar 正常值 =====
+  assertEqual(queryByChar('东').yunbu, '一东', 'queryByChar 东→一东');
+  assertEqual(queryByChar('东').shengdiao, '平', 'queryByChar 东声调为平');
+  assertEqual(queryByChar('东').pingze, '平', 'queryByChar 东平仄为平');
+  assertEqual(queryByChar('中').yunbu, '一东', 'queryByChar 中→一东');
+  assertEqual(queryByChar('红').yunbu, '一东', 'queryByChar 红→一东');
+  assertEqual(queryByChar('山').yunbu, '十五删', 'queryByChar 山→十五删');
+  assertEqual(queryByChar('雪').yunbu, '九屑', 'queryByChar 雪→九屑');
+  assertEqual(queryByChar('雪').shengdiao, '入', 'queryByChar 雪声调为入');
+  assertEqual(queryByChar('雪').pingze, '仄', 'queryByChar 雪平仄为仄');
+  assertEqual(queryByChar('月').yunbu, '六月', 'queryByChar 月→六月');
+  assertEqual(queryByChar('月').pingze, '仄', 'queryByChar 月平仄为仄');
+  assertEqual(queryByChar('董').pingze, '仄', 'queryByChar 董平仄为仄');
+  assertEqual(queryByChar('送').pingze, '仄', 'queryByChar 送平仄为仄');
+  assertEqual(queryByChar('阳').yunbu, '七阳', 'queryByChar 阳→七阳');
+  assertEqual(queryByChar('阳').sub, '下平', 'queryByChar 阳子类为下平');
+
+  // ===== queryByChar 异常输入 =====
+  assertThrows(function() { queryByChar(null); }, TypeError, 'queryByChar(null) 抛 TypeError');
+  assertThrows(function() { queryByChar(undefined); }, TypeError, 'queryByChar(undefined) 抛 TypeError');
+  assertThrows(function() { queryByChar(123); }, TypeError, 'queryByChar(123) 抛 TypeError');
+  assertThrows(function() { queryByChar(''); }, RangeError, 'queryByChar("") 抛 RangeError');
+  assertThrows(function() { queryByChar('东西'); }, RangeError, 'queryByChar("东西") 抛 RangeError（多字）');
+  assertThrows(function() { queryByChar('龘'); }, RangeError, 'queryByChar("龘") 抛 RangeError（未收录）');
+
+  // ===== getCilinDuizhao 正常值 =====
+  assertEqual(getCilinDuizhao('一东').cilin, '第一部', 'getCilinDuizhao 一东→第一部');
+  assertEqual(getCilinDuizhao('二冬').cilin, '第一部', 'getCilinDuizhao 二冬→第一部');
+  assertEqual(getCilinDuizhao('三江').cilin, '第二部', 'getCilinDuizhao 三江→第二部');
+  assertEqual(getCilinDuizhao('七阳').cilin, '第二部', 'getCilinDuizhao 七阳→第二部');
+  assertEqual(getCilinDuizhao('四支').cilin, '第三部', 'getCilinDuizhao 四支→第三部');
+  assertEqual(getCilinDuizhao('六鱼').cilin, '第四部', 'getCilinDuizhao 六鱼→第四部');
+  assertEqual(getCilinDuizhao('九佳').cilin, '第五部', 'getCilinDuizhao 九佳→第五部');
+  assertEqual(getCilinDuizhao('十一真').cilin, '第六部', 'getCilinDuizhao 十一真→第六部');
+  assertEqual(getCilinDuizhao('一先').cilin, '第六部', 'getCilinDuizhao 一先→第六部');
+  assertEqual(getCilinDuizhao('二萧').cilin, '第七部', 'getCilinDuizhao 二萧→第七部');
+  assertEqual(getCilinDuizhao('五歌').cilin, '第八部', 'getCilinDuizhao 五歌→第八部');
+  assertEqual(getCilinDuizhao('六麻').cilin, '第九部', 'getCilinDuizhao 六麻→第九部');
+  assertEqual(getCilinDuizhao('八庚').cilin, '第十部', 'getCilinDuizhao 八庚→第十部');
+  assertEqual(getCilinDuizhao('十一尤').cilin, '第十一部', 'getCilinDuizhao 十一尤→第十一部');
+  assertEqual(getCilinDuizhao('十二侵').cilin, '第十二部', 'getCilinDuizhao 十二侵→第十二部');
+  assertEqual(getCilinDuizhao('十三覃').cilin, '第十三部', 'getCilinDuizhao 十三覃→第十三部');
+  assertEqual(getCilinDuizhao('一屋').cilin, '第十四部', 'getCilinDuizhao 一屋→第十四部');
+  assertEqual(getCilinDuizhao('三觉').cilin, '第十五部', 'getCilinDuizhao 三觉→第十五部');
+  assertEqual(getCilinDuizhao('四质').cilin, '第十六部', 'getCilinDuizhao 四质→第十六部');
+  assertEqual(getCilinDuizhao('九屑').cilin, '第十六部', 'getCilinDuizhao 九屑→第十六部');
+  assertEqual(getCilinDuizhao('十药').cilin, '第十七部', 'getCilinDuizhao 十药→第十七部');
+  assertEqual(getCilinDuizhao('十一陌').cilin, '第十八部', 'getCilinDuizhao 十一陌→第十八部');
+  assertEqual(getCilinDuizhao('十四缉').cilin, '第十九部', 'getCilinDuizhao 十四缉→第十九部');
+  assertEqual(getCilinDuizhao('十七洽').cilin, '第十九部', 'getCilinDuizhao 十七洽→第十九部');
+
+  // ===== getCilinDuizhao 异常输入 =====
+  assertThrows(function() { getCilinDuizhao(null); }, TypeError, 'getCilinDuizhao(null) 抛 TypeError');
+  assertThrows(function() { getCilinDuizhao(undefined); }, TypeError, 'getCilinDuizhao(undefined) 抛 TypeError');
+  assertThrows(function() { getCilinDuizhao(''); }, RangeError, 'getCilinDuizhao("") 抛 RangeError');
+  assertThrows(function() { getCilinDuizhao('不存在的韵部'); }, RangeError, 'getCilinDuizhao("不存在的韵部") 抛 RangeError');
+
+  // ===== getAllYunbu =====
+  assertEqual(getAllYunbu().length, 106, 'getAllYunbu 返回 106 个韵部');
+  assertEqual(getAllYunbu()[0].yunbu, '一东', 'getAllYunbu 第一个为一东');
+  assertEqual(getAllYunbu()[105].yunbu, '十七洽', 'getAllYunbu 最后一个为十七洽');
+
+  // ===== getShengdiao =====
+  assertEqual(getShengdiao('一东'), '平', 'getShengdiao 一东→平');
+  assertEqual(getShengdiao('一董'), '上', 'getShengdiao 一董→上');
+  assertEqual(getShengdiao('一送'), '去', 'getShengdiao 一送→去');
+  assertEqual(getShengdiao('一屋'), '入', 'getShengdiao 一屋→入');
+  assertThrows(function() { getShengdiao(null); }, TypeError, 'getShengdiao(null) 抛 TypeError');
+  assertThrows(function() { getShengdiao('不存在'); }, RangeError, 'getShengdiao("不存在") 抛 RangeError');
+
+  // ===== getPingze =====
+  assertEqual(getPingze('东'), '平', 'getPingze 东→平');
+  assertEqual(getPingze('董'), '仄', 'getPingze 董→仄');
+  assertEqual(getPingze('送'), '仄', 'getPingze 送→仄');
+  assertEqual(getPingze('屋'), '仄', 'getPingze 屋→仄');
+  assertThrows(function() { getPingze(null); }, TypeError, 'getPingze(null) 抛 TypeError');
+  assertThrows(function() { getPingze(''); }, RangeError, 'getPingze("") 抛 RangeError');
+
+  // ===== filterByShengdiao =====
+  assertEqual(filterByShengdiao('平').length, 30, 'filterByShengdiao 平声 30 韵');
+  assertEqual(filterByShengdiao('上').length, 29, 'filterByShengdiao 上声 29 韵');
+  assertEqual(filterByShengdiao('去').length, 30, 'filterByShengdiao 去声 30 韵');
+  assertEqual(filterByShengdiao('入').length, 17, 'filterByShengdiao 入声 17 韵');
+  assertThrows(function() { filterByShengdiao(null); }, TypeError, 'filterByShengdiao(null) 抛 TypeError');
+  assertThrows(function() { filterByShengdiao('中'); }, RangeError, 'filterByShengdiao("中") 抛 RangeError');
+
+  // ===== getCilinAll =====
+  assertEqual(getCilinAll().length, 19, 'getCilinAll 返回 19 部');
+  assertEqual(getCilinAll()[0].cilin, '第一部', 'getCilinAll 第一部');
+  assertEqual(getCilinAll()[18].cilin, '第十九部', 'getCilinAll 第十九部');
+
+  // 输出结果
+  const total = _testPass + _testFail;
+  const summary = document.getElementById('testSummary');
+  summary.innerHTML = '通过 <strong>' + _testPass + '</strong> / 共 <strong>' + total + '</strong>' +
+    (_testFail > 0 ? ' （<span class="test-fail">失败 ' + _testFail + ' 个</span>）' : ' <span class="test-pass">✓ 全部通过</span>');
+  document.getElementById('testLog').innerHTML = _testLog.join('<br>');
+}
+
+/* ============================================================
+ *  源码展示
+ * ============================================================ */
+(function showSource() {
+  const scripts = document.querySelectorAll('script');
+  let src = '';
+  for (let i = 0; i < scripts.length; i++) {
+    if (scripts[i].textContent.indexOf('核心函数') !== -1) {
+      src = scripts[i].textContent;
+      break;
+    }
+  }
+  document.getElementById('sourceCode').textContent = src;
+})();
+
+/* ============================================================
+ *  使用说明书
+ * ============================================================ */
+(function renderDoc() {
+  const doc = `
+<div class="doc-section">
+  <h2>一、工具简介</h2>
+  <p>「诗韵与词韵」是一款面向古典诗词创作者、研究者与爱好者的在线查询工具。它依据南宋刘渊《壬子新刊礼部韵略》所确立的 <strong>平水韵 106 韵部</strong> 体系，以及清代戈载《词林正韵》（道光元年，1821 年刊）所归纳的 <strong>词林正韵 19 部</strong> 体系，提供以下核心能力：</p>
+  <ol>
+    <li>按韵部查询该部所含汉字（如查「一东」部有哪些字）；</li>
+    <li>按单个汉字反查其所属韵部、声调、平仄（如查「雪」字属何部）；</li>
+    <li>平水韵 106 部与词林正韵 19 部之间的双向对照；</li>
+    <li>按声调（平/上/去/入）筛选韵部。</li>
+  </ol>
+  <p>本工具解决的核心问题是：<strong>在近体诗、词的创作与鉴赏中，快速判断某字是否押韵、是否合律，以及平水韵与词林正韵之间的对应关系</strong>。传统上这需要翻阅纸质韵书，本工具将其数字化、即时化。</p>
+</div>
+
+<div class="doc-section">
+  <h2>二、功能与参数说明</h2>
+
+  <h3>2.1 queryByYunbu(yunbu)</h3>
+  <p><strong>功能：</strong>按平水韵韵部名查询该韵部所含汉字。</p>
+  <table>
+    <tr><th>参数</th><th>类型</th><th>取值范围</th><th>含义</th></tr>
+    <tr><td>yunbu</td><td>string</td><td>106 个韵部名之一，如 '一东'、'十五删'、'九屑'；支持带声调前缀如 '入声九屑'</td><td>要查询的平水韵韵部名称</td></tr>
+  </table>
+  <p><strong>返回值：</strong>对象 <code>{ yunbu, shengdiao, sub, chars }</code>，其中 chars 为该韵部收录的汉字数组。</p>
+  <p><strong>异常：</strong>参数非字符串抛 TypeError；韵部名不存在或为空抛 RangeError。</p>
+
+  <h3>2.2 queryByChar(char)</h3>
+  <p><strong>功能：</strong>按单个汉字查询其所属平水韵韵部。</p>
+  <table>
+    <tr><th>参数</th><th>类型</th><th>取值范围</th><th>含义</th></tr>
+    <tr><td>char</td><td>string</td><td>单个汉字（length === 1），且须在本工具收录范围内</td><td>要查询的汉字</td></tr>
+  </table>
+  <p><strong>返回值：</strong>对象 <code>{ char, yunbu, shengdiao, sub, pingze }</code>，其中 pingze 为 '平' 或 '仄'（上、去、入皆归仄）。</p>
+  <p><strong>异常：</strong>参数非字符串抛 TypeError；非单字或字未收录抛 RangeError。</p>
+
+  <h3>2.3 getCilinDuizhao(pingshuiYunbu)</h3>
+  <p><strong>功能：</strong>查询平水韵韵部对应的词林正韵部。</p>
+  <table>
+    <tr><th>参数</th><th>类型</th><th>取值范围</th><th>含义</th></tr>
+    <tr><td>pingshuiYunbu</td><td>string</td><td>106 个平水韵韵部名之一</td><td>要对照的平水韵韵部</td></tr>
+  </table>
+  <p><strong>返回值：</strong>对象 <code>{ pingshui, cilin, desc }</code>，其中 cilin 为词林正韵部名（如 '第一部'），desc 为该部说明。</p>
+
+  <h3>2.4 getAllYunbu()</h3>
+  <p><strong>功能：</strong>获取全部 106 个平水韵韵部列表。</p>
+  <p><strong>返回值：</strong>长度为 106 的数组，每项含 <code>{ yunbu, shengdiao, sub, charCount }</code>。</p>
+
+  <h3>2.5 getShengdiao(yunbu)</h3>
+  <p><strong>功能：</strong>获取指定韵部的声调。</p>
+  <p><strong>返回值：</strong>'平' | '上' | '去' | '入'。</p>
+
+  <h3>2.6 getPingze(char)</h3>
+  <p><strong>功能：</strong>判断单个汉字的平仄。</p>
+  <p><strong>返回值：</strong>'平' 或 '仄'。平声归平，上、去、入归仄。</p>
+
+  <h3>2.7 filterByShengdiao(shengdiao)</h3>
+  <p><strong>功能：</strong>按声调筛选平水韵韵部。</p>
+  <p><strong>参数取值：</strong>'平'（30 韵）| '上'（29 韵）| '去'（30 韵）| '入'（17 韵），合计 106 韵。</p>
+
+  <h3>2.8 getCilinAll()</h3>
+  <p><strong>功能：</strong>获取全部词林正韵 19 部列表。</p>
+  <p><strong>返回值：</strong>长度为 19 的数组，每项含 <code>{ cilin, pingshui, desc }</code>。</p>
+</div>
+
+<div class="doc-section">
+  <h2>三、实际使用场景</h2>
+
+  <div class="scene-box">
+    <h4>场景 1：创作近体诗时判断某字是否可押韵</h4>
+    <p><strong>需求：</strong>写一首七律，首句入韵，想用「东」韵。需要确认「风」「红」「中」「空」是否同韵。</p>
+    <p><strong>操作：</strong>分别调用 <code>queryByChar('风')</code>、<code>queryByChar('红')</code>、<code>queryByChar('中')</code>、<code>queryByChar('空')</code>。</p>
+    <p><strong>结果：</strong>四字均返回 <code>yunbu: '一东'</code>，声调皆为平声，可以互相押韵。</p>
+    <p><strong>进一步：</strong>调用 <code>queryByYunbu('一东')</code> 可获取该韵部全部代表字，供择字参考。</p>
+  </div>
+
+  <div class="scene-box">
+    <h4>场景 2：判断某字平仄以校验格律</h4>
+    <p><strong>需求：</strong>校验「白日依山尽」是否符合五绝格律（应为「仄仄平平仄」）。</p>
+    <p><strong>操作：</strong>依次调用 <code>getPingze('白')</code>、<code>getPingze('日')</code>、<code>getPingze('依')</code>、<code>getPingze('山')</code>、<code>getPingze('尽')</code>。</p>
+    <p><strong>结果：</strong>白（入声→仄）、日（入声→仄）、依（平）、山（平）、尽（上声→仄），符合「仄仄平平仄」。</p>
+    <p><strong>说明：</strong>入声字在现代普通话中已派入四声，但在平水韵中仍属仄声，这是本工具的重要价值。</p>
+  </div>
+
+  <div class="scene-box">
+    <h4>场景 3：词作中判断平水韵与词林正韵的对应</h4>
+    <p><strong>需求：</strong>填一首《浣溪沙》，用词林正韵第一部（东冬）。需要确认「东」「冬」「董」「肿」「送」「宋」六韵的字是否可通押。</p>
+    <p><strong>操作：</strong>调用 <code>getCilinAll()</code> 找到第一部，其 pingshui 字段为 <code>['一东','二冬','一董','二肿','一送','二宋']</code>。</p>
+    <p><strong>结果：</strong>这六个平水韵韵部在词林正韵中合并为第一部，可通押。但注意：词中平仄韵通常不能混押，需按词牌要求选择平韵或仄韵。</p>
+  </div>
+
+  <div class="scene-box">
+    <h4>场景 4：按声调筛选韵部以辅助择韵</h4>
+    <p><strong>需求：</strong>想写一首押入声韵的五绝，需要知道有哪些入声韵部可选。</p>
+    <p><strong>操作：</strong>调用 <code>filterByShengdiao('入')</code>。</p>
+    <p><strong>结果：</strong>返回 17 个入声韵部：一屋、二沃、三觉、四质、五物、六月、七曷、八黠、九屑、十药、十一陌、十二锡、十三职、十四缉、十五合、十六叶、十七洽。可进一步调用 <code>queryByYunbu</code> 查看各部代表字。</p>
+  </div>
+
+  <div class="scene-box">
+    <h4>场景 5：反查某字在词林正韵中的归属</h4>
+    <p><strong>需求：</strong>填词时用到「雪」字，想知道它在词林正韵中属哪一部。</p>
+    <p><strong>操作：</strong>先调用 <code>queryByChar('雪')</code> 得到 <code>yunbu: '九屑'</code>；再调用 <code>getCilinDuizhao('九屑')</code>。</p>
+    <p><strong>结果：</strong>返回 <code>cilin: '第十六部'</code>，desc 为「入声质物月曷黠屑」。说明「雪」在词林正韵中属第十六部（入声），可与质、物、月、曷、黠等韵部的字通押。</p>
+  </div>
+</div>
+
+<div class="doc-section">
+  <h2>四、常见错误与排查</h2>
+  <table>
+    <tr><th>错误现象</th><th>可能原因</th><th>排查方法</th></tr>
+    <tr>
+      <td>queryByChar 抛出 RangeError「不在本工具收录范围内」</td>
+      <td>该字未在本工具的代表字列表中</td>
+      <td>本工具仅收录各韵部常用代表字，非完整字表。如需查完整字表，请查《平水韵》原书或《广韵》《集韵》</td>
+    </tr>
+    <tr>
+      <td>queryByYunbu 抛出 RangeError「韵部不存在」</td>
+      <td>韵部名拼写错误，或使用了非标准名称</td>
+      <td>检查韵部名是否为 106 部标准名称之一。支持带声调前缀（如「入声九屑」），但前缀须准确</td>
+    </tr>
+    <tr>
+      <td>某字查询结果与预期不符</td>
+      <td>该字在历史上有多个读音，分属不同韵部</td>
+      <td>本工具按该字最常见读音归韵。如需查多音字的其他读音，请查《广韵》或《集韵》原书</td>
+    </tr>
+    <tr>
+      <td>TypeError: 参数必须是字符串</td>
+      <td>传入了 null、undefined、数字等非字符串类型</td>
+      <td>确保传入参数为 string 类型。若从 DOM 取值，注意 input.value 可能为空字符串</td>
+    </tr>
+    <tr>
+      <td>词林正韵对照结果与某书不一致</td>
+      <td>词林正韵的部界在学界有细微争议</td>
+      <td>本工具依据戈载《词林正韵》原书。若与其他版本不一致，请核对原书</td>
+    </tr>
+  </table>
+</div>
+
+<div class="doc-section">
+  <h2>五、数据来源与标准依据</h2>
+  <p>本工具的数据来源如下，均为学界公认的权威韵书：</p>
+  <ol>
+    <li><strong>《平水韵》106 韵部体系</strong>：依据南宋刘渊《壬子新刊礼部韵略》（1252 年）所确立的 106 部划分。此体系为后世近体诗用韵的标准，沿用至今。韵部名称、声调划分、平仄归属均依此体系。</li>
+    <li><strong>《词林正韵》19 部体系</strong>：依据清代戈载《词林正韵》（道光元年，1821 年刊）。该书将平水韵 106 部按词的实际用韵情况合并为 19 部，为词创作的标准韵书。</li>
+    <li><strong>韵部所含汉字</strong>：本工具仅收录各韵部的常用代表字（每部约 10–50 字），非完整字表。完整字表需查《平水韵》原书，或参考《广韵》（宋·陈彭年等重修，1008 年）、《集韵》（宋·丁度等，1039 年）。</li>
+  </ol>
+  <p><strong>关于国家标准：</strong>目前中国大陆并无针对《平水韵》《词林正韵》的现行国家标准（GB）或行业标准。本工具所依据的均为历史文献原书，非现代标准。如需引用，建议标注原书版本及刊刻年代。</p>
+  <p><strong>关于 Unicode 与汉字编码：</strong>本工具使用的汉字均为 Unicode 基本多文种平面（BMP）内的常用汉字，不涉及扩展区生僻字。若需查询扩展区汉字，需查《汉语大字典》或《中华字海》。</p>
+</div>
+
+<div class="doc-section">
+  <h2>六、局限性说明</h2>
+  <p>本工具为辅助查询工具，存在以下局限，使用者须知悉：</p>
+  <ol>
+    <li><strong>字表不完整：</strong>本工具仅收录各韵部的常用代表字，非《平水韵》完整字表。《平水韵》全书收字数以千计，本工具无法穷尽。如需查完整字表，请查原书。</li>
+    <li><strong>多音字处理简化：</strong>部分汉字有多个读音，分属不同韵部（如「重」可读平声东韵，也可读上声肿韵）。本工具按该字最常见读音归韵，可能无法覆盖所有读音。</li>
+    <li><strong>不处理异体字与古今字：</strong>本工具不处理异体字、古今字、通假字。如需查此类字，请查《说文解字》《康熙字典》等。</li>
+    <li><strong>不涉及中古音拟音：</strong>本工具仅提供韵部归属与平仄判断，不提供中古音拟音（如高本汉、王力、郑张尚芳等拟音系统）。如需拟音，请查专业音韵学著作。</li>
+    <li><strong>不适用于方言研究：</strong>本工具依据的是中古音系（以《切韵》《广韵》为代表），与现代各方言的音系不同。如需查方言用韵，请查各地方言志。</li>
+    <li><strong>词林正韵部界存在争议：</strong>学界对《词林正韵》的部界划分存在细微争议（如第五部、第十部的分合）。本工具依据戈载原书，若与其他学者观点不一致，需查原书核对。</li>
+    <li><strong>不保证创作合律：</strong>本工具仅提供韵部查询，不判断具体诗词是否合律。近体诗、词的格律还涉及粘对、对仗、词牌句式等复杂规则，需综合判断。</li>
+    <li><strong>数据需查标准原文：</strong>本工具所依据的韵书均为历史文献，部分细节（如个别字的归韵）在不同版本中可能存在差异。如需严谨引用，请查原书。</li>
+  </ol>
+  <p>综上，本工具适用于古典诗词创作与鉴赏的辅助查询，不适用于严谨的音韵学研究。如需学术引用，请查原书并标注版本。</p>
+</div>
+`;
+  document.getElementById('docContent').innerHTML = doc;
+})();
+</script>
+
+</body>
+</html>

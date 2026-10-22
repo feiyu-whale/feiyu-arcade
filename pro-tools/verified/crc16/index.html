@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>📟 Modbus CRC16</title>
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+  html,body { min-height:100%; background:radial-gradient(120% 80% at 50% 0%, #14283a 0%, #0a1622 60%, #060a10 100%); }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; color:#dbeafe; padding:6px 6px 12px;
+    user-select:none; display:flex; justify-content:center; }
+  #wrap { width:100%; max-width:600px; }
+  .back { display:inline-block; text-decoration:none; color:#6b8fb3; font-size:13px; margin-bottom:12px;
+    padding:6px 12px; border:1px solid #22384c; border-radius:20px; }
+  h1 { font-size:12px; color:#9fe0ff; text-align:center; margin-bottom:6px; }
+  .sub { text-align:center; color:#5b7a99; font-size:12px; margin-bottom:16px; }
+  .card { background:#0e1a26; border:1px solid #24384c; border-radius:12px; padding:14px; margin-bottom:12px; }
+  .lbl { font-size:11px; color:#6b8fb3; margin-bottom:7px; letter-spacing:1px; }
+  textarea { width:100%; background:#060a10; border:1px solid #24384c; border-radius:9px; padding:11px 12px;
+    color:#eaf4ff; font-size:14px; font-family:ui-monospace,monospace; resize:vertical; min-height:60px; line-height:1.6; }
+  textarea:focus { outline:none; border-color:#4d8fc9; }
+  .hint { font-size:12px; color:#5b7a99; margin-top:7px; line-height:1.6; }
+  .out { font-size:11px; color:#8fe0c0; font-weight:700; font-family:ui-monospace,monospace; text-align:center;
+    padding:13px; background:#060a10; border-radius:9px; letter-spacing:1px; }
+  .out small { display:block; color:#5b7a99; font-size:12px; font-weight:400; margin-top:6px; letter-spacing:0; }
+  .row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  button.act { background:linear-gradient(160deg,#2e6ea8,#1b4670); color:#fff; border:1px solid #4d8fc9;
+    border-radius:9px; padding:9px 14px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
+  button.g { background:#132638; border-color:#2e5f8e; color:#9fe0ff; }
+  .err { color:#e08; }
+  .ver { text-align:center; color:#22383c; font-size:10px; margin-top:22px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <a class="back" href="../">← 回大厅</a>
+  <h1>📟 Modbus CRC16</h1>
+  <div class="sub">工业设备调试常备 · 纯前端算法</div>
+
+  <div class="card">
+    <div class="lbl">输入（十六进制字节，空格/逗号/无分隔均可）</div>
+    <textarea id="in" placeholder="如 01 03 00 00 00 0A">01 03 00 00 00 0A</textarea>
+    <div class="hint">例：读保持寄存器帧 <code>01 03 00 00 00 0A</code> 的 CRC16 应为 <b>C5 CD</b>（低字节在前）</div>
+    <div class="row">
+      <button class="act" id="calc">计算 CRC16</button>
+      <button class="act g" id="append">追加到帧尾</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">结果</div>
+    <div class="out" id="out">—</div>
+  </div>
+  <div class="ver">v1.0.0-CRC16 20261016</div>
+</div>
+<script>
+(function(){
+'use strict';
+  // 依据：Modbus CRC16，多项式 0xA001（Modbus 协议规范）；低字节在前。实测 01 03 00 00 00 0A → C5 CD。
+  const $ = id => document.getElementById(id);
+
+  function parseHex(s){
+    const clean = s.replace(/[^0-9a-fA-F]/g,"");
+    if(clean.length % 2 !== 0) throw new Error("十六进制位数需为偶数");
+    const bytes = [];
+    for(let i=0;i<clean.length;i+=2) bytes.push(parseInt(clean.slice(i,i+2),16));
+    if(!bytes.length) throw new Error("请输入字节");
+    return bytes;
+  }
+
+  // Modbus CRC16（多项式 0xA001，初值 0xFFFF）
+  function crc16(bytes){
+    let crc = 0xFFFF;
+    for(const b of bytes){
+      crc ^= b;
+      for(let i=0;i<8;i++){
+        if(crc & 1) crc = (crc >> 1) ^ 0xA001;
+        else crc >>= 1;
+      }
+    }
+    return crc & 0xFFFF;
+  }
+  const hex2 = n => n.toString(16).toUpperCase().padStart(2,"0");
+
+  function doCalc(){
+    $("out").className = "out";
+    try {
+      const bytes = parseHex($("in").value);
+      const crc = crc16(bytes);
+      const lo = crc & 0xFF, hi = (crc >> 8) & 0xFF;
+      $("out").innerHTML = "0x" + hex2(hi) + hex2(lo) +
+        `<small>低字节在前(Modbus): ${hex2(lo)} ${hex2(hi)} &nbsp;|&nbsp; 高字节在前: ${hex2(hi)} ${hex2(lo)}</small>`;
+    } catch(e){ $("out").className = "out err"; $("out").textContent = "❌ " + e.message; }
+  }
+
+  function doAppend(){
+    try {
+      const bytes = parseHex($("in").value);
+      const crc = crc16(bytes);
+      const lo = crc & 0xFF, hi = (crc >> 8) & 0xFF;
+      const all = bytes.concat([lo, hi]);
+      $("in").value = all.map(hex2).join(" ");
+      doCalc();
+    } catch(e){ $("out").className = "out err"; $("out").textContent = "❌ " + e.message; }
+  }
+
+  $("calc").onclick = doCalc;
+  $("append").onclick = doAppend;
+  $("in").addEventListener("input", doCalc);
+  doCalc();
+})();
+</script>
+</body>
+</html>

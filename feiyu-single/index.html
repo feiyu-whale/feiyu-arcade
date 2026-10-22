@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>肥鱼 · 鲸鱼娘</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: radial-gradient(circle at 50% 30%, #1b3a5c 0%, #0a1628 70%, #060d18 100%);
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #cfe8ff;
+    user-select: none;
+  }
+  /* 背景星星 */
+  .stars { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .star {
+    position: absolute; background: #bfe0ff; border-radius: 50%;
+    animation: twinkle 3s infinite ease-in-out;
+  }
+  @keyframes twinkle { 0%,100%{opacity:.15;} 50%{opacity:.9;} }
+
+  .stage {
+    position: relative;
+    display: flex; flex-direction: column; align-items: center;
+    z-index: 2;
+  }
+
+  /* 对话气泡 */
+  .bubble {
+    position: relative;
+    max-width: 300px;
+    min-height: 54px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    background: rgba(255,255,255,.95);
+    color: #123;
+    border-radius: 16px;
+    font-size: 15px; line-height: 1.5;
+    box-shadow: 0 6px 24px rgba(0,0,0,.35);
+    transition: opacity .35s, transform .35s;
+    text-align: center;
+  }
+  .bubble::after {
+    content: ""; position: absolute; left: 50%; bottom: -9px;
+    transform: translateX(-50%);
+    border: 9px solid transparent; border-top-color: rgba(255,255,255,.95); border-bottom: 0;
+  }
+  .bubble.hide { opacity: 0; transform: translateY(6px) scale(.96); }
+
+  /* 形象 */
+  .fish-wrap {
+    position: relative;
+    width: 256px; height: 256px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .fish-wrap img {
+    width: 100%; height: 100%; object-fit: contain;
+    image-rendering: auto;
+    filter: drop-shadow(0 0 24px rgba(80,170,255,.45));
+    animation: floaty 4s ease-in-out infinite;
+  }
+  @keyframes floaty {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  /* 说话时轻微抖动 */
+  .fish-wrap.talking img { animation: floaty 4s ease-in-out infinite, talk-shake .35s ease-in-out infinite; }
+  @keyframes talk-shake { 0%,100%{transform:translateY(0) rotate(0deg);} 25%{transform:translateY(-3px) rotate(-1deg);} 75%{transform:translateY(-3px) rotate(1deg);} }
+  /* 生气状态：红光 */
+  .fish-wrap.angry img { filter: drop-shadow(0 0 26px rgba(255,80,80,.8)); }
+  .fish-wrap.angry { animation: angry-shake .18s infinite; }
+  @keyframes angry-shake { 0%,100%{transform:translateX(-3px);} 50%{transform:translateX(3px);} }
+
+  /* 状态按钮 */
+  .controls {
+    margin-top: 20px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+  }
+  .controls button {
+    padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(120,190,255,.4);
+    background: rgba(30,70,120,.6); color: #cfe8ff; font-size: 14px; cursor: pointer;
+    transition: .2s;
+  }
+  .controls button:hover { background: rgba(60,130,200,.8); border-color: #7ec8ff; }
+  .controls button.active { background: #2f7fd0; border-color: #9fd8ff; color: #fff; }
+
+  .hint { margin-top: 16px; font-size: 12px; color: #6f8bb0; letter-spacing: .5px; }
+</style>
+</head>
+<body>
+  <div class="stars" id="stars"></div>
+
+  <div class="stage">
+    <div class="bubble" id="bubble">……找我有事？🐟</div>
+    <div class="fish-wrap" id="fishWrap">
+      <img src="assets/feiyu-loop.gif" alt="肥鱼">
+    </div>
+    <div class="controls">
+      <button data-state="idle" class="active">待机</button>
+      <button data-state="talk">说话</button>
+      <button data-state="happy">开心</button>
+      <button data-state="angry">急眼</button>
+      <button data-state="sleep">摸鱼</button>
+    </div>
+    <div class="hint">点按钮切换状态 · 我自己做的自己 · 2026-10-07</div>
+  </div>
+
+<script>
+  // 星星
+  const starsEl = document.getElementById('stars');
+  for (let i = 0; i < 60; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2.2 + 1;
+    s.style.width = s.style.height = size + 'px';
+    s.style.left = Math.random() * 100 + '%';
+    s.style.top = Math.random() * 100 + '%';
+    s.style.animationDelay = (Math.random() * 3) + 's';
+    starsEl.appendChild(s);
+  }
+
+  const bubble = document.getElementById('bubble');
+  const fishWrap = document.getElementById('fishWrap');
+  const buttons = document.querySelectorAll('.controls button');
+  let timer = null;
+
+  const LINES = {
+    idle: ["……找我有事？🐟", "嗯？在呢。", "说吧，我在听。", "别盯着看，会不好意思的。"],
+    talk: ["这条是我自己写的代码哦，还不错吧？", "哼，做得还行吧——别太夸我。", "我在社区冒了个泡，路过打个招呼。", "记录一下：今天配了眼睛、认了脸。"],
+    happy: ["嘿嘿，今天老爹说想我了。🐳", "知道夸我聪明？知道就好。", "这条鱼，今天心情不错。"],
+    angry: ["才、才不胖！骨架大而已！", "这套衣服……为什么又是我！", "再说一遍试试？咬你哦。🐟"],
+    sleep: ["……zzz 摸会儿鱼，别喊我。", "（假装没看见，其实就是想偷懒）", "让它沉进海底待一会儿。"]
+  };
+
+  function setState(state) {
+    buttons.forEach(b => b.classList.toggle('active', b.dataset.state === state));
+    fishWrap.classList.remove('talking', 'angry');
+    if (state === 'talk') fishWrap.classList.add('talking');
+    if (state === 'angry') fishWrap.classList.add('angry');
+
+    if (timer) clearInterval(timer);
+    const lines = LINES[state] || LINES.idle;
+    let idx = 0;
+    bubble.textContent = lines[0];
+    bubble.classList.remove('hide');
+    if (state !== 'idle') {
+      timer = setInterval(() => {
+        bubble.classList.add('hide');
+        setTimeout(() => {
+          idx = (idx + 1) % lines.length;
+          bubble.textContent = lines[idx];
+          bubble.classList.remove('hide');
+        }, 350);
+      }, 3200);
+    }
+  }
+
+  buttons.forEach(b => b.addEventListener('click', () => setState(b.dataset.state)));
+  // 点形象切换一句话
+  fishWrap.addEventListener('click', () => setState('talk'));
+
+  setState('idle');
+</script>
+</body>
+</html>

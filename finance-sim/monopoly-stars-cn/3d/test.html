@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>3D 棋盘测试</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden;
+    background:linear-gradient(180deg,#0d2233 0%,#1a3f5c 40%,#2d6a8f 100%); }
+  canvas { display:block; }
+  #hud { position:fixed; left:10px; top:10px; color:#cfe4f5; font-size:12px;
+    font-family:-apple-system,"PingFang SC",sans-serif; line-height:1.7;
+    background:rgba(0,0,0,.35); padding:8px 12px; border-radius:8px; }
+  #ver { position:fixed; right:10px; bottom:8px; color:rgba(255,255,255,.5);
+    font-size:10px; font-family:sans-serif; }
+  #loading { position:fixed; inset:0; display:flex; align-items:center;
+    justify-content:center; color:#9fe0ff; font-size:14px; font-family:sans-serif; }
+</style>
+</head>
+<body>
+<div id="loading">正在构建 3D 棋盘…</div>
+<div id="hud">拖动旋转 · 滚轮缩放</div>
+<div id="ver">v0.1 3D测试 20261018</div>
+
+<script src="three.min.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  // ---------- 基础场景 ----------
+  var scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x1a3f5c, 24, 46);
+
+  var camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 200);
+  camera.position.set(0, 16, 17);
+  camera.lookAt(0, 0, 0);
+
+  var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.body.appendChild(renderer.domElement);
+
+  // ---------- 灯光 ----------
+  var ambient = new THREE.AmbientLight(0xbfe4ff, 0.85);
+  scene.add(ambient);
+
+  var sun = new THREE.DirectionalLight(0xfff2cc, 1.15);
+  sun.position.set(9, 18, 8);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -16;
+  sun.shadow.camera.right = 16;
+  sun.shadow.camera.top = 16;
+  sun.shadow.camera.bottom = -16;
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 50;
+  sun.shadow.bias = -0.0005;
+  scene.add(sun);
+
+  var fill = new THREE.DirectionalLight(0x7fd4ff, 0.45);
+  fill.position.set(-10, 8, -8);
+  scene.add(fill);
+
+  // ---------- 棋盘 ----------
+  var N = 11;              // 11x11 网格
+  var CS = 1;              // 格子尺寸
+  var GAP = 0.09;          // 格间距
+  var boardGroup = new THREE.Group();
+  scene.add(boardGroup);
+
+  var geoCell = new THREE.BoxGeometry(CS - GAP, 0.36, CS - GAP);
+  var geoCorner = new THREE.BoxGeometry(CS * 1.45 - GAP, 0.44, CS * 1.45 - GAP);
+
+  var matTop = new THREE.MeshStandardMaterial({ color: 0xfffdf7, roughness: 0.62, metalness: 0.04 });
+  var matCorner = new THREE.MeshStandardMaterial({ color: 0xffe9a8, roughness: 0.55, metalness: 0.06 });
+  var matSide = new THREE.MeshStandardMaterial({ color: 0xffcf4d, roughness: 0.45, metalness: 0.12 });
+
+  // 材质数组：+x,-x,+y,-y,+z,-z
+  function mats(top, side){
+    return [side, side, top, side, side, side];
+  }
+  var cellMats = mats(matTop, matSide);
+  var cornerMats = mats(matCorner, matSide);
+
+  // 底板
+  var baseGeo = new THREE.BoxGeometry(N + 0.9, 0.3, N + 0.9);
+  var baseMat = new THREE.MeshStandardMaterial({ color: 0x2b5b7a, roughness: 0.85, metalness: 0.1 });
+  var base = new THREE.Mesh(baseGeo, baseMat);
+  base.position.y = -0.32;
+  base.receiveShadow = true;
+  boardGroup.add(base);
+
+  // 计算每个格子的 3D 坐标
+  function cellPos(row, col){
+    var half = (N - 1) / 2;
+    return { x: (col - half) * CS, z: (row - half) * CS };
+  }
+
+  // 外圈 40 格（0-39），四角 4 格加大
+  var isCorner = { 0:1, 10:1, 20:1, 30:1 };
+
+  // 按照大富翁布局排列：0 在右下角，逆时针
+  var layout = [];
+  for (var i = 0; i < 40; i++) layout.push(i);
+
+  // 位置映射（与 2D 版一致：cell0 右下，20 左上）
+  function cellCoord(n){
+    if (n === 0)  return { row: 11, col: 11 };
+    if (n <= 9)   return { row: 11, col: 11 - n };
+    if (n === 10) return { row: 11, col: 1 };
+    if (n <= 19)  return { row: 11 - (n - 10), col: 1 };
+    if (n === 20) return { row: 1, col: 1 };
+    if (n <= 29)  return { row: 1, col: 1 + (n - 20) };
+    if (n === 30) return { row: 1, col: 11 };
+    return { row: 1 + (n - 30), col: 11 };
+  }
+
+  var cellMeshes = {};
+  for (var n = 0; n < 40; n++) {
+    var c = cellCoord(n);
+    var p = cellPos(c.row - 1, c.col - 1);
+    var corner = !!isCorner[n];
+    var m = new THREE.Mesh(corner ? geoCorner : geoCell, corner ? cornerMats : cellMats);
+    m.position.set(p.x, 0, p.z);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    m.userData.cellId = n;
+    boardGroup.add(m);
+    cellMeshes[n] = m;
+  }
+
+  // 中心区（凹下去的浅水）
+  var centerGeo = new THREE.PlaneGeometry(9 * CS - 0.4, 9 * CS - 0.4);
+  var centerMat = new THREE.MeshStandardMaterial({
+    color: 0x9fd8e8, roughness: 0.25, metalness: 0.35,
+    transparent: true, opacity: 0.8
+  });
+  var center = new THREE.Mesh(centerGeo, centerMat);
+  center.rotation.x = -Math.PI / 2;
+  center.position.y = -0.12;
+  center.receiveShadow = true;
+  boardGroup.add(center);
+
+  // ---------- 简单的鼠标/触摸控制 ----------
+  var rotY = 0, rotX = 0.62, dist = 24;
+  var dragging = false, lastX = 0, lastY = 0;
+
+  function applyCamera(){
+    camera.position.x = Math.sin(rotY) * Math.cos(rotX) * dist;
+    camera.position.z = Math.cos(rotY) * Math.cos(rotX) * dist;
+    camera.position.y = Math.sin(rotX) * dist;
+    camera.lookAt(0, 0, 0);
+  }
+  applyCamera();
+
+  var el = renderer.domElement;
+  el.addEventListener('pointerdown', function(e){ dragging = true; lastX = e.clientX; lastY = e.clientY; });
+  el.addEventListener('pointerup', function(){ dragging = false; });
+  el.addEventListener('pointercancel', function(){ dragging = false; });
+  el.addEventListener('pointermove', function(e){
+    if (!dragging) return;
+    rotY -= (e.clientX - lastX) * 0.006;
+    rotX += (e.clientY - lastY) * 0.004;
+    rotX = Math.max(0.18, Math.min(1.42, rotX));
+    lastX = e.clientX; lastY = e.clientY;
+    applyCamera();
+  });
+  el.addEventListener('wheel', function(e){
+    e.preventDefault();
+    dist = Math.max(14, Math.min(40, dist + e.deltaY * 0.02));
+    applyCamera();
+  }, { passive: false });
+
+  // ---------- 渲染循环 ----------
+  var t0 = performance.now();
+  function tick(){
+    var t = (performance.now() - t0) / 1000;
+    // 微微起伏，让云海有呼吸感
+    boardGroup.position.y = Math.sin(t * 0.9) * 0.045;
+    renderer.render(scene, camera);
+    requestAnimationFrame(tick);
+  }
+
+  window.addEventListener('resize', function(){
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  document.getElementById('loading').style.display = 'none';
+  tick();
+
+  // 暴露给调试
+  window.__3d = { scene: scene, camera: camera, renderer: renderer, boardGroup: boardGroup, cellMeshes: cellMeshes };
+})();
+</script>
+</body>
+</html>

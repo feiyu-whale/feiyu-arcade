@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔧 工具区</title>
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+  html,body { min-height:100%; background:linear-gradient(160deg,#0a1628 0%,#123 60%,#0a1f33 100%); }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; color:#dbeafe;
+    padding:12px 10px 16px; display:flex; flex-direction:column; align-items:center; }
+  .back { align-self:flex-start; text-decoration:none; color:#6b8fb3; font-size:11px; margin-bottom:8px;
+    padding:3px 9px; border:1px solid #22384c; border-radius:12px; }
+  h1 { font-size:17px; color:#8fd0ff; text-align:center; font-weight:700; letter-spacing:1px; }
+  .sub { text-align:center; color:#5b7a99; font-size:11px; margin:5px 0 16px; line-height:1.6; }
+  .wrap { width:100%; max-width:520px; }
+  .zone { display:block; text-decoration:none; border-radius:12px; padding:16px 14px; margin-bottom:12px;
+    box-shadow:0 6px 24px rgba(0,0,0,.35); }
+  .zone .icon { font-size:26px; display:block; margin-bottom:6px; }
+  .zone .name { font-size:16px; font-weight:700; display:block; margin-bottom:5px; }
+  .zone .desc { font-size:11px; line-height:1.6; display:block; opacity:.8; }
+  .zone .count { font-size:11px; display:block; margin-top:8px; font-weight:600; }
+  .v { background:linear-gradient(160deg,#103a2a,#0a2419); border:1px solid #2e7a5e; color:#d0f0e0; }
+  .v .name { color:#8fe0b8; }
+  .u { background:linear-gradient(160deg,#3a2a10,#241a08); border:1px solid #8a6a2e; color:#f0e0c0; }
+  .u .name { color:#ffd080; }
+  .ver { text-align:center; color:#2c4a55; font-size:9px; margin-top:10px; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← 回大厅</a>
+<div class="wrap">
+  <h1>🔧 工具区</h1>
+  <div class="sub">两区分开 · 自己看着办</div>
+
+  <a class="zone v" href="verified/">
+    <span class="icon">✅</span>
+    <span class="name">已审查工具</span>
+    <span class="desc">实测验证过能输入、能算出结果<br>大概率正确，但不做绝对保证</span>
+    <span class="count">共 18 个</span>
+  </a>
+
+  <a class="zone u" href="unverified/">
+    <span class="icon">⚠️</span>
+    <span class="name">未审查工具</span>
+    <span class="desc">实测有问题：可能算错、或页面无法输入<br>仅作参考，不要用于实际决策</span>
+    <span class="count">共 140 个</span>
+  </a>
+
+  <div class="ver">v3.2.1-改说明 20261021</div>
+</div>
+</body>
+</html>

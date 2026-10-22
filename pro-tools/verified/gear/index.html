@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>⚙️ 齿轮传动比</title>
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+  html,body { min-height:100%; background:radial-gradient(120% 80% at 50% 0%, #14283a 0%, #0a1622 60%, #060a10 100%); }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; color:#dbeafe; padding:6px 6px 12px;
+    user-select:none; display:flex; justify-content:center; }
+  #wrap { width:100%; max-width:560px; }
+  .back { display:inline-block; text-decoration:none; color:#6b8fb3; font-size:13px; margin-bottom:12px;
+    padding:6px 12px; border:1px solid #22384c; border-radius:20px; }
+  h1 { font-size:12px; color:#8fe0c0; text-align:center; margin-bottom:6px; }
+  .sub { text-align:center; color:#5b7a99; font-size:12px; margin-bottom:16px; line-height:1.6; }
+  .card { background:#0e1a26; border:1px solid #24384c; border-radius:12px; padding:14px; margin-bottom:12px; }
+  .lbl { font-size:11px; color:#6b8fb3; margin-bottom:9px; letter-spacing:1px; }
+  .f { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .f label { width:90px; font-size:13px; color:#8fe0c0; }
+  .f input { flex:1; background:#060a10; border:1px solid #24384c; border-radius:9px; padding:10px 11px;
+    color:#eaf4ff; font-size:14px; font-family:inherit; }
+  .f input:focus { outline:none; border-color:#4d8fc9; }
+  .f .u { font-size:12px; color:#6b8fb3; width:40px; }
+  .hint { font-size:12px; color:#5b7a99; margin-top:6px; line-height:1.6; }
+  .out { margin-top:12px; }
+  .r { display:flex; justify-content:space-between; padding:9px 12px; background:#060a10; border-radius:9px;
+    margin-bottom:7px; font-size:14px; }
+  .r .k { color:#8fb3cf; }
+  .r .v { color:#8fe0c0; font-weight:700; font-family:ui-monospace,monospace; }
+  .big { text-align:center; padding:16px; background:#060a10; border-radius:10px; margin-bottom:10px; }
+  .big .num { font-size:12px; color:#8fe0c0; font-weight:700; font-family:ui-monospace,monospace; }
+  .big .unit { font-size:13px; color:#6b8fb3; }
+  .ver { text-align:center; color:#22383c; font-size:10px; margin-top:22px; }
+  .btn { width:100%; padding:11px; background:#1c4a3a; border:1px solid #2e6f5e; border-radius:9px;
+    color:#8fe0c0; font-size:13px; cursor:pointer; font-family:inherit; margin-top:6px; }
+  .btn:active { background:#265a48; }
+  .li { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:#060a10;
+    border-radius:8px; margin-bottom:6px; font-size:13px; }
+  .li .x { color:#e06060; cursor:pointer; padding:0 6px; font-size:16px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <a class="back" href="../">← 回大厅</a>
+  <h1>⚙️ 齿轮传动比</h1>
+  <div class="sub">单级 / 多级齿轮传动计算</div>
+
+  <div class="card">
+    <div class="lbl">单级齿轮</div>
+    <div class="f"><label>主动轮齿数</label><input type="text" id="z1" inputmode="numeric" placeholder="例如 20"><span class="u">齿</span></div>
+    <div class="f"><label>从动轮齿数</label><input type="text" id="z2" inputmode="numeric" placeholder="例如 60"><span class="u">齿</span></div>
+    <div class="f"><label>主动轮转速</label><input type="text" id="n1" inputmode="decimal" placeholder="选填"><span class="u">rpm</span></div>
+    <div class="f"><label>主动轮转矩</label><input type="text" id="t1" inputmode="decimal" placeholder="选填"><span class="u">N·m</span></div>
+    <div class="hint">模数相同才能啮合；齿数比 = 传动比 i = z₂ / z₁</div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">结果</div>
+    <div class="out" id="out"></div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">多级传动（可选）</div>
+    <div class="f"><label>中间级齿数</label><input type="text" id="mid" inputmode="numeric" placeholder="逐个填，逗号分隔"><span class="u">齿</span></div>
+    <button class="btn" id="multi">计算多级总传动比</button>
+    <div class="out" id="multi_out"></div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">说明</div>
+    <div class="hint">
+      <b>传动比：</b>i = n₁/n₂ = z₂/z₁<br>
+      <b>转速：</b>n₂ = n₁ / i<br>
+      <b>转矩（忽略损失）：</b>T₂ = T₁ × i<br>
+      <b>考虑效率 η：</b>T₂ = T₁ × i × η（齿轮级 η ≈ 0.97~0.98）<br><br>
+      <b>多级串联：</b>i_total = i₁ × i₂ × … × iₙ
+    </div>
+  </div>
+
+  <div class="ver">v1.0.0-齿轮传动比 20261017</div>
+</div>
+<script>
+(function(){
+'use strict';
+  // 依据：机械传动基础公式 —— 齿轮传动比 i = z₂/z₁ = n₁/n₂；
+  //   功率守恒 P = T·ω ⇒ T₂/T₁ = i（忽略损失）；多级串联总传动比相乘。
+  // 来源：机械设计通用教材（如《机械设计》濮良贵）。
+  //   圆柱齿轮单级效率约 0.97~0.98，锥齿轮约 0.94~0.96。
+  const $ = id => document.getElementById(id);
+  const ids = ["z1","z2","n1","t1"];
+
+  function num(id){
+    const s = $(id).value.trim();
+    if(s === "") return null;
+    const n = Number(s);
+    return isNaN(n) ? null : n;
+  }
+
+  function calc(){
+    const z1 = num("z1"), z2 = num("z2"), n1 = num("n1"), t1 = num("t1");
+    let html = "";
+
+    if(z1 === null || z2 === null){
+      $("out").innerHTML = "<div class='hint' style='text-align:center'>填入两个齿数即可计算</div>";
+      return;
+    }
+    if(z1 <= 0 || z2 <= 0){
+      $("out").innerHTML = "<div class='hint' style='color:#e08;text-align:center'>齿数必须大于 0</div>";
+      return;
+    }
+
+    const i = z2 / z1;
+    html += row("传动比 i", i.toFixed(4) + " : 1");
+    html += row("减速/增速", i > 1 ? "减速增扭" : (i < 1 ? "增速减扭" : "等速"));
+
+    if(n1 !== null){
+      const n2 = n1 / i;
+      html += row("从动轮转速", n2.toFixed(2) + " rpm");
+    }
+    if(t1 !== null){
+      const t2 = t1 * i;
+      html += row("从动轮转矩", t2.toFixed(3) + " N·m");
+      if(z1 && z2){
+        html += row("转矩（效率0.97）", (t1 * i * 0.97).toFixed(3) + " N·m");
+      }
+      if(n1 !== null){
+        const p1 = t1 * n1 * 2 * Math.PI / 60;
+        html += row("输入功率", (p1/1000).toFixed(3) + " kW");
+      }
+    }
+    if(n1 !== null && t1 !== null){
+      const p = t1 * n1 * 2 * Math.PI / 60 / 1000;
+      html += row("输出功率(η=0.97)", (p * 0.97).toFixed(3) + " kW");
+    }
+
+    $("out").innerHTML = html;
+  }
+
+  function row(k,v){
+    return `<div class="r"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+  }
+
+  $("multi").onclick = () => {
+    const raw = $("mid").value.trim();
+    const z1 = num("z1"), z2 = num("z2");
+    if(z1 === null || z2 === null){
+      $("multi_out").innerHTML = "<div class='hint' style='color:#e0b060'>先填主动轮和从动轮齿数</div>";
+      return;
+    }
+    // 多级：z1 → z2（一级）; 然后 mid 里的数依次作为每一级的传动，最后一级到 z2
+    // 简化理解：mid 填的是各中间轴的从动轮齿数，每个中间轴主动轮齿数 = 前一级从动轮
+    const mids = raw.split(/[,，\s]+/).filter(s=>s!=="").map(Number).filter(n=>!isNaN(n) && n>0);
+    if(mids.length === 0){
+      $("multi_out").innerHTML = "<div class='hint' style='color:#e0b060'>请填入中间级齿数（逗号分隔）</div>";
+      return;
+    }
+
+    // 级数 = mids.length + 1（轴数 = mids.length + 2）
+    // 每级传动比：级k = 下一齿轮齿数 / 当前齿轮齿数
+    const gears = [z1, ...mids, z2];
+    const ratios = [];
+    for(let k=0; k<gears.length-1; k++){
+      ratios.push(gears[k+1] / gears[k]);
+    }
+    const total = ratios.reduce((a,b)=>a*b, 1);
+
+    let html = "<div class='hint' style='margin-bottom:8px'><b>齿轮序列：</b>" + gears.join(" → ") + "</div>";
+    ratios.forEach((r,k)=>{
+      html += row(`第 ${k+1} 级`, (gears[k]) + "齿 → " + (gears[k+1]) + "齿，i=" + r.toFixed(4));
+    });
+    html += row("<b>总传动比</b>", "<b>" + total.toFixed(4) + " : 1</b>");
+
+    const n1 = num("n1");
+    if(n1 !== null){
+      html += row("末级转速", (n1/total).toFixed(2) + " rpm");
+    }
+    const t1 = num("t1");
+    if(t1 !== null){
+      html += row("末级转矩", (t1*total).toFixed(3) + " N·m");
+      html += row("末级转矩(η=0.97^级数)", (t1*total*Math.pow(0.97, ratios.length)).toFixed(3) + " N·m");
+    }
+
+    $("multi_out").innerHTML = html;
+  };
+
+  ids.forEach(id => $(id).addEventListener("input", calc));
+})();
+</script>
+</body>
+</html>

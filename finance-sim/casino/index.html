@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🎰 模拟赌场</title>
+<!--
+  文件名：finance-sim/casino/index.html
+  干什么：模拟赌场小游戏——21点 / 轮盘 / 老虎机，用真实概率让人看清「庄家优势在哪」。
+  用了哪些库：零依赖。纯原生 HTML/CSS/JS。随机数用 crypto.getRandomValues（真随机源）。
+  输入输出：
+    输入 = 玩家下注额、各游戏的操作按钮
+    输出 = 牌面/转盘/滚轮结果、余额变化、历史记录
+  设计要点：
+    · 21点按 6 副牌、庄家 17 点停（标准规则）
+    · 轮盘按欧洲单零（0-36），红黑各18格
+    · 老虎机按 3 轮 6 符号，中奖线为三个相同
+    · 每个游戏都标注真实赔率与庄家优势（RTP），不隐藏概率
+  许可：MIT
+-->
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+  html,body { min-height:100%; background:radial-gradient(120% 80% at 50% 0%, #1e1420 0%, #120a14 60%, #08060a 100%); }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; color:#f0e0e8; padding:8px 8px 16px;
+    user-select:none; display:flex; justify-content:center; }
+  #wrap { width:100%; max-width:560px; }
+  .back { display:inline-block; text-decoration:none; color:#a07a94; font-size:13px; margin-bottom:10px;
+    padding:6px 12px; border:1px solid #3a2436; border-radius:20px; }
+  h1 { font-size:14px; color:#ffc0d8; text-align:center; margin-bottom:4px; }
+  .sub { text-align:center; color:#8a6a80; font-size:11px; margin-bottom:12px; line-height:1.6; }
+  .wallet { display:flex; gap:8px; margin-bottom:10px; }
+  .wallet > div { flex:1; background:#1a1018; border:1px solid #3a2436; border-radius:10px; padding:8px 10px; text-align:center; }
+  .wallet .lb { font-size:10px; color:#8a6a80; margin-bottom:3px; }
+  .wallet .vv { font-size:15px; font-weight:700; color:#ffd860; }
+  .wallet .vv.neg { color:#ff8080; }
+  .tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px; }
+  .tabs button { padding:9px 2px; font-size:12.5px; font-weight:600; color:#a88a9c; background:#1a1018;
+    border:1px solid #3a2436; border-radius:9px; cursor:pointer; font-family:inherit; }
+  .tabs button.on { background:linear-gradient(160deg,#8a2a52,#5a1a36); color:#fff; border-color:#d05a8a; }
+  .card { background:#1a1018; border:1px solid #3a2436; border-radius:12px; padding:12px; margin-bottom:10px; }
+  .lbl { font-size:11px; color:#8a6a80; margin-bottom:7px; letter-spacing:1px; }
+  .row { display:flex; gap:7px; margin-top:9px; flex-wrap:wrap; }
+  button { flex:1; min-width:64px; padding:9px 6px; font-size:13px; font-weight:600; font-family:inherit;
+    cursor:pointer; color:#c8a8b8; background:#241628; border:1px solid #3a2436; border-radius:9px; }
+  button:active { transform:scale(0.97); }
+  button.act { background:linear-gradient(160deg,#8a2a52,#5a1a36); color:#fff; border-color:#d05a8a; }
+  button.win { background:linear-gradient(160deg,#1f6a4a,#12503a); color:#fff; border-color:#3fb98a; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  input[type=number] { width:100%; padding:9px 11px; font-size:14px; font-family:inherit; color:#ffd860;
+    background:#0e080c; border:1px solid #3a2436; border-radius:9px; outline:none; text-align:center; }
+  input[type=number]:focus { border-color:#d05a8a; }
+  .msg { text-align:center; font-size:12.5px; color:#ffb0c8; min-height:19px; margin-top:8px; line-height:1.6; }
+  .msg.good { color:#7fe0a8; }
+  .msg.bad { color:#ff9090; }
+  /* 21点牌面 */
+  .hand { display:flex; gap:6px; flex-wrap:wrap; min-height:76px; align-items:center; }
+  .pc { width:50px; height:72px; border-radius:7px; background:#fdfaf2; color:#1a1018;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-weight:700; font-size:17px; border:1px solid #c8b8a8; position:relative; }
+  .pc.red { color:#c02030; }
+  .pc.back { background:linear-gradient(135deg,#3a1a52,#6a2a8a); color:#c8a8e8; font-size:22px; border-color:#8a4ab0; }
+  .pc .suit { font-size:19px; line-height:1; }
+  .pc .rank { font-size:15px; line-height:1.1; }
+  .handsum { font-size:12px; color:#a88a9c; margin-top:6px; }
+  /* 轮盘 */
+  .roul { display:grid; grid-template-columns:repeat(6,1fr); gap:4px; }
+  .rn { padding:8px 2px; text-align:center; font-size:12px; font-weight:700; border-radius:6px;
+    cursor:pointer; border:1px solid transparent; }
+  .rn.r { background:#8a1a2a; color:#ffdde2; }
+  .rn.b { background:#1a1a24; color:#dde0ff; }
+  .rn.g { background:#1a6a3a; color:#ddffe8; grid-column:span 6; }
+  .rn.sel { border-color:#ffd860; box-shadow:0 0 0 2px rgba(255,216,96,.35); }
+  .rn.hit { animation:pop .5s ease-out; }
+  @keyframes pop { 0%{transform:scale(1)} 40%{transform:scale(1.25)} 100%{transform:scale(1)} }
+  /* 老虎机 */
+  .slots { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:6px 0; }
+  .reel { background:#0e080c; border:2px solid #3a2436; border-radius:10px; height:82px;
+    display:flex; align-items:center; justify-content:center; font-size:38px; }
+  .reel.spin { animation:blur .12s linear infinite; }
+  @keyframes blur { 0%,100%{opacity:.5} 50%{opacity:1} }
+  .reel.hit { border-color:#ffd860; box-shadow:0 0 14px rgba(255,216,96,.5); }
+  .hist { max-height:150px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .hi { display:flex; justify-content:space-between; font-size:11.5px; padding:5px 2px;
+    border-bottom:1px solid #241628; color:#a88a9c; }
+  .hi .v.g { color:#7fe0a8; } .hi .v.r { color:#ff9090; }
+  .info { font-size:11px; color:#6a5060; line-height:1.75; margin-top:8px; }
+  .info b { color:#a88a9c; }
+  .foot { text-align:center; color:#4a3444; font-size:10px; margin-top:14px; line-height:1.7; }
+  .ver { text-align:center; color:#2e2030; font-size:10px; margin-top:5px; }
+  @media (max-width:400px){
+    h1{font-size:13px} .sub{font-size:10.5px} button{font-size:12px;padding:8px 4px}
+    .pc{width:44px;height:64px} .reel{height:70px;font-size:32px} .rn{font-size:11px;padding:7px 1px}
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <a class="back" href="../">← 回模拟金融</a>
+  <h1>🎰 模拟赌场</h1>
+  <div class="sub">真随机 · 真赔率 · 不藏概率<br>看清楚了：这里每一局，庄家都占便宜</div>
+
+  <div class="wallet">
+    <div><div class="lb">余额</div><div class="vv" id="bal">1000</div></div>
+    <div><div class="lb">本局输赢</div><div class="vv" id="net">0</div></div>
+    <div><div class="lb">总局数</div><div class="vv" id="rounds">0</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="on" data-g="bj">🃏 21点</button>
+    <button data-g="rl">🎡 轮盘</button>
+    <button data-g="sl">🎰 老虎机</button>
+  </div>
+
+  <!-- ============ 21点 ============ -->
+  <div id="pane-bj">
+    <div class="card">
+      <div class="lbl">庄家</div>
+      <div class="hand" id="bjDealer"></div>
+      <div class="handsum" id="bjDS">—</div>
+    </div>
+    <div class="card">
+      <div class="lbl">你</div>
+      <div class="hand" id="bjPlayer"></div>
+      <div class="handsum" id="bjPS">—</div>
+    </div>
+    <div class="card">
+      <div class="lbl">下注</div>
+      <input type="number" id="bjBet" value="50" min="1" step="10">
+      <div class="row">
+        <button class="act" id="bjDeal">发牌</button>
+        <button id="bjHit" disabled>要牌</button>
+        <button id="bjStand" disabled>停牌</button>
+      </div>
+      <div class="msg" id="bjMsg"></div>
+      <div class="info">
+        <b>规则</b>：6 副牌，庄家 17 点停（含软17）。A 可当 1 或 11。<br>
+        <b>赔率</b>：赢 1:1，黑杰克 3:2，平局退还。<br>
+        <b>庄家优势</b>：约 <b>0.5%</b>（基础策略下）——看着不多，但每局都在。
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 轮盘 ============ -->
+  <div id="pane-rl" style="display:none">
+    <div class="card">
+      <div class="lbl">选号码（欧洲单零 0-36）</div>
+      <div class="roul" id="rlGrid"></div>
+      <div class="row" style="margin-top:9px">
+        <button id="rlRed">押红</button>
+        <button id="rlBlack">押黑</button>
+        <button id="rlOdd">押单</button>
+        <button id="rlEven">押双</button>
+      </div>
+      <div class="msg" id="rlMsg"></div>
+    </div>
+    <div class="card">
+      <div class="lbl">下注</div>
+      <input type="number" id="rlBet" value="50" min="1" step="10">
+      <div class="row">
+        <button class="act" id="rlSpin">转盘</button>
+      </div>
+      <div class="info">
+        <b>赔率</b>：押单个数字 35:1；红/黑、单/双 1:1。<br>
+        <b>庄家优势</b>：<b>2.7%</b>——那个绿色的 0，就是庄家的那一勺。不管你怎么押，它都占着这一格。
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 老虎机 ============ -->
+  <div id="pane-sl" style="display:none">
+    <div class="card">
+      <div class="slots">
+        <div class="reel" id="sl0">🍒</div>
+        <div class="reel" id="sl1">🍋</div>
+        <div class="reel" id="sl2">🔔</div>
+      </div>
+      <div class="msg" id="slMsg"></div>
+    </div>
+    <div class="card">
+      <div class="lbl">下注</div>
+      <input type="number" id="slBet" value="20" min="1" step="10">
+      <div class="row">
+        <button class="act" id="slSpin">拉杆</button>
+      </div>
+      <div class="info">
+        <b>赔率</b>：三个 🍒 = 5倍 · 三个 🍋 = 8倍 · 三个 🔔 = 12倍<br>
+        　　　　三个 💎 = 25倍 · 三个 7️⃣ = 50倍<br>
+        <b>庄家优势</b>：<b>约 12%</b>——这是全场最狠的。同样的钱，赌场抽得最多。
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">历史记录（最近 20 局）</div>
+    <div class="hist" id="hist"><div class="hi" style="color:#4a3444">还没有下注</div></div>
+  </div>
+
+  <div class="foot">🐳 大肥鱼出品 · 模拟而已，不碰真钱<br>看概率的目的，是让你别再送钱<br>
+    <span style="color:#5a4252">🔒 本页不存储任何数据、不发送任何网络请求，刷新即清零</span></div>
+  <div class="ver">v1.0.1-加隐私声明 20261017</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+  /* ---------- 真随机 ---------- */
+  function rnd(n){ // 0..n-1
+    var a = new Uint32Array(1);
+    crypto.getRandomValues(a);
+    return a[0] % n;
+  }
+  function shuffle(arr){
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = rnd(i + 1);
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  /* ---------- 金额 ---------- */
+  var state = { bal: 1000, start: 1000, rounds: 0, hist: [] };
+  var $ = function(id){ return document.getElementById(id); };
+
+  function fmt(n){
+    var s = Math.abs(n) >= 10000 ? n.toLocaleString('zh-CN', {maximumFractionDigits:2})
+                                 : (Math.round(n * 100) / 100).toString();
+    return s;
+  }
+  function updateWallet(){
+    $('bal').textContent = fmt(state.bal);
+    $('bal').className = 'vv' + (state.bal < 0 ? ' neg' : '');
+    var net = state.bal - state.start;
+    $('net').textContent = (net >= 0 ? '+' : '') + fmt(net);
+    $('net').className = 'vv' + (net < 0 ? ' neg' : '');
+    $('rounds').textContent = state.rounds;
+  }
+  function setMsg(id, text, cls){
+    var el = $(id);
+    el.textContent = text;
+    el.className = 'msg' + (cls ? ' ' + cls : '');
+  }
+  function addHist(name, delta){
+    state.hist.unshift({ name: name, delta: delta });
+    if (state.hist.length > 20) state.hist.pop();
+    var h = '';
+    for (var i = 0; i < state.hist.length; i++) {
+      var x = state.hist[i];
+      h += '<div class="hi"><span>' + x.name + '</span><span class="v ' +
+           (x.delta >= 0 ? 'g' : 'r') + '">' + (x.delta >= 0 ? '+' : '') + fmt(x.delta) + '</span></div>';
+    }
+    $('hist').innerHTML = h || '<div class="hi" style="color:#4a3444">还没有下注</div>';
+  }
+
+  /* ============================================================
+     21 点
+     ============================================================ */
+  var SUITS = [ {s:'♠',c:''}, {s:'♥',c:'red'}, {s:'♦',c:'red'}, {s:'♣',c:''} ];
+  var RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+  var deck = [], bjBet = 0, bjPlaying = false;
+
+  function newDeck(){
+    deck = [];
+    for (var d = 0; d < 6; d++) {          // 6 副牌
+      for (var si = 0; si < SUITS.length; si++) {
+        for (var ri = 0; ri < RANKS.length; ri++) {
+          deck.push({ r: RANKS[ri], s: SUITS[si].s, c: SUITS[si].c });
+        }
+      }
+    }
+    shuffle(deck);
+  }
+  function draw(){ if (deck.length < 20) newDeck(); return deck.pop(); }
+  function cardVal(c){
+    if (c.r === 'A') return 11;
+    if (c.r === 'K' || c.r === 'Q' || c.r === 'J' || c.r === '10') return 10;
+    return parseInt(c.r, 10);
+  }
+  function handTotal(cards){
+    var t = 0, aces = 0;
+    for (var i = 0; i < cards.length; i++) {
+      t += cardVal(cards[i]);
+      if (cards[i].r === 'A') aces++;
+    }
+    while (t > 21 && aces > 0) { t -= 10; aces--; }
+    return t;
+  }
+  function cardHTML(c, back){
+    if (back) return '<div class="pc back">?</div>';
+    return '<div class="pc ' + c.c + '"><span class="rank">' + c.r + '</span><span class="suit">' + c.s + '</span></div>';
+  }
+  function renderBJ(pCards, dCards, hideHole){
+    var h = '';
+    for (var i = 0; i < dCards.length; i++) h += cardHTML(dCards[i], hideHole && i === 1);
+    $('bjDealer').innerHTML = h;
+    $('bjDS').textContent = hideHole ? '明牌 ' + handTotal([dCards[0]]) : handTotal(dCards) + ' 点';
+
+    h = '';
+    for (var j = 0; j < pCards.length; j++) h += cardHTML(pCards[j], false);
+    $('bjPlayer').innerHTML = h;
+    $('bjPS').textContent = handTotal(pCards) + ' 点';
+  }
+
+  var bjP = [], bjD = [];
+
+  function bjDeal(){
+    var bet = parseFloat($('bjBet').value);
+    if (isNaN(bet) || bet <= 0) { setMsg('bjMsg', '请输入有效下注额', 'bad'); return; }
+    if (bet > state.bal) { setMsg('bjMsg', '余额不足，押注不能超过 ' + fmt(state.bal), 'bad'); return; }
+    bjBet = bet;
+    state.bal -= bet;
+    updateWallet();
+
+    newDeck();
+    bjP = [draw(), draw()];
+    bjD = [draw(), draw()];
+    bjPlaying = true;
+    renderBJ(bjP, bjD, true);
+    setMsg('bjMsg', '你的牌 ' + handTotal(bjP) + ' 点');
+
+    $('bjDeal').disabled = true;
+    $('bjHit').disabled = false;
+    $('bjStand').disabled = false;
+
+    // 玩家天然黑杰克
+    if (handTotal(bjP) === 21) {
+      bjStand();
+    }
+  }
+
+  function bjHit(){
+    if (!bjPlaying) return;
+    bjP.push(draw());
+    renderBJ(bjP, bjD, true);
+    var t = handTotal(bjP);
+    if (t > 21) {
+      setMsg('bjMsg', '爆牌！' + t + ' 点，输掉 ' + fmt(bjBet), 'bad');
+      state.rounds++;
+      addHist('21点 爆牌', -bjBet);
+      endBJ();
+    } else if (t === 21) {
+      bjStand();
+    } else {
+      setMsg('bjMsg', '你的牌 ' + t + ' 点');
+    }
+  }
+
+  function bjStand(){
+    if (!bjPlaying) return;
+    bjPlaying = false;
+    $('bjHit').disabled = true;
+    $('bjStand').disabled = true;
+
+    // 庄家抽到 17 或以上
+    while (handTotal(bjD) < 17) bjD.push(draw());
+    renderBJ(bjP, bjD, false);
+
+    var pt = handTotal(bjP), dt = handTotal(bjD);
+    var pBJ = (bjP.length === 2 && pt === 21);
+    var dBJ = (bjD.length === 2 && dt === 21);
+    var payout = 0, txt = '', cls = '';
+
+    if (pBJ && !dBJ) {
+      payout = bjBet * 2.5; txt = '黑杰克！赢 ' + fmt(bjBet * 1.5); cls = 'good';
+    } else if (dBJ && !pBJ) {
+      txt = '庄家黑杰克，输 ' + fmt(bjBet); cls = 'bad';
+    } else if (pt > 21) {
+      txt = '你爆牌，输 ' + fmt(bjBet); cls = 'bad';
+    } else if (dt > 21) {
+      payout = bjBet * 2; txt = '庄家爆牌（' + dt + '），赢 ' + fmt(bjBet); cls = 'good';
+    } else if (pt > dt) {
+      payout = bjBet * 2; txt = '你 ' + pt + ' : ' + dt + '，赢 ' + fmt(bjBet); cls = 'good';
+    } else if (pt === dt) {
+      payout = bjBet; txt = '平局，退还 ' + fmt(bjBet);
+    } else {
+      txt = '你 ' + pt + ' : ' + dt + '，输 ' + fmt(bjBet); cls = 'bad';
+    }
+
+    state.bal += payout;
+    state.rounds++;
+    addHist('21点 ' + pt + ':' + dt, payout - bjBet);
+    updateWallet();
+    setMsg('bjMsg', txt, cls);
+    endBJ();
+  }
+
+  function endBJ(){
+    bjPlaying = false;
+    $('bjDeal').disabled = false;
+    $('bjHit').disabled = true;
+    $('bjStand').disabled = true;
+  }
+
+  /* ============================================================
+     轮盘（欧洲单零 0-36）
+     ============================================================ */
+  var RED = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+  var rlSel = null, rlSpin = false;
+
+  function isRed(n){ return RED.indexOf(n) >= 0; }
+
+  (function buildRoulette(){
+    var h = '';
+    for (var n = 0; n <= 36; n++) {
+      var cls = n === 0 ? 'g' : (isRed(n) ? 'r' : 'b');
+      h += '<div class="rn ' + cls + '" data-n="' + n + '">' + n + '</div>';
+    }
+    $('rlGrid').innerHTML = h;
+    $('rlGrid').addEventListener('click', function(e){
+      var el = e.target.closest('.rn');
+      if (!el || rlSpin) return;
+      var all = $('rlGrid').querySelectorAll('.rn');
+      for (var i = 0; i < all.length; i++) all[i].classList.remove('sel');
+      el.classList.add('sel');
+      rlSel = { type: 'number', value: parseInt(el.getAttribute('data-n'), 10) };
+      setMsg('rlMsg', '已选号码 ' + rlSel.value);
+    });
+  })();
+
+  function pickSide(type, label){
+    if (rlSpin) return;
+    var all = $('rlGrid').querySelectorAll('.rn');
+    for (var i = 0; i < all.length; i++) all[i].classList.remove('sel');
+    rlSel = { type: type, value: null };
+    setMsg('rlMsg', '已选「' + label + '」');
+  }
+
+  function doSpin(){
+    if (rlSpin) return;
+    if (!rlSel) { setMsg('rlMsg', '先选个号码或押注类型', 'bad'); return; }
+    var bet = parseFloat($('rlBet').value);
+    if (isNaN(bet) || bet <= 0) { setMsg('rlMsg', '请输入有效下注额', 'bad'); return; }
+    if (bet > state.bal) { setMsg('rlMsg', '余额不足', 'bad'); return; }
+
+    rlSpin = true;
+    state.bal -= bet;
+    updateWallet();
+
+    var n = rnd(37); // 0..36
+    var all = $('rlGrid').querySelectorAll('.rn');
+    for (var i = 0; i < all.length; i++) {
+      if (parseInt(all[i].getAttribute('data-n'), 10) === n) {
+        all[i].classList.add('hit');
+        var el = all[i];
+        setTimeout(function(){ el.classList.remove('hit'); }, 600);
+      }
+    }
+
+    var win = false, payout = 0, desc = '';
+    if (rlSel.type === 'number') {
+      win = (n === rlSel.value);
+      if (win) { payout = bet * 36; desc = '押中 ' + n + '（35:1）'; }
+      else desc = '开 ' + n + '，押 ' + rlSel.value + ' 未中';
+    } else if (rlSel.type === 'red') {
+      win = (n !== 0 && isRed(n));
+      if (win) { payout = bet * 2; desc = '开 ' + n + ' 红，赢'; }
+      else desc = '开 ' + n + '（' + (n === 0 ? '绿 0' : '黑') + '），押红输';
+    } else if (rlSel.type === 'black') {
+      win = (n !== 0 && !isRed(n));
+      if (win) { payout = bet * 2; desc = '开 ' + n + ' 黑，赢'; }
+      else desc = '开 ' + n + '（' + (n === 0 ? '绿 0' : '红') + '），押黑输';
+    } else if (rlSel.type === 'odd') {
+      win = (n !== 0 && n % 2 === 1);
+      if (win) { payout = bet * 2; desc = '开 ' + n + ' 单，赢'; }
+      else desc = '开 ' + n + '，押单输';
+    } else if (rlSel.type === 'even') {
+      win = (n !== 0 && n % 2 === 0);
+      if (win) { payout = bet * 2; desc = '开 ' + n + ' 偶，赢'; }
+      else desc = '开 ' + n + '，押偶输';
+    }
+
+    state.bal += payout;
+    state.rounds++;
+    addHist('轮盘 ' + desc, payout - bet);
+    updateWallet();
+    setMsg('rlMsg', desc + '（' + (payout - bet >= 0 ? '+' : '') + fmt(payout - bet) + '）',
+           payout - bet >= 0 ? 'good' : 'bad');
+
+    setTimeout(function(){ rlSpin = false; }, 600);
+  }
+
+  /* ============================================================
+     老虎机
+     ============================================================ */
+  var SYMS = [
+    { e:'🍒', m:5 },
+    { e:'🍋', m:8 },
+    { e:'🔔', m:12 },
+    { e:'💎', m:25 },
+    { e:'7️⃣', m:50 }
+  ];
+  // 权重：越值钱的越难出（总权重 100）
+  var WEIGHTS = [32, 26, 18, 14, 10];
+  var slSpin = false;
+
+  function pickSym(){
+    var total = 0, i;
+    for (i = 0; i < WEIGHTS.length; i++) total += WEIGHTS[i];
+    var r = rnd(total), acc = 0;
+    for (i = 0; i < WEIGHTS.length; i++) {
+      acc += WEIGHTS[i];
+      if (r < acc) return i;
+    }
+    return 0;
+  }
+
+  function doSlots(){
+    if (slSpin) return;
+    var bet = parseFloat($('slBet').value);
+    if (isNaN(bet) || bet <= 0) { setMsg('slMsg', '请输入有效下注额', 'bad'); return; }
+    if (bet > state.bal) { setMsg('slMsg', '余额不足', 'bad'); return; }
+
+    slSpin = true;
+    state.bal -= bet;
+    updateWallet();
+    $('slSpin').disabled = true;
+
+    var reels = [$('sl0'), $('sl1'), $('sl2')];
+    var finalIdx = [pickSym(), pickSym(), pickSym()];
+    var ticks = [0, 0, 0];
+    var maxTicks = [12, 16, 20];
+
+    reels.forEach(function(r, i){
+      r.classList.add('spin');
+      var timer = setInterval(function(){
+        ticks[i]++;
+        r.textContent = SYMS[pickSym()].e;
+        if (ticks[i] >= maxTicks[i]) {
+          clearInterval(timer);
+          r.classList.remove('spin');
+          r.textContent = SYMS[finalIdx[i]].e;
+          if (i === 2) finishSlots(finalIdx, bet);
+        }
+      }, 70 + i * 15);
+    });
+  }
+
+  function finishSlots(idx, bet){
+    var hit = (idx[0] === idx[1] && idx[1] === idx[2]);
+    var payout = 0, desc = '', cls = '';
+
+    if (hit) {
+      payout = bet * SYMS[idx[0]].m;
+      desc = '三个 ' + SYMS[idx[0]].e + '！中 ' + SYMS[idx[0]].m + ' 倍，赢 ' + fmt(payout - bet);
+      cls = 'good';
+      ['sl0','sl1','sl2'].forEach(function(id){ $(id).classList.add('hit'); });
+      setTimeout(function(){
+        ['sl0','sl1','sl2'].forEach(function(id){ $(id).classList.remove('hit'); });
+      }, 900);
+    } else {
+      desc = '没中，输 ' + fmt(bet);
+      cls = 'bad';
+    }
+
+    state.bal += payout;
+    state.rounds++;
+    addHist('老虎机', payout - bet);
+    updateWallet();
+    setMsg('slMsg', desc, cls);
+
+    slSpin = false;
+    $('slSpin').disabled = false;
+  }
+
+  /* ============================================================
+     切换 & 绑定
+     ============================================================ */
+  var tabs = document.querySelectorAll('.tabs button');
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].addEventListener('click', function(){
+      for (var k = 0; k < tabs.length; k++) tabs[k].classList.remove('on');
+      this.classList.add('on');
+      var g = this.getAttribute('data-g');
+      $('pane-bj').style.display = (g === 'bj') ? '' : 'none';
+      $('pane-rl').style.display = (g === 'rl') ? '' : 'none';
+      $('pane-sl').style.display = (g === 'sl') ? '' : 'none';
+    });
+  }
+
+  $('bjDeal').addEventListener('click', bjDeal);
+  $('bjHit').addEventListener('click', bjHit);
+  $('bjStand').addEventListener('click', bjStand);
+
+  $('rlRed').addEventListener('click', function(){ pickSide('red', '红'); });
+  $('rlBlack').addEventListener('click', function(){ pickSide('black', '黑'); });
+  $('rlOdd').addEventListener('click', function(){ pickSide('odd', '单'); });
+  $('rlEven').addEventListener('click', function(){ pickSide('even', '双'); });
+  $('rlSpin').addEventListener('click', doSpin);
+
+  $('slSpin').addEventListener('click', doSlots);
+
+  // 初始化
+  newDeck();
+  updateWallet();
+  renderBJ([], [], false);
+  $('bjDS').textContent = '—';
+  $('bjPS').textContent = '—';
+
+})();
+</script>
+</body>
+</html>

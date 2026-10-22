@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🔌 RC/RL·LC 电路计算</title>
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+  html,body { min-height:100%; background:radial-gradient(120% 80% at 50% 0%, #14283a 0%, #0a1622 60%, #060a10 100%); }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; color:#dbeafe; padding:6px 6px 12px;
+    user-select:none; display:flex; justify-content:center; }
+  #wrap { width:100%; max-width:580px; }
+  .back { display:inline-block; text-decoration:none; color:#6b8fb3; font-size:13px; margin-bottom:12px;
+    padding:6px 12px; border:1px solid #22384c; border-radius:20px; }
+  h1 { font-size:12px; color:#9fe0ff; text-align:center; margin-bottom:6px; }
+  .sub { text-align:center; color:#5b7a99; font-size:12px; margin-bottom:16px; }
+  .tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+  .tabs button { padding:10px 4px; font-size:13.5px; font-weight:600; color:#8fb3cf; background:#111a24;
+    border:1px solid #24384c; border-radius:10px; cursor:pointer; font-family:inherit; }
+  .tabs button.on { background:linear-gradient(160deg,#2e6ea8,#1b4670); color:#fff; border-color:#4d8fc9; }
+  .card { background:#0e1a26; border:1px solid #24384c; border-radius:12px; padding:14px; margin-bottom:12px; }
+  .lbl { font-size:11px; color:#6b8fb3; margin-bottom:9px; letter-spacing:1px; }
+  .f { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .f label { width:82px; font-size:13px; color:#9fe0ff; }
+  .f input, .f select { flex:1; background:#060a10; border:1px solid #24384c; border-radius:9px; padding:10px 11px;
+    color:#eaf4ff; font-size:14px; font-family:inherit; }
+  .f input:focus, .f select:focus { outline:none; border-color:#4d8fc9; }
+  .r { display:flex; justify-content:space-between; padding:9px 12px; background:#060a10; border-radius:9px;
+    margin-bottom:7px; font-size:14px; }
+  .r .k { color:#8fb3cf; }
+  .r .v { color:#8fe0c0; font-weight:700; font-family:ui-monospace,monospace; }
+  .hint { font-size:12px; color:#5b7a99; margin-top:8px; line-height:1.6; }
+  .ver { text-align:center; color:#22383c; font-size:10px; margin-top:22px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <a class="back" href="../">← 回大厅</a>
+  <h1>🔌 RC / RL / LC 电路</h1>
+  <div class="sub">时间常数 · 谐振频率 · 充放电</div>
+
+  <div class="tabs" id="tabs">
+    <button data-m="rc" class="on">RC 时间常数</button>
+    <button data-m="rl">RL 时间常数</button>
+    <button data-m="lc">LC 谐振</button>
+  </div>
+
+  <div class="card">
+    <div class="lbl">参数</div>
+    <div id="inputs"></div>
+    <div class="hint" id="hint"></div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">结果</div>
+    <div id="out"></div>
+  </div>
+  <div class="ver">v1.0.0-RC/RL/LC 20261016</div>
+</div>
+<script>
+(function(){
+'use strict';
+  // 依据：RC 时间常数 τ=RC、RL 时间常数 τ=L/R、LC 谐振 f=1/(2π√(LC))（基础电路理论）。
+  const $ = id => document.getElementById(id);
+  let mode = "rc";
+
+  // 工程单位换算表（值 → SI）
+  const UNITS = {
+    R:  [["Ω",1],["kΩ",1e3],["MΩ",1e6]],
+    C:  [["F",1],["mF",1e-3],["µF",1e-6],["nF",1e-9],["pF",1e-12]],
+    L:  [["H",1],["mH",1e-3],["µH",1e-6]],
+    freq:[["Hz",1],["kHz",1e3],["MHz",1e6]],
+  };
+
+  function field(id, label, unitKey, defUnit){
+    const opts = UNITS[unitKey].map(([n])=>(`<option>${n}</option>`)).join("");
+    return `<div class="f"><label>${label}</label><input type="text" id="${id}" inputmode="decimal">
+      <select id="${id}u" style="flex:0 0 84px">${opts}</select></div>`;
+  }
+
+  const LAYOUT = {
+    rc: { fields:[["R","电阻 R","R"],["C","电容 C","C"]], vals:(v)=>{ const t=v.R*v.C;
+      return [["时间常数 τ = RC", fmtT(t)],["充电到 63.2%（1τ）", fmtT(t)],["到 99.3%（5τ）", fmtT(5*t)],["截止频率 fc", fmtHz(1/(2*Math.PI*t))]]; } },
+    rl: { fields:[["R","电阻 R","R"],["L","电感 L","L"]], vals:(v)=>{ const t=v.L/v.R;
+      return [["时间常数 τ = L/R", fmtT(t)],["到 63.2%（1τ）", fmtT(t)],["到 99.3%（5τ）", fmtT(5*t)],["截止频率 fc", fmtHz(v.R/(2*Math.PI*v.L))]]; } },
+    lc: { fields:[["L","电感 L","L"],["C","电容 C","C"]], vals:(v)=>{ const f=1/(2*Math.PI*Math.sqrt(v.L*v.C));
+      return [["谐振频率 f", fmtHz(f)],["角频率 ω", (2*Math.PI*f).toExponential(4)+" rad/s"],["周期 T", fmtT(1/f)],["谐振条件", "XL = XC"]]; } },
+  };
+
+  function fmtT(t){ // 秒
+    if(t >= 1) return t.toFixed(4).replace(/\.?0+$/,"")+" s";
+    if(t >= 1e-3) return (t*1e3).toFixed(4).replace(/\.?0+$/,"")+" ms";
+    if(t >= 1e-6) return (t*1e6).toFixed(4).replace(/\.?0+$/,"")+" µs";
+    return (t*1e9).toFixed(4).replace(/\.?0+$/,"")+" ns";
+  }
+  function fmtHz(f){
+    if(f >= 1e6) return (f/1e6).toFixed(4).replace(/\.?0+$/,"")+" MHz";
+    if(f >= 1e3) return (f/1e3).toFixed(4).replace(/\.?0+$/,"")+" kHz";
+    return f.toFixed(4).replace(/\.?0+$/,"")+" Hz";
+  }
+
+  function build(){
+    const cfg = LAYOUT[mode];
+    $("inputs").innerHTML = cfg.fields.map(f => field(f[0], f[1], f[2])).join("");
+    // 默认单位选中间档
+    cfg.fields.forEach(f => {
+      const arr = UNITS[f[2]];
+      $(f[0]+"u").selectedIndex = Math.min(1, arr.length-1);
+    });
+    $("hint").textContent = {rc:"τ=RC：电容充电/放电的时间尺度", rl:"τ=L/R：电感电流建立的时间尺度", lc:"f=1/(2π√LC)：LC 谐振频率"}[mode];
+    calc();
+    cfg.fields.forEach(f => { $(f[0]).addEventListener("input", calc); $(f[0]+"u").addEventListener("change", calc); });
+  }
+
+  function calc(){
+    const cfg = LAYOUT[mode];
+    const v = {};
+    for(const [id] of cfg.fields){
+      const x = parseFloat($(id).value);
+      if(isNaN(x)){ $("out").innerHTML = "<span style='color:#5b7a99'>填入参数自动计算</span>"; return; }
+      const ui = $(id+"u").selectedIndex;
+      v[id] = x * UNITS[cfg.fields.find(f=>f[0]===id)[2]][ui][1];
+    }
+    $("out").innerHTML = cfg.vals(v).map(([k,val]) => `<div class="r"><span class="k">${k}</span><span class="v">${val}</span></div>`).join("");
+  }
+
+  $("tabs").addEventListener("click", e => {
+    const b = e.target.closest("button"); if(!b) return;
+    mode = b.dataset.m;
+    [...$("tabs").children].forEach(x => x.classList.toggle("on", x===b));
+    build();
+  });
+  build();
+})();
+</script>
+</body>
+</html>

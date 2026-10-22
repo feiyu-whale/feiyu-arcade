@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🔊 分贝叠加</title>
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+  html,body { min-height:100%; background:radial-gradient(120% 80% at 50% 0%, #14283a 0%, #0a1622 60%, #060a10 100%); }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; color:#dbeafe; padding:6px 6px 12px;
+    user-select:none; display:flex; justify-content:center; }
+  #wrap { width:100%; max-width:560px; }
+  .back { display:inline-block; text-decoration:none; color:#6b8fb3; font-size:13px; margin-bottom:12px;
+    padding:6px 12px; border:1px solid #22384c; border-radius:20px; }
+  h1 { font-size:12px; color:#8fe0c0; text-align:center; margin-bottom:6px; }
+  .sub { text-align:center; color:#5b7a99; font-size:12px; margin-bottom:16px; line-height:1.6; }
+  .card { background:#0e1a26; border:1px solid #24384c; border-radius:12px; padding:14px; margin-bottom:12px; }
+  .lbl { font-size:11px; color:#6b8fb3; margin-bottom:9px; letter-spacing:1px; }
+  .f { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .f label { width:66px; font-size:13px; color:#8fe0c0; }
+  .f input { flex:1; background:#060a10; border:1px solid #24384c; border-radius:9px; padding:10px 11px;
+    color:#eaf4ff; font-size:14px; font-family:inherit; }
+  .f input:focus { outline:none; border-color:#4d8fc9; }
+  .f select { flex:1; background:#060a10; border:1px solid #24384c; border-radius:9px; padding:10px 11px;
+    color:#eaf4ff; font-size:14px; font-family:inherit; }
+  .f select:focus { outline:none; border-color:#4d8fc9; }
+  .f .u { font-size:12px; color:#6b8fb3; width:44px; }
+  .hint { font-size:12px; color:#5b7a99; margin-top:6px; line-height:1.6; }
+  .out { margin-top:12px; }
+  .r { display:flex; justify-content:space-between; padding:9px 12px; background:#060a10; border-radius:9px;
+    margin-bottom:7px; font-size:14px; }
+  .r .k { color:#8fb3cf; }
+  .r .v { color:#8fe0c0; font-weight:700; font-family:ui-monospace,monospace; }
+  .big { text-align:center; padding:16px; background:#060a10; border-radius:10px; margin-bottom:10px; }
+  .big .num { font-size:12px; color:#8fe0c0; font-weight:700; font-family:ui-monospace,monospace; }
+  .big .unit { font-size:14px; color:#6b8fb3; }
+  .btn { width:100%; padding:12px; background:#1c4a3a; border:1px solid #2e6f5e; border-radius:9px;
+    color:#8fe0c0; font-size:14px; cursor:pointer; font-family:inherit; }
+  .btn:active { background:#265a48; }
+  .list { max-height:220px; overflow-y:auto; }
+  .li { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:#060a10;
+    border-radius:8px; margin-bottom:6px; font-size:13px; }
+  .li .x { color:#e06060; cursor:pointer; padding:0 6px; font-size:16px; }
+  .ver { text-align:center; color:#22383c; font-size:10px; margin-top:22px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <a class="back" href="../">← 回大厅</a>
+  <h1>🔊 分贝叠加</h1>
+  <div class="sub">多个声源同时发声，总声压级怎么算</div>
+
+  <div class="card">
+    <div class="lbl">输入一个声源（可多次添加）</div>
+    <div class="f">
+      <label>声压级</label>
+      <input type="text" id="val" inputmode="decimal" placeholder="例如 80">
+      <span class="u">dB</span>
+    </div>
+    <div class="f">
+      <label>计权</label>
+      <select id="weight">
+        <option value="SPL">声压级 Lp</option>
+        <option value="PWL">声功率级 Lw</option>
+      </select>
+      <span class="u"></span>
+    </div>
+    <button class="btn" id="add">＋ 添加</button>
+    <div class="hint">声压级（Lp）与声功率级（Lw）公式相同，都是 10·log₁₀(Σ10^(L/10))，可混合计算。</div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">声源列表</div>
+    <div class="list" id="list"></div>
+    <button class="btn" id="clear" style="margin-top:8px;background:#3a1c1c;border-color:#6f2e2e;color:#e08">清空</button>
+  </div>
+
+  <div class="card">
+    <div class="lbl">结果</div>
+    <div class="big">
+      <div class="num" id="total">—</div>
+      <div class="unit">dB（总声压级）</div>
+    </div>
+    <div class="out" id="out"></div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">常用参考</div>
+    <div class="hint">
+      · 两个等值声源叠加：<b>+3 dB</b><br>
+      · 四个等值声源叠加：<b>+6 dB</b><br>
+      · 十个等值声源叠加：<b>+10 dB</b><br>
+      · 相差 10 dB 的两个声源：大的为主，小的加 <b>0.4 dB</b><br>
+      · 相差 20 dB 以上：小的可忽略
+    </div>
+  </div>
+
+  <div class="ver">v1.0.0-分贝叠加 20261017</div>
+</div>
+<script>
+(function(){
+'use strict';
+  // 依据：声学基础——多个非相干声源的能量可加，总声压级
+  //   L_total = 10·log10( Σ 10^(Li/10) )
+  // 来源（具体标准与文献）：
+  //   ① ISO 3744:2010 / ISO 3746:2010《声学—声压法测定噪声源声功率级》
+  //      ——多声源声功率级合成的能量相加原则（Lw,tot = 10·lg Σ 10^(Lw,i/10)）
+  //   ② GB/T 6882-2016（等同采用 ISO 3744）——机器设备噪声测量
+  //   ③ 《声学基础》教材（南京大学 杜功焕等）——声压级叠加推导
+  //   说明：声压级在自由场中同样遵循能量相加（声压平方相加），
+  //     故非相干声源合成公式与声功率级合成同形。
+  // 注意：本工具只处理「非相干」声源（常规噪声场景）。相干声源（相位固定）
+  //   需按幅值线性叠加，不适用本公式。
+  const $ = id => document.getElementById(id);
+  let items = [];
+
+  function render(){
+    const list = $("list");
+    if(items.length === 0){
+      list.innerHTML = "<div style='color:#5b7a99;font-size:12px;padding:8px'>还没有声源，上面添加</div>";
+    } else {
+      list.innerHTML = items.map((v,i)=>
+        `<div class="li"><span>${i+1}. ${v} dB</span><span class="x" data-i="${i}">×</span></div>`
+      ).join("");
+      list.querySelectorAll(".x").forEach(el=>{
+        el.onclick = () => { items.splice(Number(el.dataset.i),1); render(); };
+      });
+    }
+    calc();
+  }
+
+  function calc(){
+    if(items.length === 0){
+      $("total").textContent = "—";
+      $("out").innerHTML = "<div class='hint' style='text-align:center'>添加声源后显示结果</div>";
+      return;
+    }
+    // 全部转成线性能量（相对值）再求和
+    let sum = 0;
+    items.forEach(l => { sum += Math.pow(10, l/10); });
+    const total = 10 * Math.log10(sum);
+    const maxL = Math.max(...items);
+
+    if(items.length === 1){
+      $("total").textContent = total.toFixed(1);
+      $("out").innerHTML = "";
+      return;
+    }
+
+    $("total").textContent = total.toFixed(1);
+    const rows = [];
+    rows.push(row("声源数量", items.length + " 个"));
+    rows.push(row("最大单源", maxL.toFixed(1) + " dB"));
+    rows.push(row("叠加增量", "+" + (total - maxL).toFixed(1) + " dB"));
+    rows.push(row("能量倍数", (sum / Math.pow(10,maxL/10)).toFixed(2) + " 倍"));
+
+    // 每加一个的增量
+    let lines = "<div class='hint' style='margin-top:8px'><b>逐个叠加过程：</b><br>";
+    let acc = 0;
+    items.forEach((l,i)=>{
+      acc += Math.pow(10, l/10);
+      const t = 10*Math.log10(acc);
+      lines += `${i+1}. ${l} dB → 累计 ${t.toFixed(1)} dB<br>`;
+    });
+    lines += "</div>";
+
+    $("out").innerHTML = rows.join("") + lines;
+  }
+
+  function row(k,v){
+    return `<div class="r"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+  }
+
+  $("add").onclick = () => {
+    const v = $("val").value.trim();
+    if(v === "") return;
+    const n = Number(v);
+    if(isNaN(n)){ alert("请输入数字"); return; }
+    // 声压级合理范围：0 ~ 200 dB（200 dB 已是冲击波级别）
+    if(n < 0 || n > 200){ alert("请输入 0 ~ 200 之间的数值"); return; }
+    items.push(n);
+    $("val").value = "";
+    $("val").focus();
+    render();
+  };
+
+  $("val").onkeydown = e => { if(e.key === "Enter") $("add").click(); };
+  $("clear").onclick = () => { items = []; render(); };
+
+  render();
+})();
+</script>
+</body>
+</html>

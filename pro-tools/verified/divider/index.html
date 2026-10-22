@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🔀 分流/分压电阻</title>
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+  html,body { min-height:100%; background:radial-gradient(120% 80% at 50% 0%, #14283a 0%, #0a1622 60%, #060a10 100%); }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; color:#dbeafe; padding:6px 6px 12px;
+    user-select:none; display:flex; justify-content:center; }
+  #wrap { width:100%; max-width:560px; }
+  .back { display:inline-block; text-decoration:none; color:#6b8fb3; font-size:13px; margin-bottom:12px;
+    padding:6px 12px; border:1px solid #22384c; border-radius:20px; }
+  h1 { font-size:12px; color:#8fe0c0; text-align:center; margin-bottom:6px; }
+  .sub { text-align:center; color:#5b7a99; font-size:12px; margin-bottom:16px; line-height:1.6; }
+  .card { background:#0e1a26; border:1px solid #24384c; border-radius:12px; padding:14px; margin-bottom:12px; }
+  .lbl { font-size:11px; color:#6b8fb3; margin-bottom:9px; letter-spacing:1px; }
+  .tabs { display:flex; gap:8px; margin-bottom:12px; }
+  .tab { flex:1; padding:10px; text-align:center; background:#060a10; border:1px solid #24384c;
+    border-radius:9px; color:#6b8fb3; font-size:13px; cursor:pointer; }
+  .tab.on { background:#1c4a3a; border-color:#2e6f5e; color:#8fe0c0; font-weight:700; }
+  .f { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .f label { width:80px; font-size:13px; color:#8fe0c0; }
+  .f input { flex:1; background:#060a10; border:1px solid #24384c; border-radius:9px; padding:10px 11px;
+    color:#eaf4ff; font-size:14px; font-family:inherit; }
+  .f input:focus { outline:none; border-color:#4d8fc9; }
+  .f .u { font-size:12px; color:#6b8fb3; width:38px; }
+  .hint { font-size:12px; color:#5b7a99; margin-top:6px; line-height:1.6; }
+  .out { margin-top:12px; }
+  .r { display:flex; justify-content:space-between; padding:9px 12px; background:#060a10; border-radius:9px;
+    margin-bottom:7px; font-size:14px; }
+  .r .k { color:#8fb3cf; }
+  .r .v { color:#8fe0c0; font-weight:700; font-family:ui-monospace,monospace; }
+  .ver { text-align:center; color:#22383c; font-size:10px; margin-top:22px; }
+  .mode { display:none; }
+  .mode.on { display:block; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <a class="back" href="../">← 回大厅</a>
+  <h1>🔀 分流 / 分压电阻</h1>
+  <div class="sub">两个电阻串联分压、并联分流</div>
+
+  <div class="tabs">
+    <div class="tab on" data-m="div">分压（串联）</div>
+    <div class="tab" data-m="cur">分流（并联）</div>
+  </div>
+
+  <div class="card mode on" id="m-div">
+    <div class="lbl">串联分压</div>
+    <div class="f"><label>输入电压 Vin</label><input type="text" id="dv_in" inputmode="decimal" placeholder="例如 12"><span class="u">V</span></div>
+    <div class="f"><label>上电阻 R1</label><input type="text" id="dv_r1" inputmode="decimal" placeholder="接 Vin 一侧"><span class="u">Ω</span></div>
+    <div class="f"><label>下电阻 R2</label><input type="text" id="dv_r2" inputmode="decimal" placeholder="接 GND 一侧"><span class="u">Ω</span></div>
+    <div class="hint">分压输出取自 R2 两端：Vout = Vin × R2 / (R1 + R2)</div>
+    <div class="out" id="out-div"></div>
+  </div>
+
+  <div class="card mode" id="m-cur">
+    <div class="lbl">并联分流</div>
+    <div class="f"><label>总电流 I</label><input type="text" id="cu_i" inputmode="decimal" placeholder="例如 1"><span class="u">A</span></div>
+    <div class="f"><label>支路 R1</label><input type="text" id="cu_r1" inputmode="decimal" placeholder="例 100"><span class="u">Ω</span></div>
+    <div class="f"><label>支路 R2</label><input type="text" id="cu_r2" inputmode="decimal" placeholder="例 200"><span class="u">Ω</span></div>
+    <div class="hint">分流公式：I1 = I × R2/(R1+R2)，I2 = I × R1/(R1+R2)</div>
+    <div class="out" id="out-cur"></div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">说明</div>
+    <div class="hint">
+      <b>分压（串联）：</b>I 相同，U₁ = I·R₁，U₂ = I·R₂<br>
+      <b>分流（并联）：</b>U 相同，I₁ = U/R₁，I₂ = U/R₂<br><br>
+      <b>常见用途：</b><br>
+      · 分压：把 12V 信号降到 3.3V 给 MCU 采样<br>
+      · 分流：电流表量程扩展、多路 LED 并联
+    </div>
+  </div>
+
+  <div class="ver">v1.0.0-分流分压 20261017</div>
+</div>
+<script>
+(function(){
+'use strict';
+  // 依据：欧姆定律与串并联基本关系
+  //   串联：R = R1 + R2，I 相同，U_i = I·R_i ⇒ Vout = Vin·R2/(R1+R2)
+  //   并联：1/R = 1/R1 + 1/R2，U 相同，I_i = I·R_other/(R1+R2)
+  // 来源：基础电路理论，无争议。
+  const $ = id => document.getElementById(id);
+
+  function num(id){
+    const s = $(id).value.trim();
+    if(s === "") return null;
+    const n = Number(s);
+    return isNaN(n) ? null : n;
+  }
+  function row(k,v){ return `<div class="r"><span class="k">${k}</span><span class="v">${v}</span></div>`; }
+
+  // 切换标签
+  document.querySelectorAll(".tab").forEach(t => {
+    t.onclick = () => {
+      document.querySelectorAll(".tab").forEach(x => x.classList.remove("on"));
+      document.querySelectorAll(".mode").forEach(x => x.classList.remove("on"));
+      t.classList.add("on");
+      $("m-" + t.dataset.m).classList.add("on");
+    };
+  });
+
+  // 分压
+  function calcDiv(){
+    const vin = num("dv_in"), r1 = num("dv_r1"), r2 = num("dv_r2");
+    if(vin === null || r1 === null || r2 === null){
+      $("out-div").innerHTML = "<div class='hint' style='text-align:center'>填齐三个值</div>";
+      return;
+    }
+    if(r1 < 0 || r2 < 0){
+      $("out-div").innerHTML = "<div class='hint' style='color:#e08;text-align:center'>电阻不能为负</div>";
+      return;
+    }
+    if(r1 + r2 === 0){
+      $("out-div").innerHTML = "<div class='hint' style='color:#e08;text-align:center'>R1 + R2 不能为 0</div>";
+      return;
+    }
+    const vout = vin * r2 / (r1 + r2);
+    const i = vin / (r1 + r2);
+    const u1 = vin - vout;
+    const p1 = u1 * i, p2 = vout * i;
+
+    let html = row("输出电压 Vout", vout.toFixed(4) + " V");
+    html += row("回路电流", (i * 1000).toFixed(3) + " mA");
+    html += row("R1 电压降", u1.toFixed(4) + " V");
+    html += row("分压比", (r2/(r1+r2)).toFixed(4));
+    html += row("R1 功耗", fmtW(p1));
+    html += row("R2 功耗", fmtW(p2));
+    html += row("总功耗", fmtW(p1 + p2));
+
+    // 常见分压建议
+    if(vin > 0 && i > 0.02){
+      html += "<div class='hint' style='color:#e0b060;margin-top:8px'>⚠️ 电流 " + (i*1000).toFixed(1) + " mA 偏大，分压电路一般建议控制在 1 mA 以内（功耗小、不影响信号源）</div>";
+    }
+    $("out-div").innerHTML = html;
+  }
+
+  // 分流
+  function calcCur(){
+    const itotal = num("cu_i"), r1 = num("cu_r1"), r2 = num("cu_r2");
+    if(itotal === null || r1 === null || r2 === null){
+      $("out-cur").innerHTML = "<div class='hint' style='text-align:center'>填齐三个值</div>";
+      return;
+    }
+    if(r1 <= 0 || r2 <= 0){
+      $("out-cur").innerHTML = "<div class='hint' style='color:#e08;text-align:center'>电阻必须大于 0</div>";
+      return;
+    }
+    const i1 = itotal * r2 / (r1 + r2);
+    const i2 = itotal * r1 / (r1 + r2);
+    const req = (r1 * r2) / (r1 + r2);
+    const u = itotal * req;
+
+    let html = row("R1 分流 I1", (i1 * 1000).toFixed(3) + " mA");
+    html += row("R2 分流 I2", (i2 * 1000).toFixed(3) + " mA");
+    html += row("并联等效电阻", fmtR(req));
+    html += row("两端电压", u.toFixed(4) + " V");
+    html += row("R1 功耗", fmtW(i1 * i1 * r1));
+    html += row("R2 功耗", fmtW(i2 * i2 * r2));
+    html += row("总功耗", fmtW(i1 * i1 * r1 + i2 * i2 * r2));
+
+    $("out-cur").innerHTML = html;
+  }
+
+  function fmtW(p){
+    if(p < 1e-3) return (p * 1e6).toFixed(2) + " µW";
+    if(p < 1) return (p * 1000).toFixed(3) + " mW";
+    return p.toFixed(4) + " W";
+  }
+  function fmtR(r){
+    if(r < 1) return (r * 1000).toFixed(2) + " mΩ";
+    if(r >= 1e6) return (r / 1e6).toFixed(3) + " MΩ";
+    if(r >= 1000) return (r / 1000).toFixed(3) + " kΩ";
+    return r.toFixed(2) + " Ω";
+  }
+
+  ["dv_in","dv_r1","dv_r2"].forEach(id => $(id).addEventListener("input", calcDiv));
+  ["cu_i","cu_r1","cu_r2"].forEach(id => $(id).addEventListener("input", calcCur));
+})();
+</script>
+</body>
+</html>

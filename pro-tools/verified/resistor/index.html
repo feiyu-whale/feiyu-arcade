@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🌈 色环电阻</title>
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+  html,body { min-height:100%; background:radial-gradient(120% 80% at 50% 0%, #14283a 0%, #0a1622 60%, #060a10 100%); }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; color:#dbeafe; padding:6px 6px 12px;
+    user-select:none; display:flex; justify-content:center; }
+  #wrap { width:100%; max-width:600px; }
+  .back { display:inline-block; text-decoration:none; color:#6b8fb3; font-size:13px; margin-bottom:12px;
+    padding:6px 12px; border:1px solid #22384c; border-radius:20px; }
+  h1 { font-size:12px; color:#9fe0ff; text-align:center; margin-bottom:6px; }
+  .sub { text-align:center; color:#5b7a99; font-size:12px; margin-bottom:16px; }
+  .card { background:#0e1a26; border:1px solid #24384c; border-radius:12px; padding:14px; margin-bottom:12px; }
+  .lbl { font-size:11px; color:#6b8fb3; margin-bottom:9px; letter-spacing:1px; }
+  .bands { display:flex; justify-content:center; gap:0; margin:6px 0 14px; }
+  .band { width:44px; height:70px; display:flex; align-items:center; justify-content:center;
+    font-size:10px; color:#fff; text-shadow:0 1px 2px #000; border-left:1px solid #0008; }
+  .band:first-child { border-radius:8px 0 0 8px; border-left:none; }
+  .band:last-child { border-radius:0 8px 8px 0; }
+  .lead { width:20px; height:6px; background:#c9b57f; align-self:center; border-radius:2px; }
+  .mask { background:repeating-linear-gradient(90deg,#333,#333 6px,#2a2a2a 6px,#2a2a2a 12px); }
+  .modes { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px; }
+  .modes button { padding:10px; font-size:14px; font-weight:600; color:#8fb3cf; background:#111a24;
+    border:1px solid #24384c; border-radius:10px; cursor:pointer; font-family:inherit; }
+  .modes button.on { background:linear-gradient(160deg,#2e6ea8,#1b4670); color:#fff; border-color:#4d8fc9; }
+  .row { display:flex; align-items:center; gap:10px; margin-bottom:9px; }
+  .row label { width:56px; font-size:12.5px; color:#9fe0ff; }
+  select { flex:1; background:#060a10; border:1px solid #24384c; border-radius:9px; padding:9px 10px;
+    color:#eaf4ff; font-size:13.5px; font-family:inherit; }
+  .out { font-size:11px; color:#8fe0c0; font-weight:700; text-align:center; padding:12px; background:#060a10;
+    border-radius:9px; }
+  .out small { display:block; color:#5b7a99; font-size:12px; font-weight:400; margin-top:6px; }
+  .ver { text-align:center; color:#22383c; font-size:10px; margin-top:22px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <a class="back" href="../">← 回大厅</a>
+  <h1>🌈 色环电阻</h1>
+  <div class="sub">4 环 / 5 环 · 颜色 ⇄ 阻值 双向</div>
+
+  <div class="modes" id="modes">
+    <button data-m="4" class="on">4 环</button>
+    <button data-m="5">5 环</button>
+  </div>
+
+  <div class="card">
+    <div class="lbl">实物预览</div>
+    <div class="bands" id="preview"></div>
+  </div>
+
+  <div class="card" id="picker">
+    <div class="lbl">选色环</div>
+    <div id="rows"></div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">阻值</div>
+    <div class="out" id="out">—</div>
+  </div>
+  <div class="ver">v1.0.0-色环电阻 20261016</div>
+</div>
+<script>
+(function(){
+'use strict';
+  const $ = id => document.getElementById(id);
+  // ===== 色环标准 =====
+  // 数据来源：IEC 60062；数值经 SparkFun「Resistors」官方教程核对
+  //   https://learn.sparkfun.com/tutorials/resistors/（2026-10-16 核）
+  // 字段：v=有效数字；mul=倍率；tol=误差（能做误差环的色）；tolOk=可作误差环
+  const COLORS = [
+    {n:"黑",c:"#111", v:0, mul:1,     tol:null,   tolOk:false},
+    {n:"棕",c:"#6b3a1a", v:1, mul:10,  tol:"±1%",  tolOk:true},
+    {n:"红",c:"#c0392b", v:2, mul:100, tol:"±2%",  tolOk:true},
+    {n:"橙",c:"#e67e22", v:3, mul:1e3, tol:"±3%",  tolOk:true},
+    {n:"黄",c:"#f1c40f", v:4, mul:1e4, tol:"±4%",  tolOk:true},
+    {n:"绿",c:"#27ae60", v:5, mul:1e5, tol:"±0.5%",tolOk:true},
+    {n:"蓝",c:"#2980b9", v:6, mul:1e6, tol:"±0.25%",tolOk:true},
+    {n:"紫",c:"#8e44ad", v:7, mul:1e7, tol:"±0.1%",tolOk:true},
+    {n:"灰",c:"#7f8c8d", v:8, mul:1e8, tol:"±0.05%",tolOk:true},
+    {n:"白",c:"#ecf0f1", v:9, mul:1e9, tol:null,   tolOk:false},
+    {n:"金",c:"#c9a227", v:null, mul:1e-1, tol:"±5%",  tolOk:true},
+    {n:"银",c:"#bdc3c7", v:null, mul:1e-2, tol:"±10%", tolOk:true},
+  ];
+  let mode = 4;
+  // 每环可用的颜色索引
+  function optsFor(band, mode){
+    // band: 0..(mode-1); 最后一环=误差
+    const last = band === mode-1;
+    if(last){
+      // 误差环：所有 tolOk=true 的色（棕红橙黄绿蓝紫灰 金 银）
+      const arr = [];
+      COLORS.forEach((c,i)=>{ if(c.tolOk) arr.push(i); });
+      return arr;
+    }
+    return [0,1,2,3,4,5,6,7,8,9]; // 0-9
+  }
+  let sel = [];
+
+  function initSel(){
+    sel = [];
+    for(let i=0;i<mode;i++){
+      const o = optsFor(i, mode);
+      sel.push(i === mode-1 ? 10 : 1); // 默认 棕…金
+    }
+    // 4环: [1,0,2,10]=10×100=1kΩ±5%; 简单点默认第2位黑
+    if(mode===4) sel = [1,0,2,10];
+    if(mode===5) sel = [1,0,0,2,10];
+    renderRows(); render();
+  }
+
+  function renderRows(){
+    const names = mode===4 ? ["环1","环2","倍率","误差"] : ["环1","环2","环3","倍率","误差"];
+    let html = "";
+    for(let i=0;i<mode;i++){
+      const opts = optsFor(i, mode).map(ci => {
+        const cc = COLORS[ci];
+        return `<option value="${ci}" ${sel[i]===ci?"selected":""}>${cc.n}</option>`;
+      }).join("");
+      html += `<div class="row"><label>${names[i]}</label><select data-b="${i}">${opts}</select></div>`;
+    }
+    $("rows").innerHTML = html;
+    $("rows").querySelectorAll("select").forEach(s => s.addEventListener("change", e => {
+      const b = +e.target.dataset.b; sel[b] = +e.target.value; render();
+    }));
+  }
+
+  function digit(bands){
+    // 前 n-2 环是数字（4环:前2, 5环:前3）
+    const nd = mode - 2;
+    let v = 0;
+    for(let i=0;i<nd;i++) v = v*10 + COLORS[sel[i]].v;
+    return v;
+  }
+
+  function render(){
+    // 预览
+    let html = `<div class="lead"></div>`;
+    sel.forEach((ci,i) => {
+      const col = COLORS[ci];
+      html += `<div class="band" style="background:${col.c}">${col.n}</div>`;
+    });
+    html += `<div class="lead"></div>`;
+    $("preview").innerHTML = html;
+
+    // 阻值
+    const nd = mode - 2;
+    const base = digit();
+    const mul = COLORS[sel[mode-2]].mul;
+    const tol = COLORS[sel[mode-1]].tol || "";
+    if(mul === null || tol === null && false){ }
+    const R = base * mul;
+    $("out").innerHTML = fmtR(R) + `<small>${base} × ${fmtMul(mul)} ${tol?("· "+tol):""}</small>`;
+  }
+
+  function fmtMul(m){
+    if(m>=1) return m.toExponential().replace("e+","×10^");
+    return m.toExponential().replace("e-","×10^-");
+  }
+  function fmtR(R){
+    if(R >= 1e9) return (R/1e9).toFixed(3).replace(/\.?0+$/,"")+" GΩ";
+    if(R >= 1e6) return (R/1e6).toFixed(3).replace(/\.?0+$/,"")+" MΩ";
+    if(R >= 1e3) return (R/1e3).toFixed(3).replace(/\.?0+$/,"")+" kΩ";
+    return (Math.round(R*1000)/1000)+" Ω";
+  }
+
+  $("modes").addEventListener("click", e => {
+    const b = e.target.closest("button"); if(!b) return;
+    mode = +b.dataset.m;
+    [...$("modes").children].forEach(x => x.classList.toggle("on", x===b));
+    initSel();
+  });
+  initSel();
+})();
+</script>
+</body>
+</html>

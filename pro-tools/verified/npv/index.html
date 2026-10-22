@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>💰 NPV 净现值</title>
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+  html,body { min-height:100%; background:radial-gradient(120% 80% at 50% 0%, #14283a 0%, #0a1622 60%, #060a10 100%); }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; color:#dbeafe; padding:6px 6px 12px;
+    user-select:none; display:flex; justify-content:center; }
+  #wrap { width:100%; max-width:560px; }
+  .back { display:inline-block; text-decoration:none; color:#6b8fb3; font-size:13px; margin-bottom:12px;
+    padding:6px 12px; border:1px solid #22384c; border-radius:20px; }
+  h1 { font-size:12px; color:#8fe0c0; text-align:center; margin-bottom:6px; }
+  .sub { text-align:center; color:#5b7a99; font-size:12px; margin-bottom:16px; line-height:1.6; }
+  .card { background:#0e1a26; border:1px solid #24384c; border-radius:12px; padding:14px; margin-bottom:12px; }
+  .lbl { font-size:11px; color:#6b8fb3; margin-bottom:9px; letter-spacing:1px; }
+  .f { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .f label { width:80px; font-size:13px; color:#8fe0c0; }
+  .f input { flex:1; background:#060a10; border:1px solid #24384c; border-radius:9px; padding:10px 11px;
+    color:#eaf4ff; font-size:14px; font-family:inherit; }
+  .f input:focus { outline:none; border-color:#4d8fc9; }
+  .f .u { font-size:12px; color:#6b8fb3; width:34px; }
+  .hint { font-size:12px; color:#5b7a99; margin-top:6px; line-height:1.6; }
+  .big { text-align:center; padding:16px; background:#060a10; border-radius:10px; margin-bottom:10px; }
+  .big .num { font-size:12px; font-weight:700; font-family:ui-monospace,monospace; }
+  .big .unit { font-size:13px; color:#6b8fb3; }
+  .pos { color:#8fe0c0; }
+  .neg { color:#e07878; }
+  .rows { margin-top:10px; }
+  .rw { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .rw .yr { width:44px; font-size:12px; color:#6b8fb3; }
+  .rw input { flex:1; background:#060a10; border:1px solid #24384c; border-radius:7px; padding:7px 9px;
+    color:#eaf4ff; font-size:13px; font-family:inherit; }
+  .rw input:focus { outline:none; border-color:#4d8fc9; }
+  .btn { width:100%; padding:10px; background:#1c4a3a; border:1px solid #2e6f5e; border-radius:9px;
+    color:#8fe0c0; font-size:13px; cursor:pointer; font-family:inherit; margin-top:6px; }
+  .btn:active { background:#265a48; }
+  .btn2 { background:#3a1c1c; border-color:#6f2e2e; color:#e08; }
+  table { width:100%; border-collapse:collapse; font-size:12px; margin-top:8px; }
+  th { background:#060a10; color:#6b8fb3; padding:7px 6px; text-align:right; font-weight:400; }
+  th:first-child { text-align:left; }
+  td { padding:6px; text-align:right; border-bottom:1px solid #16222e; color:#a9c8e0;
+    font-family:ui-monospace,monospace; }
+  td:first-child { text-align:left; color:#8fb3cf; font-family:inherit; }
+  .ver { text-align:center; color:#22383c; font-size:10px; margin-top:22px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <a class="back" href="../">← 回大厅</a>
+  <h1>💰 NPV 净现值</h1>
+  <div class="sub">按折现率把未来各期现金流折算到现在</div>
+
+  <div class="card">
+    <div class="lbl">参数</div>
+    <div class="f"><label>折现率 r</label><input type="text" id="rate" inputmode="decimal" placeholder="例如 8" value="8"><span class="u">%</span></div>
+    <div class="f"><label>期数 n</label><input type="text" id="periods" inputmode="numeric" placeholder="例如 5" value="5"><span class="u">期</span></div>
+    <div class="hint">折现率按每期计（年利率则每期为一年）。</div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">现金流（第 0 期通常为初始投资，填负数）</div>
+    <div class="rows" id="rows"></div>
+    <button class="btn" id="add">＋ 增加一期</button>
+    <button class="btn btn2" id="reset" style="margin-top:6px">重置</button>
+  </div>
+
+  <div class="card">
+    <div class="lbl">结果</div>
+    <div class="big">
+      <div class="num" id="npv">—</div>
+      <div class="unit">NPV 净现值</div>
+    </div>
+    <div class="out" id="out"></div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">公式依据</div>
+    <div class="hint">
+      <b>NPV = Σ [ CFₜ / (1+r)ᵗ ]</b>　（t = 0, 1, …, n）<br><br>
+      · NPV &gt; 0 → 项目可行（收益超过要求回报）<br>
+      · NPV = 0 → 刚好达到要求回报率<br>
+      · NPV &lt; 0 → 不可行<br><br>
+      <span style="color:#6b8fb3">依据：财务管理标准教材（如《公司理财》Ross 等），DCF 折现现金流法。</span>
+    </div>
+  </div>
+
+  <div class="ver">v1.0.0-NPV净现值 20261017</div>
+</div>
+<script>
+(function(){
+'use strict';
+  // 依据：折现现金流法（DCF）—— NPV = Σ CFt / (1+r)^t，t=0..n
+  //   来源：财务管理标准教材（Ross《公司理财》、CPA《财务成本管理》）
+  //   第 0 期不折现（t=0 时分母为 1）。
+  const $ = id => document.getElementById(id);
+
+  function buildRows(n, keepValues){
+    const old = keepValues || [];
+    const box = $("rows");
+    box.innerHTML = "";
+    for(let t = 0; t <= n; t++){
+      const div = document.createElement("div");
+      div.className = "rw";
+      div.innerHTML = `<span class="yr">第${t}期</span>
+        <input type="text" inputmode="decimal" data-t="${t}" placeholder="${t===0?'初始投资，负数例 -10000':'现金流'}">`;
+      box.appendChild(div);
+    }
+    // 回填旧值
+    box.querySelectorAll("input").forEach(inp => {
+      const t = Number(inp.dataset.t);
+      if(old[t] !== undefined) inp.value = old[t];
+      inp.addEventListener("input", calc);
+    });
+    calc();
+  }
+
+  function collect(){
+    const vals = [];
+    $("rows").querySelectorAll("input").forEach(inp => {
+      const s = inp.value.trim();
+      if(s === ""){ vals.push(null); return; }
+      const v = Number(s);
+      vals.push(isNaN(v) ? null : v);
+    });
+    return vals;
+  }
+
+  function calc(){
+    const rateStr = $("rate").value.trim();
+    const r = rateStr === "" ? null : Number(rateStr) / 100;
+    if(r === null || isNaN(r)){
+      $("npv").textContent = "—";
+      $("out").innerHTML = "";
+      return;
+    }
+    if(r <= -1){
+      $("npv").textContent = "—";
+      $("out").innerHTML = "<div class='hint' style='color:#e08'>折现率需大于 -100%</div>";
+      return;
+    }
+
+    const cfs = collect();
+    if(cfs.every(v => v === null)){
+      $("npv").textContent = "—";
+      $("out").innerHTML = "<div class='hint' style='text-align:center'>填入现金流</div>";
+      return;
+    }
+
+    let npv = 0;
+    const rows = [];
+    cfs.forEach((cf, t) => {
+      if(cf === null){ rows.push({t, cf: null, df: null, pv: null}); return; }
+      const df = 1 / Math.pow(1 + r, t);
+      const pv = cf * df;
+      npv += pv;
+      rows.push({t, cf, df, pv});
+    });
+
+    const cls = npv > 0 ? "pos" : (npv < 0 ? "neg" : "");
+    $("npv").innerHTML = `<span class="${cls}">${fmt(npv)}</span>`;
+
+    // 明细表
+    let html = `<table><tr><th>期次</th><th>现金流</th><th>折现系数</th><th>现值</th></tr>`;
+    rows.forEach(rw => {
+      if(rw.cf === null){
+        html += `<tr><td>第${rw.t}期</td><td>—</td><td>—</td><td>—</td></tr>`;
+        return;
+      }
+      html += `<tr><td>第${rw.t}期</td><td>${fmt(rw.cf)}</td><td>${rw.df.toFixed(6)}</td><td>${fmt(rw.pv)}</td></tr>`;
+    });
+    html += `</table>`;
+
+    // 判断
+    const verdict = npv > 0
+      ? "<span style='color:#8fe0c0'>✅ NPV &gt; 0，项目可行</span>"
+      : (npv < 0
+        ? "<span style='color:#e07878'>❌ NPV &lt; 0，不可行</span>"
+        : "<span style='color:#e0b060'>NPV = 0，刚好保本</span>");
+
+    // 累计
+    let cumHtml = "";
+    const maxT = rows.length - 1;
+    if(maxT <= 12){
+      let acc = 0;
+      const cum = [];
+      rows.forEach(rw => { if(rw.pv !== null){ acc += rw.pv; cum.push(`第${rw.t}期: ${fmt(acc)}`); } });
+      cumHtml = "<div class='hint' style='margin-top:10px'><b>累计现值：</b><br>" + cum.join("<br>") + "</div>";
+    }
+
+    $("out").innerHTML = html +
+      `<div class="hint" style="margin-top:10px;line-height:1.9">
+        <b>折现率：</b>${(r*100).toFixed(2)}%<br>
+        <b>NPV：</b><span class="${cls}">${fmt(npv)}</span><br>
+        ${verdict}
+      </div>` + cumHtml;
+  }
+
+  function fmt(v){
+    if(Math.abs(v) >= 1e8) return v.toExponential(4);
+    return v.toLocaleString("zh-CN", {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  $("add").onclick = () => {
+    const cur = collect();
+    const n = $("rows").querySelectorAll("input").length;
+    buildRows(n, cur); // 增加到 n+1 期（共 n+1 个输入）
+  };
+
+  $("reset").onclick = () => {
+    $("rate").value = "8";
+    $("periods").value = "5";
+    buildRows(5, []);
+  };
+
+  $("rate").addEventListener("input", calc);
+  $("periods").addEventListener("input", () => {
+    const n = Number($("periods").value.trim());
+    if(!isNaN(n) && n >= 0 && n <= 100){
+      const cur = collect();
+      buildRows(n, cur);
+    }
+  });
+
+  buildRows(5, ["-10000", "3000", "3000", "3000", "3000", "3000"]);
+})();
+</script>
+</body>
+</html>

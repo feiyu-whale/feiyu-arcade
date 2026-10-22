@@ -1,0 +1,2471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>The Hollow Carnival</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>The Hollow Carnival</title>
+<style>
+  :root{
+    --bg-0:#0b0509; --bg-1:#170a10; --bg-2:#231020;
+    --panel:#1b0f16e6; --line:rgba(255,255,255,.09);
+    --ink-0:#f1e6d9; --ink-1:#b9a394; --ink-2:#7c6759;
+    --gold:#d4af37; --gold-soft:#e8c766;
+    --blood:#8f1d2c; --blood-soft:#c23a4a;
+    --sick:#6b8f3a; --sick-soft:#8fbf52;
+    --ring:#c23a4a; --mask:#3a8fc2; --candle:#8a5cc9; --wild:#d4af37;
+    --good:#4fd88a; --bad:#e5546a;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, #2d0f1c 0%, transparent 60%),
+      radial-gradient(ellipse 700px 600px at 100% 10%, #1a0e22 0%, transparent 55%),
+      linear-gradient(180deg, var(--bg-0), var(--bg-1) 40%, var(--bg-2));
+    color:var(--ink-0); font-family:'Work Sans', sans-serif;
+    min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  .disp{font-family:'Butcherman', cursive; letter-spacing:.5px;}
+  a{color:inherit;}
+  ::-webkit-scrollbar{width:9px;} ::-webkit-scrollbar-thumb{background:#3a2230; border-radius:5px;}
+
+  .screen{display:none; min-height:100vh; padding:22px 18px 60px;}
+  .screen.show{display:block;}
+  .wrap{max-width:1180px; margin:0 auto;}
+  .topbar{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:18px;}
+  .brand{font-family:'Butcherman',cursive; font-size:30px; color:var(--gold-soft); text-shadow:0 2px 10px #000;}
+  .pill{background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:13px; font-weight:700; display:inline-flex; align-items:center; gap:6px;}
+  .pillrow{display:flex; gap:8px; flex-wrap:wrap;}
+
+  .btn{font-family:'Work Sans',sans-serif; font-weight:700; font-size:13.5px; padding:11px 20px; border-radius:10px; border:1px solid var(--gold); background:linear-gradient(180deg,#3a2313,#241408); color:var(--gold-soft); cursor:pointer;}
+  .btn:hover{filter:brightness(1.15);}
+  .btn:disabled{opacity:.4; cursor:not-allowed; filter:none;}
+  .btn.ghost{background:transparent; border-color:var(--line); color:var(--ink-1);}
+  .btn.danger{border-color:var(--blood); color:var(--blood-soft);}
+  .btn.small{padding:7px 14px; font-size:12px;}
+
+  .card-panel{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:20px;}
+  .grid{display:grid; gap:14px;}
+  .grid.cols3{grid-template-columns:repeat(3,1fr);}
+  .grid.cols2{grid-template-columns:repeat(2,1fr);}
+  @media (max-width:760px){ .grid.cols3,.grid.cols2{grid-template-columns:1fr;} }
+
+  /* ---- Performer select ---- */
+  .perf-card{background:var(--panel); border:2px solid var(--line); border-radius:16px; padding:18px; cursor:pointer; transition:border-color .15s, transform .1s;}
+  .perf-card:hover{transform:translateY(-2px);}
+  .perf-card.selected{border-color:var(--gold);}
+  .perf-card.locked{opacity:.5; cursor:not-allowed;}
+  .perf-card h3{font-family:'Butcherman',cursive; color:var(--gold-soft); font-size:22px; margin:0 0 4px;}
+  .perf-card p{font-size:12.5px; color:var(--ink-1); line-height:1.5;}
+
+  /* ---- Map ---- */
+  .map-wrap{position:relative; overflow-x:auto; overflow-y:hidden; padding:20px 0;}
+  .map-canvas{position:relative; height:420px; min-width:700px;}
+  .map-node{position:absolute; width:52px; height:52px; border-radius:50%; background:#241019; border:2px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:22px; cursor:default; transform:translate(-50%,-50%); transition:transform .1s;}
+  .map-node.available{border-color:var(--gold); cursor:pointer; box-shadow:0 0 16px rgba(212,175,55,.5);}
+  .map-node.available:hover{transform:translate(-50%,-50%) scale(1.12);}
+  .map-node.done{border-color:var(--sick); opacity:.55;}
+  .map-node.current{border-color:var(--blood-soft); box-shadow:0 0 18px rgba(194,58,74,.7);}
+  svg.map-lines{position:absolute; inset:0; pointer-events:none;}
+  svg.map-lines line{stroke:rgba(255,255,255,.14); stroke-width:2;}
+  svg.map-lines line.done{stroke:rgba(107,143,58,.5);}
+
+  /* ---- Combat ---- */
+  .combat-wrap{display:flex; flex-direction:column; min-height:100vh; padding:14px;}
+  .enemy-row{display:flex; gap:28px; justify-content:center; flex-wrap:wrap; padding:20px 0 10px; min-height:180px;}
+  .enemy{text-align:center; cursor:default; position:relative;}
+  .enemy.targetable{cursor:crosshair;}
+  .enemy.targetable .enemy-portrait{animation:enemy-pulse 1s ease-in-out infinite alternate;}
+  @keyframes enemy-pulse{from{filter:drop-shadow(0 0 0 var(--blood-soft));} to{filter:drop-shadow(0 0 14px var(--blood-soft));}}
+  .enemy-portrait{position:relative; width:fit-content; margin:0 auto;}
+  .enemy-portrait.elite{filter:drop-shadow(0 0 8px var(--blood-soft));}
+  .enemy-portrait.boss{filter:drop-shadow(0 0 14px var(--gold));}
+  .e-sprite{display:block; margin:0 auto; image-rendering:pixelated;}
+  .e-badge{position:absolute; bottom:-4px; right:-6px; font-size:14px; background:#000c; border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border:1px solid var(--line);}
+  .e-name{font-size:12px; font-weight:700; margin-top:2px;}
+  .e-bar{width:110px; height:9px; border-radius:5px; background:#000a; margin:5px auto 2px; overflow:hidden; border:1px solid var(--line);}
+  .e-bar i{display:block; height:100%; background:linear-gradient(90deg,#7a1420,var(--blood-soft)); transition:width .35s cubic-bezier(.2,.8,.3,1);}
+  .e-hp{font-size:10.5px; color:var(--ink-1);}
+  .enemy.hit-flash{animation:hit-flash-red .3s ease;}
+  @keyframes hit-flash-red{ 0%{filter:brightness(1);} 30%{filter:brightness(2) saturate(1.4);} 100%{filter:brightness(1);} }
+  .e-intent{font-size:11px; margin-top:4px; background:#000a; border-radius:8px; padding:2px 8px; display:inline-block;}
+  .e-status{display:flex; gap:3px; justify-content:center; margin-top:4px; flex-wrap:wrap;}
+  .status-chip{font-size:10px; background:#0008; border:1px solid var(--line); border-radius:6px; padding:1px 4px;}
+
+  .player-row{display:flex; align-items:center; justify-content:space-between; gap:16px; padding:10px 6px; flex-wrap:wrap;}
+  .p-stat{display:flex; align-items:center; gap:6px; font-weight:700; font-size:14px;}
+  .p-bar-wrap{flex:1; min-width:160px;}
+  .p-bar{height:16px; border-radius:8px; background:#000a; overflow:hidden; border:1px solid var(--line); position:relative;}
+  .p-bar i{display:block; height:100%; background:linear-gradient(90deg,#7a1420,var(--blood-soft)); transition:width .35s cubic-bezier(.2,.8,.3,1);}
+  .p-bar span{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; text-shadow:0 1px 2px #000;}
+  .player-row.hit-flash{animation:hit-flash-red .3s ease;}
+  .player-row.block-flash{animation:hit-flash-blue .3s ease;}
+  @keyframes hit-flash-blue{ 0%{filter:brightness(1);} 30%{filter:brightness(1.6) hue-rotate(20deg);} 100%{filter:brightness(1);} }
+  .combat-wrap.shake{animation:combat-shake .35s ease;}
+  @keyframes combat-shake{
+    0%{transform:translate(0,0);} 15%{transform:translate(-6px,2px);} 30%{transform:translate(5px,-2px);}
+    45%{transform:translate(-4px,1px);} 60%{transform:translate(3px,-1px);} 75%{transform:translate(-2px,1px);} 100%{transform:translate(0,0);}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .combat-wrap.shake{animation:none;}
+    .enemy.hit-flash, .player-row.hit-flash, .player-row.block-flash{animation:none;}
+  }
+  #float-layer{position:fixed; inset:0; pointer-events:none; z-index:60; overflow:hidden;}
+  .float-num{position:fixed; font-weight:800; font-size:15px; text-shadow:0 2px 6px #000; animation:float-up .9s ease-out forwards;}
+  @keyframes float-up{ from{opacity:1; transform:translate(-50%,0);} to{opacity:0; transform:translate(-50%,-46px);} }
+
+  .momentum-track{display:flex; align-items:center; gap:6px; font-size:12px;}
+  .momentum-dots{display:flex; gap:3px;}
+  .mdot{width:9px; height:9px; border-radius:50%; background:#0006; border:1px solid var(--line);}
+  .mdot.on{background:var(--sigil,var(--gold));}
+
+  .hand-row{display:flex; gap:10px; justify-content:center; align-items:flex-end; padding:16px 0; min-height:200px; flex-wrap:wrap;}
+  .gcard{width:128px; min-height:170px; border-radius:12px; background:linear-gradient(160deg,#241119,#150910); border:2px solid var(--sigil-color,var(--line)); padding:9px; cursor:pointer; transition:transform .12s, box-shadow .12s; position:relative;}
+  .gcard:hover{transform:translateY(-10px); box-shadow:0 10px 26px #000a;}
+  .gcard.unaffordable{opacity:.45; cursor:not-allowed;}
+  .gcard.unaffordable:hover{transform:none; box-shadow:none;}
+  .gcard.selected{transform:translateY(-16px); box-shadow:0 0 0 2px var(--gold), 0 10px 26px #000a;}
+  .gcard .cost{position:absolute; top:-9px; left:-9px; width:26px; height:26px; border-radius:50%; background:var(--gold); color:#1a0e08; font-weight:900; font-size:13px; display:flex; align-items:center; justify-content:center; border:2px solid #1a0e08;}
+  .gcard .sig{position:absolute; top:6px; right:8px; font-size:13px;}
+  .gcard h4{font-size:12.5px; margin:16px 0 4px; line-height:1.2;}
+  .gcard .ctype{font-size:8.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--ink-2);}
+  .gcard p{font-size:10.5px; color:var(--ink-1); line-height:1.4; margin:4px 0 0;}
+  .gcard.curse{border-color:var(--ink-2); opacity:.6; cursor:not-allowed;}
+  .gcard.curse:hover{transform:none; box-shadow:none;}
+  .gcard.playing{animation:card-launch .16s ease-out forwards;}
+  @keyframes card-launch{ from{transform:translateY(-10px) scale(1.05);} to{transform:translateY(-90px) scale(.7); opacity:0;} }
+  @media (prefers-reduced-motion: reduce){ .gcard.playing{animation:none;} }
+
+  .pile-btn{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:8px 12px; font-size:11.5px; text-align:center; cursor:pointer; min-width:70px;}
+  .pile-row{display:flex; gap:10px; justify-content:center; margin-top:4px;}
+
+  .marionette-row{display:flex; gap:10px; justify-content:center; margin:6px 0;}
+  .mario{background:#000a; border:1px solid var(--line); border-radius:10px; padding:5px 9px; font-size:11px; text-align:center;}
+
+  /* ---- Modals ---- */
+  .modal{position:fixed; inset:0; background:rgba(4,2,4,.92); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; z-index:90; opacity:0; pointer-events:none; transition:opacity .2s ease; padding:16px;}
+  .modal.show{opacity:1; pointer-events:auto;}
+  .modal-panel{background:#170a10; border:1px solid var(--line); border-radius:18px; padding:26px; width:min(720px,94vw); max-height:88vh; overflow-y:auto;}
+  .modal-panel h2{font-family:'Butcherman',cursive; color:var(--gold-soft); margin:0 0 8px; font-size:26px;}
+  .modal-panel .sub{font-size:13px; color:var(--ink-1); margin-bottom:16px; line-height:1.5;}
+  .choice-row{display:flex; flex-direction:column; gap:10px;}
+  .choice-btn{text-align:left; background:#241119; border:1px solid var(--line); border-radius:10px; padding:12px 14px; cursor:pointer; color:var(--ink-0); font-size:13px;}
+  .choice-btn:hover{border-color:var(--gold);}
+  .reward-row{display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin:14px 0;}
+
+  .relic-chip{width:42px; height:42px; border-radius:10px; background:#000a; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:20px; cursor:default;}
+  .relic-row{display:flex; gap:8px; flex-wrap:wrap;}
+
+  .shop-item{background:#1b0f16; border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center;}
+  .shop-item.sold{opacity:.4;}
+
+  .sect-title{font-family:'Butcherman',cursive; color:var(--gold-soft); font-size:22px; margin:22px 0 10px;}
+  .toast{position:fixed; top:16px; left:50%; transform:translateX(-50%); background:#1b0f16; border:1px solid var(--gold); color:var(--gold-soft); padding:10px 20px; border-radius:30px; font-size:13px; font-weight:700; z-index:200; opacity:0; pointer-events:none; transition:opacity .3s, transform .3s;}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(6px);}
+
+  .ach-card,.stat-card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px;}
+  .ach-card.done{border-color:var(--good);}
+  .bar-mini{height:6px; border-radius:4px; background:#000a; overflow:hidden; margin-top:6px;}
+  .bar-mini i{display:block; height:100%; background:var(--gold);}
+
+  .beast-card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center;}
+  .beast-sprite{display:block; margin:0 auto 6px; image-rendering:pixelated;}
+  .beast-sprite-placeholder{width:45px; height:54px; margin:0 auto 6px; display:flex; align-items:center; justify-content:center; font-size:22px; background:#0006; border-radius:6px;}
+  .beast-card h4{margin:2px 0 4px; font-size:13px;}
+  .beast-lore{font-size:10.5px; color:var(--ink-1); line-height:1.4; min-height:28px; font-style:italic;}
+  .beast-kills{font-size:11px; color:var(--gold-soft); font-weight:700; margin-top:6px;}
+  .beast-weak{font-size:10px; color:var(--ink-2); margin-top:8px; text-align:left;}
+  .beast-weak.unlocked{color:var(--good);}
+</style>
+</head>
+<body>
+
+<!-- 中文提示弹窗：本游戏为纯英文界面 -->
+<div id="langWarn" style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(5,3,6,.88);backdrop-filter:blur(3px);font-family:'Microsoft YaHei','PingFang SC',sans-serif">
+  <div style="width:min(360px,86vw);background:#1b0f16;border:1px solid rgba(212,175,55,.55);border-radius:14px;padding:26px 22px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.7)">
+    <div style="font-size:40px;line-height:1">🎪</div>
+    <h2 style="color:#e8c766;font-size:19px;margin:14px 0 10px;letter-spacing:1px">提示 · 纯英文游戏</h2>
+    <p style="color:#b9a394;font-size:14px;line-height:1.8;margin:0 0 20px">
+      本游戏（暗黑嘉年华）界面<b style="color:#d9634f">全部为英文</b>，<br>没有中文翻译。<br>你确定还要继续玩吗？
+    </p>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button id="langBack" style="flex:1;padding:11px 0;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:#241408;color:#b9a394;font-size:14px;font-weight:700;cursor:pointer">返回游戏厅</button>
+      <button id="langGo" style="flex:1;padding:11px 0;border-radius:10px;border:1px solid #d4af37;background:linear-gradient(180deg,#3a2313,#241408);color:#e8c766;font-size:14px;font-weight:700;cursor:pointer">继续游玩</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var w=document.getElementById('langWarn');
+  function close(){ if(w) w.style.display='none'; }
+  document.getElementById('langGo').onclick=close;
+  document.getElementById('langBack').onclick=function(){ location.href='../'; };
+})();
+</script>
+
+<div class="toast" id="toast"></div>
+
+<!-- HOME / HUB -->
+<div class="screen show" id="screen-hub">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">🎪 The Hollow Carnival</div>
+      <div class="pillrow">
+        <div class="pill">🎟️ <span id="hub-tickets">0</span> Tickets</div>
+        <div class="pill">Ascension <span id="hub-asc">0</span></div>
+        <div class="pill" id="btn-mute-hub" style="cursor:pointer;">🔊</div>
+      </div>
+    </div>
+    <div class="card-panel" style="margin-bottom:18px;" id="hub-resume-box"></div>
+    <h2 class="sect-title" style="margin-top:0;">Choose Your Performer</h2>
+    <div class="grid cols3" id="perf-grid"></div>
+    <div class="pillrow" style="margin:18px 0;">
+      <label class="pill" style="cursor:pointer;">Ascension:
+        <select id="asc-select" style="background:transparent; border:none; color:var(--gold-soft); font-weight:700; margin-left:6px;"></select>
+      </label>
+    </div>
+    <div class="pillrow">
+      <button class="btn" id="btn-start-run">🎭 Begin the Show</button>
+      <button class="btn ghost" id="btn-daily">📅 Daily Challenge</button>
+      <button class="btn ghost" id="btn-unlocks">🔓 The Backstage (Unlocks)</button>
+      <button class="btn ghost" id="btn-achievements">🏅 Achievements</button>
+      <button class="btn ghost" id="btn-stats">📊 Stats</button>
+      <button class="btn ghost" id="btn-bestiary">🐾 Bestiary</button>
+      <button class="btn ghost" id="btn-howto">📜 How to Play</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAP -->
+<div class="screen" id="screen-map">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="pillrow">
+        <div class="pill">❤️ <span id="map-hp">0</span>/<span id="map-maxhp">0</span></div>
+        <div class="pill">💰 <span id="map-gold">0</span></div>
+        <div class="pill" id="map-act-label">Act 1</div>
+      </div>
+      <div class="pillrow">
+        <button class="btn small ghost" id="btn-view-deck">Deck</button>
+        <button class="btn small ghost" id="btn-view-relics">Relics</button>
+        <button class="btn small danger" id="btn-abandon">Abandon Run</button>
+      </div>
+    </div>
+    <div class="card-panel map-wrap"><div class="map-canvas" id="map-canvas"></div></div>
+  </div>
+</div>
+
+<!-- COMBAT -->
+<div class="screen" id="screen-combat">
+  <div id="float-layer"></div>
+  <div class="combat-wrap" id="combat-wrap">
+    <div class="topbar">
+      <div class="pillrow">
+        <div class="pill">💰 <span id="cb-gold">0</span></div>
+        <div class="pill" id="cb-turn">Turn 1</div>
+        <div class="pill" id="btn-mute-combat" style="cursor:pointer;">🔊</div>
+      </div>
+      <div class="momentum-track">
+        <span id="mo-sigil">—</span>
+        <div class="momentum-dots" id="mo-dots"></div>
+      </div>
+    </div>
+    <div class="enemy-row" id="enemy-row"></div>
+    <div class="marionette-row" id="marionette-row"></div>
+    <div class="player-row" id="player-row">
+      <div class="p-stat">🎭 <span id="p-name"></span></div>
+      <div class="p-bar-wrap"><div class="p-bar"><i id="p-hp-fill"></i><span id="p-hp-text"></span></div></div>
+      <div class="p-stat">🛡️ <span id="p-block">0</span></div>
+      <div class="p-stat">⚡ <span id="p-energy">0</span>/<span id="p-energy-max">0</span></div>
+      <div class="e-status" id="p-status"></div>
+    </div>
+    <div class="hand-row" id="hand-row"></div>
+    <div class="pillrow" style="justify-content:center;">
+      <div class="pile-btn" id="pile-draw">Draw 0</div>
+      <div class="pile-btn" id="pile-discard">Discard 0</div>
+      <div class="pile-btn" id="pile-exhaust">Exhaust 0</div>
+      <button class="btn" id="btn-end-turn">End Turn</button>
+    </div>
+    <div id="combat-log" style="text-align:center; font-size:12px; color:var(--ink-1); min-height:18px; margin-top:6px;"></div>
+  </div>
+</div>
+
+<!-- REWARD -->
+<div class="modal" id="modal-reward">
+  <div class="modal-panel">
+    <h2>Victory!</h2>
+    <div class="sub" id="reward-sub"></div>
+    <div class="reward-row" id="reward-cards"></div>
+    <div class="reward-row" id="reward-relic"></div>
+    <div class="pillrow" style="justify-content:center; margin-top:14px;">
+      <button class="btn ghost" id="btn-skip-reward">Skip Card</button>
+      <button class="btn" id="btn-continue-reward">Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHOP -->
+<div class="modal" id="modal-shop">
+  <div class="modal-panel" style="width:min(880px,94vw);">
+    <h2>🎪 The Traveling Shop</h2>
+    <div class="sub">💰 <span id="shop-gold">0</span> gold</div>
+    <div class="sect-title" style="font-size:16px; margin-top:6px;">Cards</div>
+    <div class="grid cols3" id="shop-cards"></div>
+    <div class="sect-title" style="font-size:16px;">Relics</div>
+    <div class="grid cols3" id="shop-relics"></div>
+    <div class="sect-title" style="font-size:16px;">Services</div>
+    <div class="grid cols2" id="shop-services"></div>
+    <div class="pillrow" style="justify-content:center; margin-top:14px;"><button class="btn" id="btn-leave-shop">Leave Shop</button></div>
+  </div>
+</div>
+
+<!-- REST -->
+<div class="modal" id="modal-rest">
+  <div class="modal-panel">
+    <h2>🕯️ A Quiet Tent</h2>
+    <div class="sub">Rest before the next act of the show.</div>
+    <div class="choice-row">
+      <button class="choice-btn" id="rest-heal">💤 Rest — heal a portion of your max HP</button>
+      <button class="choice-btn" id="rest-upgrade">🔨 Practice — upgrade a card in your deck</button>
+    </div>
+  </div>
+</div>
+
+<!-- EVENT -->
+<div class="modal" id="modal-event">
+  <div class="modal-panel">
+    <h2 id="event-title"></h2>
+    <div class="sub" id="event-text"></div>
+    <div class="choice-row" id="event-choices"></div>
+  </div>
+</div>
+
+<!-- TREASURE -->
+<div class="modal" id="modal-treasure">
+  <div class="modal-panel">
+    <h2>🎁 A Locked Chest</h2>
+    <div class="sub" id="treasure-sub"></div>
+    <div class="reward-row" id="treasure-relic"></div>
+    <div class="pillrow" style="justify-content:center;"><button class="btn" id="btn-take-treasure">Take It</button></div>
+  </div>
+</div>
+
+<!-- DECK / RELIC VIEWER -->
+<div class="modal" id="modal-view">
+  <div class="modal-panel" style="width:min(900px,94vw);">
+    <h2 id="view-title"></h2>
+    <div class="reward-row" id="view-body"></div>
+    <div class="pillrow" style="justify-content:center; margin-top:14px;"><button class="btn ghost" id="btn-close-view">Close</button></div>
+  </div>
+</div>
+
+<!-- CARD TARGET SELECT (upgrade/remove pickers reuse view modal too) -->
+
+<!-- RUN END -->
+<div class="modal" id="modal-runend">
+  <div class="modal-panel" style="text-align:center;">
+    <h2 id="runend-title"></h2>
+    <div class="sub" id="runend-epilogue" style="font-style:italic; line-height:1.7;"></div>
+    <div class="sub" id="runend-sub"></div>
+    <div class="pillrow" style="justify-content:center; margin:14px 0;" id="runend-stats"></div>
+    <button class="btn" id="btn-runend-continue">Return to the Big Top</button>
+  </div>
+</div>
+
+<!-- UNLOCKS -->
+<div class="modal" id="modal-unlocks">
+  <div class="modal-panel" style="width:min(900px,94vw);">
+    <h2>🔓 The Backstage</h2>
+    <div class="sub">💰 <span id="unlocks-tickets">0</span> Tickets — spend them permanently unlocking performers and cards.</div>
+    <div class="sect-title" style="font-size:16px; margin-top:0;">Performers</div>
+    <div class="grid cols3" id="unlocks-performers"></div>
+    <div class="sect-title" style="font-size:16px;">Cards</div>
+    <div class="grid cols3" id="unlocks-cards"></div>
+    <div class="pillrow" style="justify-content:center; margin-top:14px;"><button class="btn ghost" id="btn-close-unlocks">Close</button></div>
+  </div>
+</div>
+
+<!-- ACHIEVEMENTS -->
+<div class="modal" id="modal-achievements">
+  <div class="modal-panel" style="width:min(800px,94vw);">
+    <h2>🏅 Achievements</h2>
+    <div class="grid cols2" id="ach-grid"></div>
+    <div class="pillrow" style="justify-content:center; margin-top:14px;"><button class="btn ghost" id="btn-close-ach">Close</button></div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="modal" id="modal-stats">
+  <div class="modal-panel">
+    <h2>📊 Lifetime Stats</h2>
+    <div class="grid cols2" id="stats-grid"></div>
+    <div class="pillrow" style="justify-content:center; margin-top:14px;"><button class="btn ghost" id="btn-close-stats">Close</button></div>
+  </div>
+</div>
+
+<!-- BESTIARY -->
+<div class="modal" id="modal-bestiary">
+  <div class="modal-panel" style="width:min(940px,94vw);">
+    <h2>🐾 Bestiary</h2>
+    <div class="sub">Every attraction you've faced — and the weaknesses you've learned by facing them again and again.</div>
+    <div class="grid cols3" id="bestiary-grid"></div>
+    <div class="pillrow" style="justify-content:center; margin-top:14px;"><button class="btn ghost" id="btn-close-bestiary">Close</button></div>
+  </div>
+</div>
+
+<!-- HOW TO PLAY -->
+<div class="modal" id="modal-howto">
+  <div class="modal-panel">
+    <h2>📜 How to Play</h2>
+    <div class="choice-row" style="gap:14px;">
+      <div class="sub" style="margin:0;"><b>Goal:</b> pick a Performer, build a deck of cards as you travel the map, and defeat the Ringmaster at the end of Act 4. Losing all HP ends the run.</div>
+      <div class="sub" style="margin:0;"><b>Combat:</b> each turn you draw a hand and spend Energy playing cards — Attacks deal damage, Skills grant Block/utility, Powers apply a lasting effect once. Enemies telegraph their next move above their head.</div>
+      <div class="sub" style="margin:0;"><b>Momentum:</b> every card has a Sigil (🎪 Ring, 🎭 Mask, 🕯️ Candle, or 🃏 Wild). Playing 3 matching Sigils in a row this turn triggers a free Encore effect for that Sigil — Wild cards always continue a streak.</div>
+      <div class="sub" style="margin:0;"><b>Between fights:</b> shops sell cards/relics/card removal, rest sites heal or upgrade a card, events offer risky choices, and treasure chests hold relics — passive artifacts that reshape your whole run.</div>
+      <div class="sub" style="margin:0;"><b>Meta:</b> every run (win or lose) earns Tickets, spent permanently in the Backstage to unlock new Performers and cards. Ascension levels add modifiers for a tougher, more rewarding run.</div>
+      <div class="sub" style="margin:0;"><b>Bestiary:</b> defeating the same enemy type 50 times (lifetime, across all runs) permanently teaches you its weakness — +15% damage dealt to it — and 100 kills teaches a deeper weakness, starting every future fight against it with Vulnerable already applied. Check the Bestiary from the Big Top to track your progress.</div>
+    </div>
+    <div class="pillrow" style="justify-content:center; margin-top:14px;"><button class="btn ghost" id="btn-close-howto">Got it</button></div>
+  </div>
+</div>
+
+<!-- STORY -->
+<div class="modal" id="modal-story">
+  <div class="modal-panel" style="text-align:center;">
+    <div class="disp" style="font-size:12px; letter-spacing:3px; text-transform:uppercase; color:var(--gold-soft); margin-bottom:8px;" id="story-eyebrow"></div>
+    <h2 id="story-title"></h2>
+    <div class="sub" id="story-text" style="font-style:italic; line-height:1.75; margin-bottom:20px;"></div>
+    <button class="btn" id="btn-story-continue">Continue</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   UTIL
+   ============================================================ */
+function rand(min,max){ return Math.random()*(max-min)+min; }
+function randInt(min,max){ return Math.floor(rand(min,max+1)); }
+function choice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+function fmt(n){ return Math.round(n).toLocaleString(); }
+function $(id){ return document.getElementById(id); }
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+let uidCounter = 1;
+function uid(){ return 'u'+(uidCounter++); }
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function hashSeed(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++){ h = (Math.imul(31,h) + str.charCodeAt(i)) | 0; }
+  return h;
+}
+function todaySeedString(){
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+}
+
+/* ============================================================
+   PROCEDURAL PIXEL-MONSTER PORTRAITS
+   Deterministic per enemy id (mulberry32 seeded off hashSeed), so
+   every enemy always renders the same sprite without hand-authoring
+   26 pieces of pixel art — a 5-wide grid mirrored around its center
+   column for symmetry, a solid "feet" row so nothing looks like it's
+   floating, and two forced eye pixels so it reads as a face rather
+   than abstract noise.
+   ============================================================ */
+function hashToHue(str){
+  const h = hashSeed(str);
+  return ((h % 360) + 360) % 360;
+}
+function monsterGrid(seedStr){
+  const rng = mulberry32(hashSeed(seedStr));
+  const rows = 6;
+  const grid = [];
+  for(let y=0;y<rows;y++){
+    const half = [rng()>0.42, rng()>0.42, rng()>0.42];
+    grid.push([half[0], half[1], half[2], half[1], half[0]]);
+  }
+  grid[rows-1] = grid[rows-1].map(()=>true); // feet row, always solid
+  return grid;
+}
+function drawMonsterSprite(canvas, seedStr, pixelSize){
+  const cols = 5, rows = 6;
+  const grid = monsterGrid(seedStr);
+  const hue = hashToHue(seedStr);
+  const lit = `hsl(${hue},58%,48%)`;
+  const shade = `hsl(${hue},58%,30%)`;
+  const eyeColor = '#fff8dc';
+  canvas.width = cols*pixelSize;
+  canvas.height = rows*pixelSize;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let y=0;y<rows;y++){
+    for(let x=0;x<cols;x++){
+      if(y===1 && (x===1||x===3)){
+        ctx.fillStyle = eyeColor;
+        ctx.fillRect(x*pixelSize, y*pixelSize, pixelSize, pixelSize);
+        continue;
+      }
+      if(grid[y][x]){
+        ctx.fillStyle = x<=2 ? lit : shade;
+        ctx.fillRect(x*pixelSize, y*pixelSize, pixelSize, pixelSize);
+      }
+    }
+  }
+}
+
+/* ============================================================
+   DATA: STATUSES & SIGILS
+   ============================================================ */
+const STATUSES = {
+  strength:   {name:"Strength",   icon:"💪", kind:"buff",   desc:"Attacks deal +X damage. Permanent."},
+  dexterity:  {name:"Dexterity",  icon:"🤸", kind:"buff",   desc:"Block gained is +X. Permanent."},
+  regen:      {name:"Regen",      icon:"💚", kind:"buff",   desc:"Heal X HP at start of turn, then -1."},
+  thorns:     {name:"Thorns",     icon:"🌵", kind:"buff",   desc:"Reflect X damage when hit. Permanent."},
+  weak:       {name:"Weak",       icon:"📉", kind:"debuff", desc:"Damage dealt -25%, then -1 stack at end of turn."},
+  vulnerable: {name:"Vulnerable", icon:"🎯", kind:"debuff", desc:"Damage taken +50%, then -1 stack at end of turn."},
+  frail:      {name:"Frail",      icon:"🥀", kind:"debuff", desc:"Block gained -25%, then -1 stack at end of turn."},
+  poison:     {name:"Poison",     icon:"☠️", kind:"debuff", desc:"Lose X HP at start of turn (ignores Block), then -1."},
+  confusion:  {name:"Confusion",  icon:"😵", kind:"debuff", desc:"Next Attack move hits a random ally instead of you, then -1 stack at end of turn."},
+};
+const SIGILS = {
+  ring:   {name:"Ring",   icon:"🎪", color:"var(--ring)"},
+  mask:   {name:"Mask",   icon:"🎭", color:"var(--mask)"},
+  candle: {name:"Candle", icon:"🕯️", color:"var(--candle)"},
+  wild:   {name:"Wild",   icon:"🃏", color:"var(--wild)"},
+};
+
+/* ============================================================
+   DATA: PERFORMERS
+   ============================================================ */
+const PERFORMERS = [
+  {id:"strongman", name:"The Strongman", icon:"💪", hp:80, unlockCost:0,
+   blurb:"Straightforward brute force. Stack Strength, hit hard, wear enemies down.",
+   story:"He never meant to join the show. He challenged the Carnival's own Strongwoman on a drunken bet, lost worse than he's ever lost anything, and woke the next morning with a contract in his pocket he doesn't remember signing. The only way out, the fine print says, is to out-perform everyone left standing between here and the Center Ring.",
+   starterRelic:"weightedGloves",
+   starterDeck:["punch","punch","punch","punch","guard","guard","guard","guard","heave","warmUp"]},
+  {id:"contortionist", name:"The Contortionist", icon:"🤸", hp:68, unlockCost:300,
+   blurb:"Fast, flexible, and venomous. Draw more cards, stack Poison, punish the Vulnerable.",
+   story:"She ran away to join the Carnival as a girl, chasing the oldest cliché there is. Nobody warned her it only goes one direction. Decades later — though she still looks seventeen, because nothing here ages, not really — she's stopped asking when she can leave, and started asking what leaving would even look like.",
+   starterRelic:"silkGloves",
+   starterDeck:["jab","jab","jab","jab","twistAway","twistAway","twistAway","envenom","envenom","flexibleStance"]},
+  {id:"puppeteer", name:"The Puppeteer", icon:"🎎", hp:72, unlockCost:500,
+   blurb:"Summon Marionettes to fight alongside you — a board of little threats, not just one big one.",
+   story:"He used to be a real puppeteer, with real puppets — wood, paint, string, nothing more. The Carnival improved his act. His puppets move on their own now, strung with something that used to walk and talk before it came here. He tells himself he's earning enough favor to have that undone. He doesn't let himself think too hard about what \"enough\" means.",
+   starterRelic:"marionetteStrings",
+   starterDeck:["tap","tap","tap","guardRope","guardRope","guardRope","summonPuppet","summonPuppet","stringsAttached","carve"]},
+  {id:"hypnotist", name:"The Hypnotist", icon:"🧿", hp:70, unlockCost:750,
+   blurb:"Control the fight itself — turn enemies against each other and punish whatever you've already broken.",
+   story:"Hired for one night to hypnotize a crowd for somebody else's act, she got curious how far the trick could really go — and turned it, once, on the Ringmaster himself. It didn't work. She's been paying that debt back one performance at a time ever since, and she's starting to suspect he finds the whole thing very funny.",
+   starterRelic:"velvetMask",
+   starterDeck:["suggestion","suggestion","suggestion","ward","ward","ward","hypnotize","hypnotize","unsettle","steadyGaze"]},
+];
+function performerDef(id){ return PERFORMERS.find(p=>p.id===id); }
+
+/* ============================================================
+   DATA: CARDS
+   Every card exposes plain numeric fields (dmg/hits/block/amount/
+   draw/heal/gold/energyGain) that the small FX_TABLE below reads
+   generically, so upgrades (card.up) are just additive deltas on
+   those same fields rather than bespoke per-card upgrade logic.
+   A handful of cards need real bespoke behavior — those set
+   fx:'custom' and their own effect(ctx,card) directly.
+   ============================================================ */
+const CARD_POOL = [
+  // ---- Strongman starters ----
+  {id:"punch", name:"Punch", performer:"strongman", type:"attack", sigil:"ring", cost:1, rarity:"starter",
+   fx:"damage", dmg:6, desc:"Deal 6 damage.", up:{dmg:3}, descUp:"Deal 9 damage."},
+  {id:"guard", name:"Guard", performer:"strongman", type:"skill", sigil:"mask", cost:1, rarity:"starter",
+   fx:"block", block:5, desc:"Gain 5 Block.", up:{block:3}, descUp:"Gain 8 Block."},
+  {id:"heave", name:"Heave", performer:"strongman", type:"attack", sigil:"ring", cost:2, rarity:"starter",
+   fx:"custom", forceTarget:true, dmg:10, desc:"Deal 10 damage. Deal 4 more if you have 3+ Strength.", up:{dmg:4}, descUp:"Deal 14 damage. Deal 4 more if you have 3+ Strength.",
+   effect(ctx,card){ let d=card.dmg; if((ctx.player.statuses.strength||0)>=3) d+=4; ctx.dealDamageToEnemy(ctx.target, d); }},
+  {id:"warmUp", name:"Warm Up", performer:"strongman", type:"power", sigil:"ring", cost:1, rarity:"starter",
+   fx:"statusSelf", statusKey:"strength", amount:2, exhaust:true, desc:"Gain 2 Strength. Exhaust.", up:{amount:1}, descUp:"Gain 3 Strength. Exhaust."},
+  // ---- Strongman unlockable ----
+  {id:"haymaker", name:"Haymaker", performer:"strongman", type:"attack", sigil:"ring", cost:2, rarity:"common", unlockCost:60,
+   fx:"damage", dmg:14, desc:"Deal 14 damage.", up:{dmg:6}, descUp:"Deal 20 damage."},
+  {id:"overpower", name:"Overpower", performer:"strongman", type:"attack", sigil:"ring", cost:1, rarity:"common", unlockCost:60,
+   fx:"custom", forceTarget:true, dmg:5, desc:"Deal 5 damage. Gain 1 Strength.", up:{dmg:3}, descUp:"Deal 8 damage. Gain 1 Strength.",
+   effect(ctx,card){ ctx.dealDamageToEnemy(ctx.target, card.dmg); ctx.applyStatus(ctx.player,'strength',1); }},
+  {id:"bearHug", name:"Bear Hug", performer:"strongman", type:"skill", sigil:"candle", cost:1, rarity:"uncommon", unlockCost:90,
+   fx:"custom", forceTarget:true, amount:2, desc:"Apply 2 Vulnerable and 2 Weak.", up:{amount:1}, descUp:"Apply 3 Vulnerable and 3 Weak.",
+   effect(ctx,card){ ctx.applyStatus(ctx.target,'vulnerable',card.amount); ctx.applyStatus(ctx.target,'weak',card.amount); }},
+  {id:"ironSkin", name:"Iron Skin", performer:"strongman", type:"skill", sigil:"mask", cost:1, rarity:"uncommon", unlockCost:90,
+   fx:"custom", block:8, desc:"Gain 8 Block. Gain 1 Dexterity.", up:{block:4}, descUp:"Gain 12 Block. Gain 1 Dexterity.",
+   effect(ctx,card){ ctx.gainBlock(card.block); ctx.applyStatus(ctx.player,'dexterity',1); }},
+  {id:"rallyCry", name:"Rally Cry", performer:"strongman", type:"power", sigil:"ring", cost:2, rarity:"uncommon", unlockCost:100,
+   fx:"custom", exhaust:true, desc:"At the start of each turn, gain 1 Strength. Exhaust.",
+   effect(ctx){ ctx.player.powers.rallyCry = (ctx.player.powers.rallyCry||0)+1; }},
+  {id:"crushingBlow", name:"Crushing Blow", performer:"strongman", type:"attack", sigil:"ring", cost:3, rarity:"rare", unlockCost:130,
+   fx:"damage", dmg:22, exhaust:true, desc:"Deal 22 damage. Exhaust.", up:{dmg:10}, descUp:"Deal 32 damage. Exhaust."},
+  {id:"secondWindSM", name:"Second Wind", performer:"strongman", type:"skill", sigil:"mask", cost:2, rarity:"uncommon", unlockCost:100,
+   fx:"custom", block:10, draw:1, desc:"Gain 10 Block. Draw 1 card.", up:{block:5}, descUp:"Gain 15 Block. Draw 1 card.",
+   effect(ctx,card){ ctx.gainBlock(card.block); ctx.draw(card.draw); }},
+  {id:"unstoppable", name:"Unstoppable", performer:"strongman", type:"power", sigil:"wild", cost:3, rarity:"rare", unlockCost:150,
+   fx:"custom", exhaust:true, desc:"Gain 3 Thorns and 3 Strength. Exhaust.",
+   effect(ctx){ ctx.applyStatus(ctx.player,'thorns',3); ctx.applyStatus(ctx.player,'strength',3); }},
+
+  // ---- Contortionist starters ----
+  {id:"jab", name:"Jab", performer:"contortionist", type:"attack", sigil:"ring", cost:1, rarity:"starter",
+   fx:"custom", forceTarget:true, dmg:4, draw:1, desc:"Deal 4 damage. Draw 1 card.", up:{dmg:3}, descUp:"Deal 7 damage. Draw 1 card.",
+   effect(ctx,card){ ctx.dealDamageToEnemy(ctx.target, card.dmg); ctx.draw(card.draw); }},
+  {id:"twistAway", name:"Twist Away", performer:"contortionist", type:"skill", sigil:"mask", cost:1, rarity:"starter",
+   fx:"block", block:6, desc:"Gain 6 Block.", up:{block:3}, descUp:"Gain 9 Block."},
+  {id:"envenom", name:"Envenom", performer:"contortionist", type:"skill", sigil:"candle", cost:1, rarity:"starter",
+   fx:"statusTarget", statusKey:"poison", amount:3, desc:"Apply 3 Poison.", up:{amount:2}, descUp:"Apply 5 Poison."},
+  {id:"flexibleStance", name:"Flexible Stance", performer:"contortionist", type:"power", sigil:"mask", cost:1, rarity:"starter",
+   fx:"statusSelf", statusKey:"dexterity", amount:1, exhaust:true, desc:"Gain 1 Dexterity. Exhaust.", up:{amount:1}, descUp:"Gain 2 Dexterity. Exhaust."},
+  // ---- Contortionist unlockable ----
+  {id:"backstab", name:"Backstab", performer:"contortionist", type:"attack", sigil:"ring", cost:1, rarity:"common", unlockCost:60,
+   fx:"custom", forceTarget:true, dmg:9, desc:"Deal 9 damage. Deal double if the target is Vulnerable.", up:{dmg:4}, descUp:"Deal 13 damage. Deal double if the target is Vulnerable.",
+   effect(ctx,card){ let d=card.dmg; if((ctx.target.statuses.vulnerable||0)>0) d*=2; ctx.dealDamageToEnemy(ctx.target,d); }},
+  {id:"toxicCloud", name:"Toxic Cloud", performer:"contortionist", type:"skill", sigil:"candle", cost:2, rarity:"uncommon", unlockCost:90,
+   fx:"statusAll", statusKey:"poison", amount:4, desc:"Apply 4 Poison to ALL enemies.", up:{amount:2}, descUp:"Apply 6 Poison to ALL enemies."},
+  {id:"vanishingAct", name:"Vanishing Act", performer:"contortionist", type:"skill", sigil:"mask", cost:1, rarity:"common", unlockCost:60,
+   fx:"custom", block:7, draw:1, desc:"Gain 7 Block. Draw 1 card.", up:{block:4}, descUp:"Gain 11 Block. Draw 1 card.",
+   effect(ctx,card){ ctx.gainBlock(card.block); ctx.draw(card.draw); }},
+  {id:"puncture", name:"Puncture", performer:"contortionist", type:"attack", sigil:"ring", cost:2, rarity:"uncommon", unlockCost:100,
+   fx:"damage", dmg:6, hits:3, desc:"Deal 6 damage 3 times.", up:{dmg:2}, descUp:"Deal 8 damage 3 times."},
+  {id:"nimbleFingers", name:"Nimble Fingers", performer:"contortionist", type:"power", sigil:"mask", cost:1, rarity:"rare", unlockCost:140,
+   fx:"custom", exhaust:true, desc:"Draw 1 additional card every turn. Exhaust.",
+   effect(ctx){ ctx.player.powers.nimbleFingers = (ctx.player.powers.nimbleFingers||0)+1; }},
+  {id:"coil", name:"Coil", performer:"contortionist", type:"skill", sigil:"candle", cost:1, rarity:"common", unlockCost:60,
+   fx:"custom", forceTarget:true, amount:2, desc:"Apply 2 Weak and 2 Frail.", up:{amount:1}, descUp:"Apply 3 Weak and 3 Frail.",
+   effect(ctx,card){ ctx.applyStatus(ctx.target,'weak',card.amount); ctx.applyStatus(ctx.target,'frail',card.amount); }},
+  {id:"thousandCuts", name:"Death by a Thousand Cuts", performer:"contortionist", type:"attack", sigil:"wild", cost:2, rarity:"rare", unlockCost:140,
+   fx:"custom", forceTarget:true, desc:"Deal damage equal to 2x the target's Poison stacks.",
+   effect(ctx){ const d = 2*(ctx.target.statuses.poison||0); if(d>0) ctx.dealDamageToEnemy(ctx.target,d); }},
+  {id:"serpentsKiss", name:"Serpent's Kiss", performer:"contortionist", type:"power", sigil:"candle", cost:2, rarity:"rare", unlockCost:150,
+   fx:"custom", exhaust:true, desc:"Whenever you apply Poison, apply 1 additional stack. Exhaust.",
+   effect(ctx){ ctx.player.powers.serpentsKiss = (ctx.player.powers.serpentsKiss||0)+1; }},
+
+  // ---- Puppeteer starters ----
+  {id:"tap", name:"Tap", performer:"puppeteer", type:"attack", sigil:"ring", cost:1, rarity:"starter",
+   fx:"damage", dmg:5, desc:"Deal 5 damage.", up:{dmg:3}, descUp:"Deal 8 damage."},
+  {id:"guardRope", name:"Guard Rope", performer:"puppeteer", type:"skill", sigil:"mask", cost:1, rarity:"starter",
+   fx:"block", block:5, desc:"Gain 5 Block.", up:{block:3}, descUp:"Gain 8 Block."},
+  {id:"summonPuppet", name:"Summon Puppet", performer:"puppeteer", type:"skill", sigil:"candle", cost:2, rarity:"starter",
+   fx:"custom", marioAtk:1, marioHp:6, desc:"Summon a Puppet (1 dmg / 6 HP). Max 3.",
+   effect(ctx,card){ ctx.summonMarionette(card.marioAtk, card.marioHp); }},
+  {id:"stringsAttached", name:"Strings Attached", performer:"puppeteer", type:"skill", sigil:"wild", cost:1, rarity:"starter",
+   fx:"custom", forceTarget:true, desc:"All Marionettes attack immediately.",
+   effect(ctx){ ctx.player.marionettes.forEach(m=>{ if(m.hp>0 && ctx.target) ctx.dealDamageToEnemy(ctx.target, m.atk); }); }},
+  {id:"carve", name:"Carve", performer:"puppeteer", type:"power", sigil:"candle", cost:1, rarity:"starter",
+   fx:"custom", exhaust:true, desc:"Gain 1 Strength for each Marionette you control. Exhaust.",
+   effect(ctx){ ctx.applyStatus(ctx.player,'strength', ctx.player.marionettes.filter(m=>m.hp>0).length); }},
+  // ---- Puppeteer unlockable ----
+  {id:"reinforce", name:"Reinforce", performer:"puppeteer", type:"skill", sigil:"candle", cost:2, rarity:"uncommon", unlockCost:90,
+   fx:"custom", amount:2, desc:"All Marionettes gain +2 max HP and heal to full.", up:{amount:2}, descUp:"All Marionettes gain +4 max HP and heal to full.",
+   effect(ctx,card){ ctx.player.marionettes.forEach(m=>{ if(m.hp>0){ m.maxHp+=card.amount; m.hp=m.maxHp; } }); }},
+  {id:"puppetMaster", name:"Puppet Master", performer:"puppeteer", type:"power", sigil:"candle", cost:2, rarity:"rare", unlockCost:140,
+   fx:"custom", exhaust:true, desc:"Marionettes deal +1 damage permanently. Exhaust.",
+   effect(ctx){ ctx.player.powers.puppetMaster = (ctx.player.powers.puppetMaster||0)+1; ctx.player.marionettes.forEach(m=>m.atk+=1); }},
+  {id:"sacrifice", name:"Sacrifice", performer:"puppeteer", type:"skill", sigil:"ring", cost:1, rarity:"common", unlockCost:60,
+   fx:"custom", forceTarget:true, dmg:15, desc:"Destroy a Marionette: deal 15 damage.", up:{dmg:7}, descUp:"Destroy a Marionette: deal 22 damage.",
+   effect(ctx,card){
+     const m=ctx.player.marionettes.find(x=>x.hp>0);
+     if(m){
+       if(ctx.player.powers.loyalServant>0) ctx.player.powers.loyalServant=0;
+       else m.hp=0;
+       ctx.dealDamageToEnemy(ctx.target, card.dmg);
+     }
+   }},
+  {id:"animate", name:"Animate", performer:"puppeteer", type:"skill", sigil:"candle", cost:1, rarity:"common", unlockCost:60,
+   fx:"custom", marioAtk:2, marioHp:4, desc:"Summon a Puppet (2 dmg / 4 HP). Max 3.",
+   effect(ctx,card){ ctx.summonMarionette(card.marioAtk, card.marioHp); }},
+  {id:"tangledWeb", name:"Tangled Web", performer:"puppeteer", type:"skill", sigil:"mask", cost:1, rarity:"uncommon", unlockCost:90,
+   fx:"custom", block:4, desc:"Gain 4 Block for each Marionette you control.", up:{block:2}, descUp:"Gain 6 Block for each Marionette you control.",
+   effect(ctx,card){ ctx.gainBlock(card.block * ctx.player.marionettes.filter(m=>m.hp>0).length); }},
+  {id:"grandFinale", name:"Grand Finale", performer:"puppeteer", type:"attack", sigil:"wild", cost:3, rarity:"rare", unlockCost:150,
+   fx:"custom", forceTarget:true, exhaust:true, desc:"All Marionettes attack twice. Exhaust.",
+   effect(ctx){ for(let i=0;i<2;i++) ctx.player.marionettes.forEach(m=>{ if(m.hp>0 && ctx.target) ctx.dealDamageToEnemy(ctx.target, m.atk); }); }},
+  {id:"loyalServant", name:"Loyal Servant", performer:"puppeteer", type:"power", sigil:"candle", cost:2, rarity:"rare", unlockCost:140,
+   fx:"custom", exhaust:true, desc:"The first time Sacrifice would destroy a Marionette, it's spared instead. Exhaust.",
+   effect(ctx){ ctx.player.powers.loyalServant = 1; }},
+  {id:"encorePerformance", name:"Encore Performance", performer:"puppeteer", type:"attack", sigil:"ring", cost:2, rarity:"uncommon", unlockCost:100,
+   fx:"custom", forceTarget:true, dmg:8, desc:"Deal 8 damage. Summon a Puppet if you have fewer than 3.", up:{dmg:4}, descUp:"Deal 12 damage. Summon a Puppet if you have fewer than 3.",
+   effect(ctx,card){ ctx.dealDamageToEnemy(ctx.target, card.dmg); ctx.summonMarionette(1,6); }},
+
+  // ---- Hypnotist starters ----
+  {id:"suggestion", name:"Suggestion", performer:"hypnotist", type:"attack", sigil:"ring", cost:1, rarity:"starter",
+   fx:"custom", forceTarget:true, dmg:5, amount:1, desc:"Deal 5 damage. Apply 1 Weak.", up:{dmg:3}, descUp:"Deal 8 damage. Apply 1 Weak.",
+   effect(ctx,card){ ctx.dealDamageToEnemy(ctx.target, card.dmg); ctx.applyStatus(ctx.target,'weak',card.amount); }},
+  {id:"ward", name:"Ward", performer:"hypnotist", type:"skill", sigil:"mask", cost:1, rarity:"starter",
+   fx:"block", block:5, desc:"Gain 5 Block.", up:{block:3}, descUp:"Gain 8 Block."},
+  {id:"hypnotize", name:"Hypnotize", performer:"hypnotist", type:"skill", sigil:"candle", cost:1, rarity:"starter",
+   fx:"statusTarget", statusKey:"confusion", amount:2, desc:"Apply 2 Confusion.", up:{amount:1}, descUp:"Apply 3 Confusion."},
+  {id:"unsettle", name:"Unsettle", performer:"hypnotist", type:"skill", sigil:"candle", cost:1, rarity:"starter",
+   fx:"statusTarget", statusKey:"vulnerable", amount:2, desc:"Apply 2 Vulnerable.", up:{amount:1}, descUp:"Apply 3 Vulnerable."},
+  {id:"steadyGaze", name:"Steady Gaze", performer:"hypnotist", type:"power", sigil:"mask", cost:1, rarity:"starter",
+   fx:"statusSelf", statusKey:"dexterity", amount:1, exhaust:true, desc:"Gain 1 Dexterity. Exhaust.", up:{amount:1}, descUp:"Gain 2 Dexterity. Exhaust."},
+  // ---- Hypnotist unlockable ----
+  {id:"mirrorStrike", name:"Mirror Strike", performer:"hypnotist", type:"attack", sigil:"ring", cost:1, rarity:"uncommon", unlockCost:90,
+   fx:"custom", forceTarget:true, desc:"Deal damage equal to 2x the target's combined Weak and Vulnerable stacks.",
+   effect(ctx){ const d = 2*((ctx.target.statuses.vulnerable||0)+(ctx.target.statuses.weak||0)); if(d>0) ctx.dealDamageToEnemy(ctx.target,d); }},
+  {id:"puppetStrings", name:"Puppet Strings", performer:"hypnotist", type:"skill", sigil:"candle", cost:2, rarity:"common", unlockCost:60,
+   fx:"statusTarget", forceTarget:true, statusKey:"confusion", amount:3, desc:"Apply 3 Confusion.", up:{amount:2}, descUp:"Apply 5 Confusion."},
+  {id:"hallOfMirrors", name:"Hall of Mirrors", performer:"hypnotist", type:"skill", sigil:"wild", cost:2, rarity:"rare", unlockCost:140,
+   fx:"custom", forceTarget:true, desc:"Double all debuff stacks on the target.",
+   effect(ctx){ ['weak','vulnerable','frail','poison','confusion'].forEach(k=>{ if(ctx.target.statuses[k]) ctx.target.statuses[k]*=2; }); }},
+  {id:"whisperedDoubt", name:"Whispered Doubt", performer:"hypnotist", type:"skill", sigil:"candle", cost:1, rarity:"common", unlockCost:60,
+   fx:"custom", forceTarget:true, amount:2, desc:"Apply 2 Weak and 2 Frail.", up:{amount:1}, descUp:"Apply 3 Weak and 3 Frail.",
+   effect(ctx,card){ ctx.applyStatus(ctx.target,'weak',card.amount); ctx.applyStatus(ctx.target,'frail',card.amount); }},
+  {id:"trance", name:"Trance", performer:"hypnotist", type:"power", sigil:"candle", cost:2, rarity:"rare", unlockCost:150,
+   fx:"custom", exhaust:true, desc:"Whenever you apply a debuff, apply 1 additional stack. Exhaust.",
+   effect(ctx){ ctx.player.powers.trance = (ctx.player.powers.trance||0)+1; }},
+  {id:"stealResolve", name:"Steal Resolve", performer:"hypnotist", type:"attack", sigil:"ring", cost:2, rarity:"uncommon", unlockCost:100,
+   fx:"custom", forceTarget:true, dmg:8, desc:"Deal 8 damage. If the target has Strength, steal 1 stack.", up:{dmg:4}, descUp:"Deal 12 damage. If the target has Strength, steal 1 stack.",
+   effect(ctx,card){
+     ctx.dealDamageToEnemy(ctx.target, card.dmg);
+     const s = ctx.target.statuses.strength||0;
+     if(s>0){ ctx.target.statuses.strength = s-1; ctx.applyStatus(ctx.player,'strength',1); }
+   }},
+  {id:"overwhelm", name:"Overwhelm", performer:"hypnotist", type:"skill", sigil:"candle", cost:2, rarity:"rare", unlockCost:140,
+   fx:"custom", forceTarget:true, amount:3, desc:"Apply 3 Weak, 3 Vulnerable, and 3 Frail.", up:{amount:1}, descUp:"Apply 4 Weak, 4 Vulnerable, and 4 Frail.",
+   effect(ctx,card){ ctx.applyStatus(ctx.target,'weak',card.amount); ctx.applyStatus(ctx.target,'vulnerable',card.amount); ctx.applyStatus(ctx.target,'frail',card.amount); }},
+  {id:"finalBow", name:"Final Bow", performer:"hypnotist", type:"attack", sigil:"wild", cost:3, rarity:"rare", unlockCost:150,
+   fx:"custom", forceTarget:true, exhaust:true, desc:"Deal 3 damage for every distinct debuff on the target. Exhaust.",
+   effect(ctx){
+     const keys = ['weak','vulnerable','frail','poison','confusion'];
+     const count = keys.filter(k=>(ctx.target.statuses[k]||0)>0).length;
+     if(count>0) ctx.dealDamageToEnemy(ctx.target, 3*count);
+   }},
+
+  // ---- Neutral (any performer) ----
+  {id:"deepBreath", name:"Deep Breath", performer:"neutral", type:"skill", sigil:"mask", cost:0, rarity:"uncommon", unlockCost:100,
+   fx:"energy", energyGain:1, desc:"Gain 1 Energy this turn."},
+  {id:"secondChance", name:"Second Chance", performer:"neutral", type:"skill", sigil:"wild", cost:1, rarity:"common", unlockCost:60,
+   fx:"block", block:8, desc:"Gain 8 Block.", up:{block:4}, descUp:"Gain 12 Block."},
+  {id:"focus", name:"Focus", performer:"neutral", type:"power", sigil:"candle", cost:1, rarity:"uncommon", unlockCost:90,
+   fx:"custom", exhaust:true, desc:"Gain 1 Dexterity and 1 Strength. Exhaust.",
+   effect(ctx){ ctx.applyStatus(ctx.player,'dexterity',1); ctx.applyStatus(ctx.player,'strength',1); }},
+  {id:"adrenaline", name:"Adrenaline", performer:"neutral", type:"skill", sigil:"ring", cost:0, rarity:"common", unlockCost:70,
+   fx:"custom", forceTarget:true, dmg:3, draw:1, exhaust:true, desc:"Draw 1 card. Deal 3 damage. Exhaust.",
+   effect(ctx,card){ ctx.draw(card.draw); ctx.dealDamageToEnemy(ctx.target, card.dmg); }},
+  {id:"bandage", name:"Bandage", performer:"neutral", type:"skill", sigil:"mask", cost:1, rarity:"rare", unlockCost:140,
+   fx:"heal", heal:5, desc:"Heal 5 HP.", up:{heal:3}, descUp:"Heal 8 HP."},
+  {id:"goldRush", name:"Gold Rush", performer:"neutral", type:"skill", sigil:"wild", cost:1, rarity:"common", unlockCost:60,
+   fx:"gold", gold:15, exhaust:true, desc:"Gain 15 gold. Exhaust.", up:{gold:10}, descUp:"Gain 25 gold. Exhaust."},
+  {id:"panic", name:"Panic", performer:"neutral", type:"skill", sigil:"candle", cost:1, rarity:"uncommon", unlockCost:90,
+   fx:"statusAll", statusKey:"weak", amount:3, desc:"Apply 3 Weak to all enemies.", up:{amount:1}, descUp:"Apply 4 Weak to all enemies."},
+  {id:"steelNerve", name:"Steel Nerve", performer:"neutral", type:"power", sigil:"mask", cost:1, rarity:"common", unlockCost:70,
+   fx:"statusSelf", statusKey:"thorns", amount:2, exhaust:true, desc:"Gain 2 Thorns. Exhaust.", up:{amount:2}, descUp:"Gain 4 Thorns. Exhaust."},
+  {id:"overclock", name:"Overclock", performer:"neutral", type:"skill", sigil:"ring", cost:2, rarity:"uncommon", unlockCost:100,
+   fx:"custom", exhaust:true, desc:"Gain 2 Energy this turn. Take 3 damage. Exhaust.",
+   effect(ctx){ ctx.gainEnergy(2); ctx.player.hp = Math.max(1, ctx.player.hp-3); }},
+  {id:"quickStudy", name:"Quick Study", performer:"neutral", type:"skill", sigil:"mask", cost:1, rarity:"common", unlockCost:70,
+   fx:"draw", draw:2, desc:"Draw 2 cards."},
+  {id:"ironWillCard", name:"Iron Will", performer:"neutral", type:"power", sigil:"wild", cost:2, rarity:"rare", unlockCost:150,
+   fx:"custom", exhaust:true, desc:"Gain 3 Strength and 3 Dexterity. Exhaust.",
+   effect(ctx){ ctx.applyStatus(ctx.player,'strength',3); ctx.applyStatus(ctx.player,'dexterity',3); }},
+  {id:"curseWard", name:"Curse Ward", performer:"neutral", type:"skill", sigil:"candle", cost:1, rarity:"uncommon", unlockCost:90,
+   fx:"custom", desc:"Remove all debuffs from yourself.",
+   effect(ctx){ ['weak','vulnerable','frail','poison'].forEach(k=> ctx.player.statuses[k]=0); }},
+
+  // ---- Curses (never purchasable — inflicted by events/enemies) ----
+  {id:"curseRegret", name:"Regret", performer:"neutral", type:"curse", sigil:"none", cost:0, rarity:"curse",
+   desc:"Unplayable. Just clutters your deck.", fx:"none"},
+  {id:"curseStageFright", name:"Stage Fright", performer:"neutral", type:"curse", sigil:"none", cost:0, rarity:"curse",
+   desc:"Unplayable. Just clutters your deck.", fx:"none"},
+  {id:"curseCurtainCall", name:"Curtain Call", performer:"neutral", type:"curse", sigil:"none", cost:0, rarity:"curse",
+   desc:"Unplayable. Deals 2 damage to you when drawn.", fx:"none", onDraw(ctx){ ctx.player.hp = Math.max(0, ctx.player.hp-2); }},
+];
+const CARD_BY_ID = {};
+CARD_POOL.forEach(c=> CARD_BY_ID[c.id]=c);
+function effectiveCard(inst){
+  const def = CARD_BY_ID[inst.defId];
+  if(!inst.upgraded || !def.up) return def;
+  const merged = Object.assign({}, def, def.up ? Object.fromEntries(Object.entries(def.up).map(([k,v])=>[k, (def[k]||0)+v])) : {});
+  merged.name = def.name + '+';
+  merged.desc = def.descUp || def.desc;
+  return merged;
+}
+function needsTarget(card){
+  return card.fx==='damage' || card.fx==='statusTarget' || card.forceTarget===true;
+}
+
+/* ============================================================
+   DATA: RELICS
+   Most relics are pure stat mods (mods:[{key,val}]), summed
+   generically by relicModTotal(). A handful of bespoke ones are
+   checked directly by id at their point of use in the engine —
+   same pattern gem-forge/cutlass-cove use for one-off artifacts.
+   ============================================================ */
+const RELICS = [
+  {id:"weightedGloves", name:"Weighted Gloves", icon:"🥊", rarity:"starter", desc:"Your first Attack each combat deals +3 damage."},
+  {id:"silkGloves", name:"Silk Gloves", icon:"🧤", rarity:"starter", desc:"Draw 1 additional card at the start of each turn."},
+  {id:"marionetteStrings", name:"Marionette Strings", icon:"🎏", rarity:"starter", desc:"Start each combat with a free Puppet (1 dmg / 6 HP)."},
+  {id:"velvetMask", name:"Velvet Mask", icon:"🎭", rarity:"starter", desc:"The first debuff you apply each combat is applied twice."},
+
+  {id:"sturdyCharm", name:"Sturdy Charm", icon:"🧿", rarity:"common", mods:[{key:"maxHp",val:6}], desc:"+6 Max HP."},
+  {id:"ironBracer", name:"Iron Bracer", icon:"🛡️", rarity:"common", mods:[{key:"startBlock",val:3}], desc:"Start each combat with 3 Block."},
+  {id:"rabbitsFoot", name:"Rabbit's Foot", icon:"🐇", rarity:"common", mods:[{key:"handSize",val:1}], desc:"+1 hand size."},
+  {id:"coinPurse", name:"Spare Coin Purse", icon:"👛", rarity:"common", mods:[{key:"startGold",val:25}], desc:"+25 starting gold each run."},
+  {id:"luckyCoin", name:"Lucky Coin", icon:"🪙", rarity:"common", mods:[{key:"goldGain",val:0.2}], desc:"+20% gold earned."},
+  {id:"wornPlaybill", name:"Worn Playbill", icon:"📜", rarity:"common", mods:[{key:"cardChoiceBonus",val:1}], desc:"+1 card choice at reward screens."},
+  {id:"debtorsCharm", name:"Debtor's Charm", icon:"🧾", rarity:"common", mods:[{key:"shopDiscount",val:0.1}], desc:"Shop prices -10%."},
+  {id:"warmCoals", name:"Warm Coals", icon:"🔥", rarity:"common", mods:[{key:"regenStart",val:2}], desc:"Start each combat with 2 Regen."},
+  {id:"crackedMirror", name:"Cracked Mirror", icon:"🪞", rarity:"common", mods:[{key:"dexterityStart",val:1}], desc:"Start each combat with 1 Dexterity."},
+  {id:"grindstone", name:"Old Grindstone", icon:"⚙️", rarity:"common", mods:[{key:"strengthStart",val:1}], desc:"Start each combat with 1 Strength."},
+
+  {id:"secondWindLocket", name:"Second Wind Locket", icon:"⏳", rarity:"uncommon", mods:[{key:"healAtRest",val:0.25}], desc:"Rest sites heal +25% more."},
+  {id:"brassKnuckles", name:"Brass Knuckles", icon:"👊", rarity:"uncommon", mods:[{key:"strengthStart",val:2}], desc:"Start each combat with 2 Strength."},
+  {id:"silverRibbon", name:"Silver Ribbon", icon:"🎀", rarity:"uncommon", mods:[{key:"dexterityStart",val:2}], desc:"Start each combat with 2 Dexterity."},
+  {id:"ticketBundle", name:"Ticket Stub Bundle", icon:"🎫", rarity:"uncommon", mods:[{key:"startGold",val:50}], desc:"+50 starting gold each run."},
+  {id:"thickSkin", name:"Thick Skin", icon:"🩹", rarity:"uncommon", mods:[{key:"maxHp",val:12}], desc:"+12 Max HP."},
+  {id:"practicedBreathing", name:"Practiced Breathing", icon:"🌬️", rarity:"uncommon", mods:[{key:"energy",val:1}], desc:"+1 Energy every turn."},
+  {id:"bloodstone", name:"Bloodstone", icon:"🔴", rarity:"uncommon", desc:"Heal 3 HP whenever you kill an enemy."},
+  {id:"ledgerOfDebts", name:"Ledger of Debts", icon:"📕", rarity:"uncommon", desc:"Gain 2 gold whenever you take damage."},
+  {id:"fireproofCloak", name:"Fireproof Cloak", icon:"🧥", rarity:"uncommon", mods:[{key:"thornsStart",val:3}], desc:"Start each combat with 3 Thorns."},
+
+  {id:"silverBell", name:"Silver Bell", icon:"🔔", rarity:"rare", desc:"Momentum Encores trigger every 2 matching plays instead of 3."},
+  {id:"brokenCompass", name:"Broken Compass", icon:"🧭", rarity:"rare", desc:"Your first Attack each combat deals +5 damage."},
+  {id:"glassEye", name:"Glass Eye", icon:"👁️", rarity:"rare", mods:[{key:"maxHp",val:-15},{key:"strengthStart",val:3}], desc:"-15 Max HP. Start each combat with 3 Strength."},
+  {id:"endlessDeck", name:"Endless Deck", icon:"🃏", rarity:"rare", mods:[{key:"energy",val:1},{key:"maxHp",val:-8}], desc:"+1 Energy every turn. -8 Max HP."},
+  {id:"ringmastersContract", name:"Ringmaster's Contract", icon:"📃", rarity:"rare", mods:[{key:"goldGain",val:0.5}], desc:"+50% gold earned."},
+  {id:"phantomLimb", name:"Phantom Limb", icon:"👻", rarity:"rare", desc:"The first card you play each turn costs 0 Energy."},
+  {id:"ironWillIdol", name:"Iron Will Idol", icon:"🗿", rarity:"rare", mods:[{key:"strengthStart",val:2},{key:"dexterityStart",val:2}], desc:"Start each combat with 2 Strength and 2 Dexterity."},
+
+  {id:"topHat", name:"The Ringmaster's Top Hat", icon:"🎩", rarity:"boss", mods:[{key:"energy",val:1},{key:"handSize",val:-1}], desc:"+1 Energy every turn. -1 hand size."},
+  {id:"cursedCard", name:"Cursed Playing Card", icon:"🂡", rarity:"boss", mods:[{key:"strengthStart",val:4},{key:"maxHp",val:-20}], desc:"Start each combat with 4 Strength. -20 Max HP."},
+  {id:"puppetHeart", name:"Puppet Heart", icon:"❤️‍🩹", rarity:"boss", mods:[{key:"maxHp",val:25},{key:"energy",val:-1}], desc:"+25 Max HP. -1 Energy every turn."},
+];
+const RELIC_BY_ID = {};
+RELICS.forEach(r=> RELIC_BY_ID[r.id]=r);
+
+/* ============================================================
+   DATA: ENEMIES
+   moves cycle deterministically (enemy.turnCount % moves.length)
+   rather than weighted-random, so intents stay fair/learnable and
+   correct without needing live playtesting to verify probabilities.
+   Bosses can define `phases` (hp-threshold move sets) instead of a
+   flat `moves` array for a mid-fight turn.
+   ============================================================ */
+const ENEMY_DEFS = [
+  {id:"rustyClown", name:"Rusty Clown", icon:"🤡", hp:38, lore:"The paint hasn't been fresh in years.",
+   moves:[{type:"attack",dmg:8},{type:"attack",dmg:8},{type:"defend",block:6}]},
+  {id:"feralJuggler", name:"Feral Juggler", icon:"🔪", hp:34, lore:"Still juggling. The knives are real now.",
+   moves:[{type:"attack",dmg:5},{type:"attack",dmg:5},{type:"attack",dmg:10}]},
+  {id:"stiltwalker", name:"Stiltwalker", icon:"🦵", hp:44, lore:"Twelve feet tall and unpleasant about it.",
+   moves:[{type:"attack",dmg:7},{type:"debuff",statusKey:"weak",amount:2},{type:"attack",dmg:7}]},
+  {id:"fireEater", name:"Fire Eater", icon:"🔥", hp:40, lore:"Swallowed something it shouldn't have.",
+   moves:[{type:"attack",dmg:9},{type:"debuff",statusKey:"vulnerable",amount:2},{type:"attack",dmg:9}]},
+  {id:"strongwoman", name:"The Strongwoman", icon:"🏋️", hp:85, elite:true, lore:"Bent the bars of her own cage on the way out.",
+   moves:[{type:"attack",dmg:14},{type:"buff",statusKey:"strength",amount:2},{type:"attack",dmg:14},{type:"defend",block:10}]},
+  {id:"acrobat", name:"Broken Acrobat", icon:"🤸‍♀️", hp:40, elite:true, lore:"Falls, and falls, and gets back up.",
+   moves:[{type:"attack",dmg:9},{type:"debuff",statusKey:"frail",amount:2},{type:"attack",dmg:9}]},
+  {id:"ringleader", name:"The Ringleader", icon:"🎩", hp:150, boss:true, lore:"His whip cracks like a gunshot.",
+   moves:[{type:"attack",dmg:16},{type:"summon",summonId:"rustyClown"},{type:"attack",dmg:16},{type:"defend",block:14}]},
+  {id:"beardedLady", name:"The Bearded Lady", icon:"🧔‍♀️", hp:155, boss:true, lore:"Nobody laughs at her act twice.",
+   moves:[{type:"attack",dmg:14},{type:"buff",statusKey:"thorns",amount:3},{type:"attack",dmg:18},{type:"defend",block:12}]},
+
+  {id:"sideshowGhoul", name:"Sideshow Ghoul", icon:"🧟", hp:56, lore:"Used to sell tickets. Still trying to.",
+   moves:[{type:"attack",dmg:11},{type:"attack",dmg:11},{type:"debuff",statusKey:"weak",amount:2}]},
+  {id:"mirrorTwin", name:"Mirror Twin", icon:"🪞", hp:50, lore:"Every hit you land, it seems to feel less of.",
+   moves:[{type:"buff",statusKey:"thorns",amount:2},{type:"attack",dmg:10},{type:"attack",dmg:10}]},
+  {id:"fortuneTeller", name:"Fortune Teller", icon:"🔮", hp:52, lore:"She already knows how this fight ends.",
+   moves:[{type:"debuff",statusKey:"weak",amount:2},{type:"debuff",statusKey:"frail",amount:2},{type:"attack",dmg:9}]},
+  {id:"livingMarionette", name:"Living Marionette", icon:"🪢", hp:58, lore:"No strings. It moves anyway.",
+   moves:[{type:"attack",dmg:13},{type:"attack",dmg:13},{type:"defend",block:10}]},
+  {id:"contortionistTwin", name:"Contortionist Twin", icon:"🤼", hp:58, elite:true, lore:"There were never two of her. Only ever one, bending wrong.",
+   moves:[{type:"attack",dmg:12},{type:"debuff",statusKey:"frail",amount:3},{type:"attack",dmg:12}]},
+  {id:"ironMaidenGolem", name:"Iron Maiden Golem", icon:"⚰️", hp:135, elite:true, lore:"Built to hold something in. Now it holds nothing back.",
+   moves:[{type:"defend",block:16},{type:"attack",dmg:18},{type:"attack",dmg:18}]},
+  {id:"puppetmasterBoss", name:"The Puppetmaster", icon:"🎭", hp:300, boss:true, lore:"Every string in the tent answers to him.",
+   moves:[{type:"attack",dmg:18},{type:"summon",summonId:"livingMarionette"},{type:"attack",dmg:18},{type:"defend",block:16}]},
+  {id:"mesmerist", name:"The Mesmerist", icon:"🌀", hp:285, boss:true, lore:"Look away. Too late.",
+   moves:[{type:"debuff",statusKey:"weak",amount:3},{type:"debuff",statusKey:"vulnerable",amount:3},{type:"attack",dmg:16},{type:"attack",dmg:16}]},
+
+  {id:"nightmareClown", name:"Nightmare Clown", icon:"👹", hp:72, lore:"This one was never funny, not even at the start.",
+   moves:[{type:"attack",dmg:15},{type:"attack",dmg:15},{type:"debuff",statusKey:"weak",amount:3}]},
+  {id:"shadowAcrobat", name:"Shadow Acrobat", icon:"🕴️", hp:62, lore:"You only see it mid-fall.",
+   moves:[{type:"attack",dmg:19},{type:"attack",dmg:10},{type:"attack",dmg:10}]},
+  {id:"barker", name:"The Barker", icon:"📯", hp:76, lore:"Still hyping up a show nobody wanted to buy tickets to.",
+   moves:[{type:"buffAlly",statusKey:"strength",amount:2},{type:"defend",block:10},{type:"buffAlly",statusKey:"strength",amount:2}]},
+  {id:"waxStatue", name:"Wax Statue", icon:"🕯️", hp:92, lore:"It wasn't always this still.",
+   moves:[{type:"defend",block:16},{type:"attack",dmg:14},{type:"attack",dmg:14}]},
+  {id:"ringwraith", name:"Ring Wraith", icon:"👻", hp:62, elite:true, lore:"Circles the ring long after the show has ended.",
+   moves:[{type:"attack",dmg:17},{type:"debuff",statusKey:"vulnerable",amount:3},{type:"attack",dmg:17}]},
+  {id:"beastTamer", name:"Beast Tamer", icon:"🦁", hp:52, elite:true, lore:"He's not the dangerous one here.",
+   moves:[{type:"buffAlly",statusKey:"strength",amount:2},{type:"defend",block:10},{type:"buffAlly",statusKey:"strength",amount:2}]},
+  {id:"beast", name:"The Beast", icon:"🐅", hp:82, elite:true, lore:"He is, however.",
+   moves:[{type:"attack",dmg:20},{type:"attack",dmg:20},{type:"attack",dmg:12}]},
+  {id:"fireKing", name:"The Fire King", icon:"👑", hp:385, boss:true, lore:"Crowned himself with something still burning.",
+   moves:[{type:"buff",statusKey:"strength",amount:3},{type:"attack",dmg:24},{type:"attack",dmg:24},{type:"defend",block:16}]},
+  {id:"drownedDiva", name:"The Drowned Diva", icon:"🎤", hp:365, boss:true, lore:"Her final note never quite finished.",
+   moves:[{type:"debuff",statusKey:"poison",amount:5},{type:"attack",dmg:18},{type:"debuff",statusKey:"weak",amount:2},{type:"attack",dmg:18}]},
+
+  {id:"ringmaster", name:"The Ringmaster", icon:"🎪", hp:520, boss:true, lore:"The one who runs the whole hollow show.",
+   phases:[
+     {hpAbove:0.5, moves:[{type:"attack",dmg:20},{type:"defend",block:14},{type:"attack",dmg:20},{type:"debuff",statusKey:"weak",amount:2}]},
+     {hpAbove:0,   moves:[{type:"attack",dmg:26},{type:"summon",summonId:"rustyClown"},{type:"attack",dmg:26},{type:"buff",statusKey:"strength",amount:3}]},
+   ]},
+];
+const ENEMY_BY_ID = {};
+ENEMY_DEFS.forEach(e=> ENEMY_BY_ID[e.id]=e);
+
+const ENCOUNTERS = {
+  1: { fight:[["rustyClown"],["feralJuggler"],["stiltwalker","rustyClown"],["fireEater"],["feralJuggler","stiltwalker"],
+              ["fireEater","fireEater"],["rustyClown","rustyClown","feralJuggler"]],
+       elite:[["strongwoman"],["acrobat","acrobat"]],
+       boss:["ringleader","beardedLady"] },
+  2: { fight:[["sideshowGhoul"],["mirrorTwin","mirrorTwin"],["fortuneTeller"],["livingMarionette"],["sideshowGhoul","fortuneTeller"],
+              ["livingMarionette","mirrorTwin"],["fortuneTeller","fortuneTeller"]],
+       elite:[["contortionistTwin","contortionistTwin"],["ironMaidenGolem"]],
+       boss:["puppetmasterBoss","mesmerist"] },
+  3: { fight:[["nightmareClown"],["shadowAcrobat","shadowAcrobat"],["barker","nightmareClown"],["waxStatue"],["shadowAcrobat"],
+              ["waxStatue","barker"],["nightmareClown","nightmareClown"]],
+       elite:[["ringwraith","ringwraith"],["beastTamer","beast"]],
+       boss:["fireKing","drownedDiva"] },
+};
+
+/* ============================================================
+   DATA: EVENTS
+   Choice.run() operates on the run/meta state directly (events
+   happen on the map, outside combat) and returns true if the
+   choice actually resolved (false leaves the modal open — used
+   for options the player can't currently afford).
+   ============================================================ */
+const EVENTS = [
+  {id:"fortuneTent", title:"The Fortune Teller's Tent", text:"A hooded figure offers to read your future — for a price.",
+   choices:[
+     {label:"Pay 30 gold to see your fate", run(){ if(run.gold<30) return false; run.gold-=30; grantRelic('uncommon'); toast("The cards reveal a relic."); return true; }},
+     {label:"Refuse and leave", run(){ return true; }},
+   ]},
+  {id:"strangeVendor", title:"The Strange Vendor", text:"\"Everything has a price, dear. Some are just... unusual.\"",
+   choices:[
+     {label:"Trade 10 Max HP for a Rare relic", run(){ run.maxHp=Math.max(10,run.maxHp-10); run.hp=Math.min(run.hp,run.maxHp); grantRelic('rare'); return true; }},
+     {label:"Trade a card for 50 gold", run(){ openCardRemovePicker(()=>{ run.gold+=50; toast("+50 gold."); }); return true; }},
+     {label:"Leave", run(){ return true; }},
+   ]},
+  {id:"abandonedCage", title:"The Abandoned Cage", text:"Something was kept here. The door hangs open.",
+   choices:[
+     {label:"Free whatever it was (gain 30 gold, gain a Curse)", run(){ run.gold+=30; addCardToDeck(choice(['curseRegret','curseStageFright']), false); toast("Something slips free — and something else slips in."); return true; }},
+     {label:"Leave it be", run(){ return true; }},
+   ]},
+  {id:"whispers", title:"Whispers Under the Tent", text:"Voices, low and many, offer to help — for nothing you can name.",
+   choices:[
+     {label:"Remove a card from your deck", run(){ openCardRemovePicker(()=>{}); return true; }},
+     {label:"Upgrade a random card", run(){ upgradeRandomCard(); return true; }},
+   ]},
+  {id:"ringmastersToll", title:"The Ringmaster's Toll", text:"A toll booth, unmanned, with a slot exactly the shape of blood.",
+   choices:[
+     {label:"Pay 15% of your current HP for 75 gold", run(){ const cost=Math.max(1,Math.round(run.hp*0.15)); run.hp=Math.max(1,run.hp-cost); run.gold+=75; return true; }},
+     {label:"Refuse", run(){ return true; }},
+   ]},
+  {id:"brokenMirror", title:"A Broken Mirror", text:"Your reflection looks back a half-second too late.",
+   choices:[
+     {label:"Smash it (lose 10 HP, gain a Rare relic)", run(){ run.hp=Math.max(1,run.hp-10); grantRelic('rare'); return true; }},
+     {label:"Walk away", run(){ return true; }},
+   ]},
+  {id:"understudy", title:"The Understudy", text:"A quiet performer offers to learn one of your tricks.",
+   choices:[
+     {label:"Duplicate a card in your deck", run(){ openCardDuplicatePicker(); return true; }},
+     {label:"Leave", run(){ return true; }},
+   ]},
+  {id:"carnivalGames", title:"Carnival Games", text:"\"Double or nothing, friend?\"",
+   choices:[
+     {label:"Gamble 25 gold", run(){ if(run.gold<25) return false; run.gold-=25; if(Math.random()<0.5){ run.gold+=50; toast("You win! +50 gold."); } else { toast("You lose the bet."); } return true; }},
+     {label:"Don't play", run(){ return true; }},
+   ]},
+  {id:"embalmersTable", title:"The Embalmer's Table", text:"It's cold, and it's waiting, and it heals what's put on it.",
+   choices:[
+     {label:"Heal to full HP (gain a Curse)", run(){ run.hp=run.maxHp; addCardToDeck('curseCurtainCall', false); return true; }},
+     {label:"Leave", run(){ return true; }},
+   ]},
+  {id:"oldPlaybills", title:"Old Playbills", text:"Stacks of forgotten routines, still legible.",
+   choices:[
+     {label:"Choose a free card", run(){ openCardRewardPicker(3, ()=>{}); return true; }},
+     {label:"Sell them instead (+40 gold)", run(){ run.gold+=40; return true; }},
+   ]},
+  {id:"familiarFace", title:"A Familiar Face", text:"Someone in the crowd looks exactly like you did before you arrived. They don't recognize you. Or won't.",
+   choices:[
+     {label:"Approach them (lose 5 HP, gain 20 gold)", run(){ run.hp=Math.max(1,run.hp-5); run.gold+=20; return true; }},
+     {label:"Keep walking", run(){ return true; }},
+   ]},
+  {id:"popcornVendor", title:"The Popcorn Vendor", text:"He's selling something in a striped bag that definitely isn't popcorn.",
+   choices:[
+     {label:"Buy a bag for 10 gold (heal 8 HP)", run(){ if(run.gold<10) return false; run.gold-=10; run.hp=Math.min(run.maxHp,run.hp+8); return true; }},
+     {label:"Pass", run(){ return true; }},
+   ]},
+  {id:"stagehandsWarning", title:"Stagehand's Warning", text:"\"Don't go past the red curtain until you're ready,\" a stagehand whispers. \"It doesn't wait for you to be ready twice.\"",
+   choices:[
+     {label:"Heed it — gain a Rare relic", run(){ grantRelic('rare'); return true; }},
+     {label:"Push past anyway — gain 60 gold", run(){ run.gold+=60; return true; }},
+   ]},
+  {id:"missingPerformer", title:"The Missing Performer", text:"A poster for an act that isn't running tonight. Someone didn't make it to the stage.",
+   choices:[
+     {label:"Take their place (gain a free card, gain a Curse)", run(){ addCardToDeck(choice(['curseRegret','curseStageFright']), false); openCardRewardPicker(3, ()=>{}); return true; }},
+     {label:"Leave the poster be", run(){ return true; }},
+   ]},
+  {id:"wishingWell", title:"Coins in the Fountain", text:"An old wishing well, sitting oddly in the middle of a carnival tent.",
+   choices:[
+     {label:"Toss in 20 gold", run(){
+        if(run.gold<20) return false;
+        run.gold-=20;
+        if(Math.random()<0.5){ grantRelic('uncommon'); toast('The well glows — a relic surfaces.'); }
+        else { toast('The well stays dark. Nothing happens.'); }
+        return true;
+      }},
+     {label:"Don't bother", run(){ return true; }},
+   ]},
+];
+
+/* ============================================================
+   DATA: STORY
+   ============================================================ */
+const ACT_STORY = {
+  2: {eyebrow:"Act II", title:"The Sideshow", text:"You've survived the Big Top. The Ringmaster's people say the real show hasn't even started yet — and they say it smiling, in a way that doesn't reach their eyes. Welcome to the Sideshow."},
+  3: {eyebrow:"Act III", title:"Behind the Curtain", text:"Past the sideshow tents is a door marked STAFF ONLY. It shouldn't lead anywhere but backstage. It doesn't."},
+  4: {eyebrow:"Act IV", title:"Center Ring", text:"The spotlight in the center ring was already lit when you arrived at the Carnival. It will still be lit after you leave — one way or another. The Ringmaster is waiting."},
+};
+const STORY_VICTORY = "The Ringmaster falls, and for one impossible second the whole tent seems to hold its breath. Then the canvas overhead tears open onto an ordinary sky. Whatever you owed this place, it's paid. The Hollow Carnival will pack up before dawn and go looking for someone else. Not you. Not this time.";
+const STORY_DEFEAT = "The crowd applauds, the way a crowd is supposed to. Somewhere under the bleachers, a new act is already being written into tomorrow's show. The Hollow Carnival always needs a new performer. It just found one.";
+
+/* ============================================================
+   DATA: ASCENSION, ACHIEVEMENTS
+   ============================================================ */
+const ASCENSION_DEFS = [
+  {level:0, desc:"No modifiers."},
+  {level:1, desc:"Enemies have +10% HP.", enemyHpMult:1.10},
+  {level:2, desc:"Elites appear more often.", eliteChance:0.24},
+  {level:3, desc:"Start each run with 20 less gold.", goldPenalty:20},
+  {level:4, desc:"Enemies deal +15% damage.", enemyDmgMult:1.15},
+  {level:5, desc:"Bosses have +20% HP and hit harder.", bossHpMult:1.20, bossDmgMult:1.15},
+];
+function ascensionDef(level){ return ASCENSION_DEFS[clamp(level,0,ASCENSION_DEFS.length-1)]; }
+
+const ACHIEVEMENTS = [
+  {id:"first_win", name:"Opening Night", desc:"Win a run.", cond:()=>meta.stats.wins>=1},
+  {id:"win_strongman", name:"Strongman's Triumph", desc:"Win a run as the Strongman.", cond:()=>meta.stats.winsByPerformer.strongman>=1},
+  {id:"win_contortionist", name:"Contortionist's Triumph", desc:"Win a run as the Contortionist.", cond:()=>meta.stats.winsByPerformer.contortionist>=1},
+  {id:"win_puppeteer", name:"Puppeteer's Triumph", desc:"Win a run as the Puppeteer.", cond:()=>meta.stats.winsByPerformer.puppeteer>=1},
+  {id:"win_hypnotist", name:"Hypnotist's Triumph", desc:"Win a run as the Hypnotist.", cond:()=>meta.stats.winsByPerformer.hypnotist>=1},
+  {id:"win_asc3", name:"Command Performance", desc:"Win a run at Ascension 3 or higher.", cond:()=>meta.stats.bestAscWin>=3},
+  {id:"win_asc5", name:"Grand Finale", desc:"Win a run at Ascension 5.", cond:()=>meta.stats.bestAscWin>=5},
+  {id:"kills_50", name:"Crowd Pleaser", desc:"Defeat 50 enemies (lifetime).", cond:()=>meta.stats.kills>=50},
+  {id:"kills_250", name:"Star Attraction", desc:"Defeat 250 enemies (lifetime).", cond:()=>meta.stats.kills>=250},
+  {id:"elites_20", name:"Elite Hunter", desc:"Defeat 20 Elite encounters (lifetime).", cond:()=>meta.stats.elitesKilled>=20},
+  {id:"relics_50", name:"Collector of Curiosities", desc:"Collect 50 relics (lifetime, across all runs).", cond:()=>meta.stats.relicsCollected>=50},
+  {id:"runs_25", name:"Seasoned Performer", desc:"Complete 25 runs (win or lose).", cond:()=>meta.stats.runsPlayed>=25},
+  {id:"unlock_all_performers", name:"Full Cast", desc:"Unlock every Performer.", cond:()=>PERFORMERS.every(p=>meta.unlockedPerformers.includes(p.id))},
+  {id:"unlock_20_cards", name:"Deep Bag of Tricks", desc:"Unlock 20 cards.", cond:()=>meta.unlockedCards.length>=20},
+  {id:"gold_1000", name:"Big Spender", desc:"Hold 1000+ gold at once during a run.", cond:()=>meta.stats.mostGold>=1000},
+  {id:"daily_5", name:"Regular at the Show", desc:"Play the Daily Challenge 5 times.", cond:()=>meta.stats.dailyPlays>=5},
+];
+
+/* ============================================================
+   META STATE (persisted — unlocks, currency, lifetime stats)
+   ============================================================ */
+const META_KEY = "hollowcarnival_meta_v1";
+const RUN_KEY = "hollowcarnival_run_v1";
+function freshMeta(){
+  return {
+    tickets:0,
+    unlockedPerformers:["strongman"],
+    // Common-rarity cards are unlocked from the start so a brand-new save
+    // (0 Tickets) still gets real reward/shop variety — only Uncommon and
+    // Rare are gated behind spending Tickets in the Backstage.
+    unlockedCards: CARD_POOL.filter(c=>c.rarity==='starter'||c.rarity==='curse'||c.rarity==='common').map(c=>c.id),
+    ascUnlocked:0,
+    achClaimed:{},
+    stats:{ wins:0, runsPlayed:0, kills:0, elitesKilled:0, relicsCollected:0, mostGold:0,
+            bestAscWin:-1, winsByPerformer:{strongman:0,contortionist:0,puppeteer:0,hypnotist:0}, dailyPlays:0,
+            killsByEnemy:{} },
+    dailyBest:{seed:null, floor:0, won:false},
+    seenStory:{},
+    muted:false,
+  };
+}
+let meta = null;
+function loadMeta(){
+  try{
+    const raw = localStorage.getItem(META_KEY);
+    if(!raw) return freshMeta();
+    const data = Object.assign(freshMeta(), JSON.parse(raw));
+    // Migration: a save made before commons were unlocked by default would
+    // have its own (empty-of-commons) unlockedCards array, which Object.assign
+    // above just overwrote the fresh default with — patch any defaults back in.
+    freshMeta().unlockedCards.forEach(id=>{ if(!data.unlockedCards.includes(id)) data.unlockedCards.push(id); });
+    return data;
+  }catch(e){ return freshMeta(); }
+}
+function saveMeta(){ localStorage.setItem(META_KEY, JSON.stringify(meta)); }
+meta = loadMeta();
+
+function saveRun(){ if(run) localStorage.setItem(RUN_KEY, JSON.stringify(run)); }
+function loadRunFromStorage(){
+  try{ const raw = localStorage.getItem(RUN_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+}
+function clearRunStorage(){ localStorage.removeItem(RUN_KEY); }
+
+const COMBAT_KEY = "hollowcarnival_combat_v1";
+// Guarded on combat.active so a render that fires *after* victory/defeat
+// (there's always at least one — the final blow still needs to draw) can
+// never write a dead combat back into storage after onVictory()/onDefeat()
+// already cleared it earlier in the same synchronous call chain.
+function saveCombat(){ if(combat && combat.active) localStorage.setItem(COMBAT_KEY, JSON.stringify(combat)); }
+function loadCombatFromStorage(){
+  try{ const raw = localStorage.getItem(COMBAT_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+}
+function clearCombatStorage(){ localStorage.removeItem(COMBAT_KEY); }
+
+/* ============================================================
+   RUN STATE
+   ============================================================ */
+let run = null;    // active run (map/deck/relics/hp/gold) — persists between screens, not mid-combat
+let combat = null; // active combat (only while screen-combat is shown)
+
+function relicModTotal(key){
+  let total = 0;
+  (run.relics||[]).forEach(rid=>{
+    const r = RELIC_BY_ID[rid];
+    if(r && r.mods) r.mods.forEach(m=>{ if(m.key===key) total += m.val; });
+  });
+  return total;
+}
+function runHandSize(){ return Math.max(1, 5 + relicModTotal('handSize')); }
+function runEnergyMax(){ return Math.max(1, 3 + relicModTotal('energy')); }
+
+function newRun(performerId, ascLevel, dailySeed){
+  // Guards against a stale mid-fight combat save from a previous run that
+  // was never formally ended (e.g. started a new run instead of clicking
+  // Abandon) — without this, the hub's "Resume Fight" could later offer to
+  // resume combat that belongs to a run that no longer exists.
+  clearCombatStorage();
+  const perf = performerDef(performerId);
+  const asc = ascensionDef(ascLevel);
+  run = {
+    performerId, ascLevel, dailySeed: dailySeed||null,
+    hp: perf.hp, maxHp: perf.hp,
+    gold: 90 - (asc.goldPenalty||0),
+    deck: perf.starterDeck.map(id=>({uid:uid(), defId:id, upgraded:false})),
+    relics: [perf.starterRelic],
+    act: 1, mapObj: null, lastNodeId: null, visitedNodeIds: [],
+    floorsCleared:0, elitesKilled:0, cardsAdded:0, startingRelicsCount:1,
+    won:false, over:false,
+  };
+  run.maxHp += relicModTotal('maxHp');
+  run.hp = run.maxHp;
+  run.gold += relicModTotal('startGold');
+  run.mapObj = generateMap(1);
+  meta.stats.runsPlayed++;
+  saveMeta();
+  saveRun();
+}
+
+/* ============================================================
+   MAP GENERATION
+   ============================================================ */
+function weightedNodeType(layer, act){
+  const eliteChance = ascensionDef(run ? run.ascLevel : 0).eliteChance || 0.15;
+  const roll = Math.random();
+  if(layer>=2 && roll<eliteChance) return 'elite';
+  if(roll<0.45) return 'fight';
+  if(roll<0.62) return 'event';
+  if(roll<0.75) return 'shop';
+  if(roll<0.88) return 'rest';
+  return 'treasure';
+}
+function generateMap(act){
+  const layerCounts = [1,3,3,3,3,1];
+  let idc = 0;
+  const layerNodes = [];
+  for(let L=0; L<layerCounts.length; L++){
+    const count = layerCounts[L];
+    const nodes = [];
+    for(let i=0;i<count;i++){
+      let type;
+      if(L===0) type = 'fight';
+      else if(L===layerCounts.length-1) type = 'boss';
+      else type = weightedNodeType(L, act);
+      nodes.push({id:act+'_n'+(idc++), layer:L, type, connections:[]});
+    }
+    layerNodes.push(nodes);
+  }
+  for(let L=0; L<layerCounts.length-1; L++){
+    const cur = layerNodes[L], next = layerNodes[L+1];
+    cur.forEach((n,i)=>{
+      const base = Math.floor(i*next.length/cur.length);
+      const targets = new Set([clamp(base,0,next.length-1)]);
+      if(Math.random()<0.55) targets.add(clamp(base+(Math.random()<0.5?1:-1),0,next.length-1));
+      n.connections = [...targets].map(t=>next[t].id);
+    });
+    next.forEach(n=>{
+      const hasIncoming = cur.some(c=>c.connections.includes(n.id));
+      if(!hasIncoming){ choice(cur).connections.push(n.id); }
+    });
+  }
+  const allNodes = layerNodes.flat();
+  return {act, nodes:allNodes, layerCounts};
+}
+function nodeById(id){ return run.mapObj.nodes.find(n=>n.id===id); }
+function availableNodeIds(){
+  if(!run.lastNodeId) return run.mapObj.nodes.filter(n=>n.layer===0).map(n=>n.id);
+  const last = nodeById(run.lastNodeId);
+  return last ? last.connections : [];
+}
+
+/* ============================================================
+   COMBAT ENGINE
+   ============================================================ */
+const FX_TABLE = {
+  damage(card,ctx){ for(let i=0;i<(card.hits||1);i++) ctx.dealDamageToEnemy(ctx.target, card.dmg); if(card.draw) ctx.draw(card.draw); },
+  damageAll(card,ctx){ ctx.enemies.forEach(e=>{ if(e.hp>0) ctx.dealDamageToEnemy(e, card.dmg); }); },
+  block(card,ctx){ ctx.gainBlock(card.block); if(card.draw) ctx.draw(card.draw); },
+  statusSelf(card,ctx){ ctx.applyStatus(ctx.player, card.statusKey, card.amount); },
+  statusTarget(card,ctx){ ctx.applyStatus(ctx.target, card.statusKey, card.amount); },
+  statusAll(card,ctx){ ctx.enemies.forEach(e=>{ if(e.hp>0) ctx.applyStatus(e, card.statusKey, card.amount); }); },
+  draw(card,ctx){ ctx.draw(card.draw); },
+  heal(card,ctx){ ctx.heal(card.heal); },
+  gold(card,ctx){ ctx.gainGold(card.gold); },
+  energy(card,ctx){ ctx.gainEnergy(card.energyGain); },
+  none(){},
+};
+
+function movesFor(enemy){
+  const def = ENEMY_BY_ID[enemy.defId];
+  if(def.phases){
+    const frac = enemy.hp/enemy.maxHp;
+    // Index, not the phase object itself — an object reference wouldn't
+    // survive a JSON round-trip (combat state gets persisted for resume),
+    // and a deserialized copy would never be === to def.phases[i] again,
+    // making every post-resume check look like a fresh phase change.
+    const found = def.phases.findIndex(p=>frac>=p.hpAbove);
+    const idx = found===-1 ? def.phases.length-1 : found;
+    if(enemy.phaseIdx !== idx){ enemy.phaseIdx = idx; enemy.turnCount = 0; }
+    return def.phases[idx].moves;
+  }
+  return def.moves;
+}
+function intentLabel(move){
+  if(move.type==='attack') return `⚔️ ${move.dmg}`;
+  if(move.type==='defend') return `🛡️ ${move.block}`;
+  if(move.type==='buff' || move.type==='buffAlly') return `✨ ${STATUSES[move.statusKey].icon}${move.amount}`;
+  if(move.type==='debuff') return `☠️ ${STATUSES[move.statusKey].icon}${move.amount}`;
+  if(move.type==='summon') return `👥 Summon`;
+  return '?';
+}
+// Weakness tiers: 50 lifetime kills of a given enemy type -> +15% damage
+// dealt to it (checked in dealDamageToEnemy); 100 -> additionally start
+// combat with 2 Vulnerable already on it (applied here, at spawn).
+const WEAKNESS_TIER1_KILLS = 50;
+const WEAKNESS_TIER2_KILLS = 100;
+function enemyWeaknessTier(defId){
+  const k = (meta.stats.killsByEnemy||{})[defId] || 0;
+  if(k >= WEAKNESS_TIER2_KILLS) return 2;
+  if(k >= WEAKNESS_TIER1_KILLS) return 1;
+  return 0;
+}
+function spawnEnemyInstance(defId){
+  const def = ENEMY_BY_ID[defId];
+  const asc = ascensionDef(run.ascLevel);
+  let hp = def.hp;
+  if(asc.enemyHpMult) hp = Math.round(hp*asc.enemyHpMult);
+  if(def.boss && asc.bossHpMult) hp = Math.round(hp*asc.bossHpMult);
+  const enemy = {uid:uid(), defId, hp, maxHp:hp, block:0, statuses:{}, turnCount:0, phaseIdx:-1, intent:null};
+  if(enemyWeaknessTier(defId) >= 2) enemy.statuses.vulnerable = 2;
+  enemy.intent = movesFor(enemy)[0];
+  return enemy;
+}
+function buildEnemies(groupIds){
+  return groupIds.map(id=>spawnEnemyInstance(id));
+}
+
+function startCombat(groupIds, kind){
+  const enemies = buildEnemies(groupIds);
+  const player = {
+    hp: run.hp, maxHp: run.maxHp,
+    energy:0, energyMax: runEnergyMax(),
+    block: relicModTotal('startBlock'),
+    statuses:{
+      strength: relicModTotal('strengthStart'),
+      dexterity: relicModTotal('dexterityStart'),
+      thorns: relicModTotal('thornsStart'),
+      regen: relicModTotal('regenStart'),
+    },
+    powers:{},
+    hand:[], drawPile: shuffle(run.deck.map(inst=>({...inst}))), discardPile:[], exhaustPile:[],
+    marionettes:[],
+  };
+  combat = {
+    kind, groupIds, enemies, player,
+    momentum:{sigil:null, count:0}, turn:1, targetingCard:null,
+    firstAttackUsed:false, firstDebuffUsed:false, firstCardPlayedThisTurn:false, active:true, log:'',
+  };
+  if(run.relics.includes('marionetteStrings')) summonMarionette(1,6);
+  beginPlayerTurn();
+  showScreen('screen-combat');
+  renderCombat();
+}
+
+function ctxHelpers(targetEnemy){
+  return {
+    player: combat.player,
+    enemies: combat.enemies,
+    target: targetEnemy || null,
+    dealDamageToEnemy(enemy, base){ dealDamageToEnemy(enemy, base); },
+    applyStatus(entity, key, amt){
+      let total = amt;
+      const isDebuffOnEnemy = entity!==combat.player && STATUSES[key] && STATUSES[key].kind==='debuff';
+      if(isDebuffOnEnemy){
+        if(key==='poison' && combat.player.powers.serpentsKiss) total += 1;
+        if(combat.player.powers.trance) total += 1;
+        if(run.relics.includes('velvetMask') && !combat.firstDebuffUsed){
+          combat.firstDebuffUsed = true;
+          total *= 2;
+        }
+      }
+      applyStatusRaw(entity, key, total);
+    },
+    gainBlock(amt){ gainPlayerBlock(amt); },
+    draw(n){ drawCards(n); if(n>0) SFX.draw(); },
+    heal(n){
+      const before = combat.player.hp;
+      combat.player.hp = Math.min(combat.player.maxHp, combat.player.hp+n);
+      if(combat.player.hp>before) floatNumber($("player-row"), '+'+(combat.player.hp-before), '#4fd88a');
+    },
+    gainGold(n){ run.gold += n; },
+    gainEnergy(n){ combat.player.energy += n; },
+    summonMarionette(atk,hp){ summonMarionette(atk,hp); },
+  };
+}
+function applyStatusRaw(entity, key, amt){
+  entity.statuses[key] = Math.max(0, (entity.statuses[key]||0) + amt);
+}
+function gainPlayerBlock(amt){
+  const p = combat.player;
+  let actual = amt + (p.statuses.dexterity||0);
+  if((p.statuses.frail||0) > 0) actual = Math.max(0, Math.round(actual*0.75));
+  actual = Math.max(0, actual);
+  p.block += actual;
+  if(actual>0){ SFX.block(); floatNumber($("player-row"), '+'+actual+' 🛡️', '#8fd8ff'); }
+}
+function dealDamageToEnemy(enemy, base){
+  if(!enemy || enemy.hp<=0) return;
+  const p = combat.player;
+  let dmg = base + (p.statuses.strength||0);
+  if(!combat.firstAttackUsed){
+    combat.firstAttackUsed = true;
+    if(run.relics.includes('weightedGloves')) dmg += 3;
+    if(run.relics.includes('brokenCompass')) dmg += 5;
+  }
+  if((p.statuses.weak||0) > 0) dmg = Math.round(dmg*0.75);
+  if((enemy.statuses.vulnerable||0) > 0) dmg = Math.round(dmg*1.5);
+  if(enemyWeaknessTier(enemy.defId) >= 1) dmg = Math.round(dmg*1.15);
+  dmg = Math.max(0, dmg);
+  const absorbed = Math.min(enemy.block, dmg);
+  enemy.block -= absorbed;
+  enemy.hp -= (dmg-absorbed);
+  const el = enemyEl(enemy.uid);
+  if(dmg-absorbed > 0){ floatNumber(el, '-'+(dmg-absorbed), '#ff8a80'); flashClass(el,'hit-flash'); }
+  else if(absorbed > 0){ floatNumber(el, 'Blocked!', '#8fd8ff'); }
+  if(enemy.hp <= 0){
+    enemy.hp = 0;
+    SFX.kill();
+    shakeCombat();
+    recordEnemyKill(enemy.defId);
+    if(run.relics.includes('bloodstone')) combat.player.hp = Math.min(combat.player.maxHp, combat.player.hp+3);
+  } else if(dmg > 0){
+    SFX.hit();
+  }
+}
+function recordEnemyKill(defId){
+  meta.stats.killsByEnemy = meta.stats.killsByEnemy || {};
+  const before = meta.stats.killsByEnemy[defId] || 0;
+  const after = before + 1;
+  meta.stats.killsByEnemy[defId] = after;
+  saveMeta();
+  const def = ENEMY_BY_ID[defId];
+  if(after === WEAKNESS_TIER1_KILLS){
+    toast(`🎯 Weakness learned: ${def.name} (+15% damage dealt)`);
+    SFX.relic();
+  } else if(after === WEAKNESS_TIER2_KILLS){
+    toast(`🎯 Deep weakness learned: ${def.name} (starts Vulnerable)`);
+    SFX.relic();
+  }
+}
+function dealDamageToPlayer(base, sourceEnemy){
+  const p = combat.player;
+  let dmg = base + (sourceEnemy ? (sourceEnemy.statuses.strength||0) : 0);
+  if(sourceEnemy && (sourceEnemy.statuses.weak||0) > 0) dmg = Math.round(dmg*0.75);
+  if((p.statuses.vulnerable||0) > 0) dmg = Math.round(dmg*1.5);
+  dmg = Math.max(0, dmg);
+  const absorbed = Math.min(p.block, dmg);
+  p.block -= absorbed;
+  const toHp = dmg - absorbed;
+  p.hp = Math.max(0, p.hp - toHp);
+  const row = $("player-row");
+  if(toHp > 0){
+    floatNumber(row, '-'+toHp, '#ff8a80');
+    flashClass(row, 'hit-flash');
+    shakeCombat();
+    SFX.hurt();
+    if(run.relics.includes('ledgerOfDebts')) run.gold += 2;
+  } else if(absorbed > 0){
+    floatNumber(row, 'Blocked!', '#8fd8ff');
+    flashClass(row, 'block-flash');
+  }
+  if(dmg > 0 && (p.statuses.thorns||0) > 0 && sourceEnemy && sourceEnemy.hp>0){
+    sourceEnemy.hp = Math.max(0, sourceEnemy.hp - p.statuses.thorns);
+  }
+}
+function summonMarionette(atk,hp){
+  const p = combat.player;
+  const alive = p.marionettes.filter(m=>m.hp>0);
+  if(alive.length >= 3) return;
+  p.marionettes.push({uid:uid(), atk: atk + (p.powers.puppetMaster||0), hp, maxHp:hp});
+}
+function drawCards(n){
+  const p = combat.player;
+  for(let i=0;i<n;i++){
+    if(p.hand.length >= 10){ break; }
+    if(p.drawPile.length===0){
+      if(p.discardPile.length===0) break;
+      p.drawPile = shuffle(p.discardPile); p.discardPile = [];
+    }
+    const inst = p.drawPile.pop();
+    p.hand.push(inst);
+    const def = CARD_BY_ID[inst.defId];
+    if(def.onDraw) def.onDraw(ctxHelpers(null));
+  }
+}
+
+function beginPlayerTurn(){
+  const p = combat.player;
+  combat.targetingCard = null;
+  p.block = 0;
+  const poisonDmg = p.statuses.poison||0;
+  if(poisonDmg>0) p.hp = Math.max(0, p.hp-poisonDmg);
+  p.statuses.poison = Math.max(0, poisonDmg-1);
+  const regenAmt = p.statuses.regen||0;
+  if(regenAmt>0) p.hp = Math.min(p.maxHp, p.hp+regenAmt);
+  p.statuses.regen = Math.max(0, regenAmt-1);
+  if(p.powers.rallyCry) applyStatusRaw(p, 'strength', p.powers.rallyCry);
+  p.energy = p.energyMax;
+  combat.momentum = {sigil:null, count:0};
+  combat.firstCardPlayedThisTurn = false;
+  if(p.hp<=0){ onDefeat(); return; }
+  const drawN = runHandSize() + (p.powers.nimbleFingers||0) + (run.relics.includes('silkGloves')?1:0);
+  drawCards(drawN);
+  renderCombat();
+}
+function decrementDebuffs(entity){
+  ['weak','vulnerable','frail','confusion'].forEach(k=>{ entity.statuses[k] = Math.max(0, (entity.statuses[k]||0)-1); });
+}
+function updateMomentum(card){
+  if(card.sigil==='none') return;
+  const m = combat.momentum;
+  if(m.sigil===null || m.sigil==='wild' || card.sigil==='wild' || m.sigil===card.sigil){
+    if(m.sigil===null || (m.sigil==='wild' && card.sigil!=='wild')) m.sigil = card.sigil;
+    m.count++;
+  } else {
+    combat.momentum = {sigil:card.sigil, count:1};
+  }
+  const threshold = run.relics.includes('silverBell') ? 2 : 3;
+  if(combat.momentum.count>0 && combat.momentum.count % threshold === 0){
+    triggerEncore(combat.momentum.sigil);
+  }
+}
+function triggerEncore(sigil){
+  const ctx = ctxHelpers(combat.enemies.find(e=>e.hp>0));
+  if(sigil==='ring') combat.enemies.forEach(e=>{ if(e.hp>0) dealDamageToEnemy(e,4); });
+  else if(sigil==='mask') drawCards(2);
+  else if(sigil==='candle'){ const t=randomAliveEnemy(); if(t){ applyStatusRaw(t,'weak',2); applyStatusRaw(t,'vulnerable',2); } }
+  else if(sigil==='wild') combat.player.energy += 3;
+  SFX.encore();
+  toast(`✨ Encore! ${SIGILS[sigil].icon} ${SIGILS[sigil].name}`);
+  checkAllEnemiesDead();
+}
+function randomAliveEnemy(){
+  const alive = combat.enemies.filter(e=>e.hp>0);
+  return alive.length ? choice(alive) : null;
+}
+
+function playCardAnimated(el, inst, targetEnemy){
+  // Only play the "launch" animation if the card will actually resolve.
+  // Without this check, clicking an unaffordable card still animated it
+  // flying out of hand — playCard() then silently failed its own energy
+  // check 150ms later (by design, so it can be called directly too), but
+  // nothing re-renders on that silent failure, so the card was stuck
+  // looking gone even though it never left p.hand.
+  const card = effectiveCard(inst);
+  let cost = card.cost;
+  if(!combat.firstCardPlayedThisTurn && run.relics.includes('phantomLimb')) cost = 0;
+  const playable = card.type!=='curse' && combat.player.energy >= cost;
+  if(el && playable){
+    el.classList.add('playing');
+    setTimeout(()=> playCard(inst, targetEnemy), 150);
+  } else {
+    playCard(inst, targetEnemy);
+  }
+}
+function playCard(inst, targetEnemy){
+  if(!combat || !combat.active) return;
+  const card = effectiveCard(inst);
+  if(card.type==='curse') return;
+  let cost = card.cost;
+  if(!combat.firstCardPlayedThisTurn && run.relics.includes('phantomLimb')) cost = 0;
+  if(combat.player.energy < cost) return;
+  if(needsTarget(card) && !targetEnemy){ combat.targetingCard = inst.uid; renderCombat(); return; }
+  combat.player.energy -= cost;
+  combat.firstCardPlayedThisTurn = true;
+  combat.targetingCard = null;
+  SFX.cardPlay();
+  const ctx = ctxHelpers(targetEnemy);
+  if(card.fx==='custom') card.effect(ctx, card);
+  else (FX_TABLE[card.fx]||FX_TABLE.none)(card, ctx);
+  const p = combat.player;
+  p.hand = p.hand.filter(c=>c.uid!==inst.uid);
+  if(card.exhaust) p.exhaustPile.push(inst); else p.discardPile.push(inst);
+  updateMomentum(card);
+  checkAllEnemiesDead();
+  if(combat.active) renderCombat();
+}
+function cancelTargeting(){ combat.targetingCard = null; renderCombat(); }
+
+function endPlayerTurn(){
+  if(!combat || !combat.active) return;
+  combat.targetingCard = null;
+  const p = combat.player;
+  p.marionettes.forEach(m=>{
+    if(m.hp>0){ const t=randomAliveEnemy(); if(t) dealDamageToEnemy(t, m.atk); }
+  });
+  decrementDebuffs(p);
+  p.discardPile.push(...p.hand);
+  p.hand = [];
+  checkAllEnemiesDead();
+  if(!combat.active) return;
+  runEnemyTurns();
+}
+function startEnemyTurn(enemy){
+  enemy.block = 0;
+  const poisonDmg = enemy.statuses.poison||0;
+  if(poisonDmg>0) enemy.hp = Math.max(0, enemy.hp-poisonDmg);
+  enemy.statuses.poison = Math.max(0, poisonDmg-1);
+  const regenAmt = enemy.statuses.regen||0;
+  if(regenAmt>0) enemy.hp = Math.min(enemy.maxHp, enemy.hp+regenAmt);
+  enemy.statuses.regen = Math.max(0, regenAmt-1);
+}
+function resolveEnemyMove(enemy, move){
+  const asc = ascensionDef(run.ascLevel);
+  if(move.type==='attack'){
+    let dmg = move.dmg;
+    if(asc.enemyDmgMult) dmg = Math.round(dmg*asc.enemyDmgMult);
+    const def = ENEMY_BY_ID[enemy.defId];
+    if(def.boss && asc.bossDmgMult) dmg = Math.round(dmg*asc.bossDmgMult);
+    if((enemy.statuses.confusion||0) > 0){
+      const others = combat.enemies.filter(e=>e!==enemy && e.hp>0);
+      if(others.length){ dealDamageToEnemy(choice(others), dmg); }
+      else { dealDamageToPlayer(dmg, enemy); }
+    } else {
+      dealDamageToPlayer(dmg, enemy);
+    }
+  } else if(move.type==='defend'){
+    enemy.block += move.block;
+  } else if(move.type==='buff'){
+    applyStatusRaw(enemy, move.statusKey, move.amount);
+  } else if(move.type==='debuff'){
+    applyStatusRaw(combat.player, move.statusKey, move.amount);
+  } else if(move.type==='buffAlly'){
+    combat.enemies.forEach(e=>{ if(e!==enemy && e.hp>0) applyStatusRaw(e, move.statusKey, move.amount); });
+  } else if(move.type==='summon'){
+    if(combat.enemies.filter(e=>e.hp>0).length < 4) combat.enemies.push(spawnEnemyInstance(move.summonId));
+  }
+}
+function runEnemyTurns(){
+  const order = combat.enemies.filter(e=>e.hp>0);
+  let i = 0;
+  function step(){
+    if(!combat.active) return;
+    if(combat.player.hp<=0){ onDefeat(); return; }
+    if(i >= order.length){ combat.turn++; beginPlayerTurn(); return; }
+    const enemy = order[i]; i++;
+    if(enemy.hp<=0){ checkAllEnemiesDead(); if(!combat.active) return; step(); return; }
+    startEnemyTurn(enemy);
+    if(enemy.hp<=0){ checkAllEnemiesDead(); if(!combat.active) return; step(); return; }
+    resolveEnemyMove(enemy, enemy.intent);
+    decrementDebuffs(enemy);
+    enemy.turnCount++;
+    const moves = movesFor(enemy);
+    enemy.intent = moves[enemy.turnCount % moves.length];
+    checkAllEnemiesDead();
+    renderCombat();
+    if(combat.player.hp<=0){ onDefeat(); return; }
+    if(!combat.active) return;
+    setTimeout(step, 480);
+  }
+  renderCombat();
+  setTimeout(step, 300);
+}
+function checkAllEnemiesDead(){
+  combat.enemies = combat.enemies.filter(e=>e.hp>0);
+  if(combat.enemies.length===0 && combat.active){
+    combat.active = false;
+    onVictory();
+  }
+}
+function onVictory(){
+  clearCombatStorage();
+  SFX.victory();
+  run.hp = combat.player.hp;
+  const isElite = combat.kind==='elite';
+  const isBoss = combat.kind==='boss' || combat.kind==='ringmaster';
+  let gold = randInt(10,20) + (isElite?20:0) + (isBoss?40:0);
+  gold = Math.round(gold * (1+relicModTotal('goldGain')));
+  run.gold += gold;
+  meta.stats.mostGold = Math.max(meta.stats.mostGold, run.gold);
+  meta.stats.kills += combat.groupIds.length;
+  if(isElite){ meta.stats.elitesKilled++; run.elitesKilled++; }
+  saveMeta();
+  const relicTier = isBoss ? 'boss' : (isElite ? 'normal' : null);
+  openRewardScreen(gold, relicTier);
+}
+function onDefeat(){
+  clearCombatStorage();
+  SFX.defeat();
+  combat.active = false;
+  run.over = true; run.won = false;
+  finishRun(false);
+}
+
+/* ============================================================
+   UI HELPERS
+   ============================================================ */
+let toastTimer = null;
+function toast(msg){
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> el.classList.remove("show"), 2400);
+}
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('show'));
+  $(id).classList.add('show');
+}
+function closeModal(id){ $(id).classList.remove('show'); }
+function openModal(id){ $(id).classList.add('show'); }
+
+/* ============================================================
+   STORY
+   ============================================================ */
+function showStory(eyebrow, title, text, onContinue){
+  $("story-eyebrow").textContent = eyebrow;
+  $("story-title").textContent = title;
+  $("story-text").textContent = text;
+  $("btn-story-continue").onclick = ()=>{ closeModal('modal-story'); onContinue(); };
+  openModal('modal-story');
+}
+
+/* ============================================================
+   SFX (procedural WebAudio, no audio files — same technique used
+   in this author's other games)
+   ============================================================ */
+const SFX = (()=>{
+  let ctx = null;
+  function ac(){ if(!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); return ctx; }
+  function beep(freq, dur, type, vol, glide){
+    if(meta.muted) return;
+    try{
+      const c = ac();
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = type||'square';
+      osc.frequency.setValueAtTime(freq, c.currentTime);
+      if(glide) osc.frequency.exponentialRampToValueAtTime(Math.max(20,freq+glide), c.currentTime+dur);
+      gain.gain.setValueAtTime((vol||0.15), c.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime+dur);
+      osc.connect(gain); gain.connect(c.destination);
+      osc.start(); osc.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return {
+    click:()=>beep(500,0.05,'sine',0.05,100),
+    cardPlay:()=>beep(380,0.07,'square',0.06,-60),
+    block:()=>beep(300,0.08,'triangle',0.07,150),
+    hit:()=>beep(180,0.09,'sawtooth',0.08,-80),
+    hurt:()=>beep(140,0.15,'square',0.11,-90),
+    kill:()=>beep(90,0.3,'sawtooth',0.13,-60),
+    draw:()=>beep(420,0.05,'sine',0.04,80),
+    encore:()=>beep(650,0.15,'sine',0.09,250),
+    relic:()=>beep(700,0.14,'sine',0.08,300),
+    gold:()=>beep(900,0.06,'sine',0.05,200),
+    victory(){ beep(500,0.22,'triangle',0.12,300); setTimeout(()=>beep(700,0.3,'triangle',0.12,400),150); },
+    defeat:()=>beep(120,0.5,'sawtooth',0.14,-40),
+  };
+})();
+function toggleMute(){
+  meta.muted = !meta.muted;
+  saveMeta();
+  const icon = meta.muted ? '🔇' : '🔊';
+  const a = $("btn-mute-hub"), b = $("btn-mute-combat");
+  if(a) a.textContent = icon;
+  if(b) b.textContent = icon;
+  if(!meta.muted) SFX.click();
+}
+$("btn-mute-hub").onclick = toggleMute;
+$("btn-mute-combat").onclick = toggleMute;
+
+/* ============================================================
+   COMBAT JUICE — floating numbers, shake, hit/block flashes
+   ============================================================ */
+function floatNumber(el, text, color){
+  if(!el) return;
+  const layer = $("float-layer");
+  if(!layer) return;
+  const rect = el.getBoundingClientRect();
+  const span = document.createElement('div');
+  span.className = 'float-num';
+  span.textContent = text;
+  span.style.color = color;
+  span.style.left = (rect.left + rect.width/2) + 'px';
+  span.style.top = rect.top + 'px';
+  layer.appendChild(span);
+  setTimeout(()=> span.remove(), 900);
+}
+function flashClass(el, cls){
+  if(!el) return;
+  el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
+}
+function shakeCombat(){ flashClass($("combat-wrap"), 'shake'); }
+function enemyEl(enemyUid){ return document.querySelector(`[data-enemy="${enemyUid}"]`); }
+
+/* ============================================================
+   CARD / RELIC HELPERS (run-level, outside combat)
+   ============================================================ */
+function rewardPool(){
+  return CARD_POOL.filter(c=>
+    (c.performer===run.performerId || c.performer==='neutral') &&
+    c.rarity!=='curse' && c.rarity!=='starter' &&
+    meta.unlockedCards.includes(c.id));
+}
+function addCardToDeck(cardId, upgraded){
+  run.deck.push({uid:uid(), defId:cardId, upgraded:!!upgraded});
+  run.cardsAdded++;
+  saveRun();
+}
+function grantRelic(rarity){
+  const owned = new Set(run.relics);
+  let pool = RELICS.filter(r=>r.rarity===rarity && !owned.has(r.id));
+  if(!pool.length) pool = RELICS.filter(r=>!['starter','boss'].includes(r.rarity) && !owned.has(r.id));
+  if(!pool.length) return null;
+  const r = choice(pool);
+  run.relics.push(r.id);
+  meta.stats.relicsCollected++;
+  saveMeta();
+  SFX.relic();
+  toast(`🎗️ Relic gained: ${r.name}`);
+  saveRun();
+  return r;
+}
+function cardMiniHtml(def, opts){
+  opts = opts||{};
+  const sig = SIGILS[def.sigil]||SIGILS.wild;
+  const isCurse = def.type==='curse';
+  return `<div class="gcard ${isCurse?'curse':''} ${opts.selected?'selected':''}" style="--sigil-color:${isCurse?'var(--ink-2)':sig.color}" data-pickcard="${opts.pickId!==undefined?opts.pickId:''}">
+    ${!isCurse?`<div class="cost">${def.cost}</div>`:''}
+    <div class="sig">${isCurse?'💀':sig.icon}</div>
+    <h4>${def.name}${opts.priceLabel?'':''}</h4>
+    <div class="ctype">${def.type}</div>
+    <p>${def.desc}</p>
+    ${opts.priceLabel?`<p style="color:var(--gold-soft); font-weight:800;">${opts.priceLabel}</p>`:''}
+  </div>`;
+}
+function openCardPicker(cardDefs, title, sub, allowSkip, onPick){
+  $("view-title").textContent = title;
+  const body = $("view-body");
+  body.innerHTML = (sub?`<div class="sub" style="width:100%;">${sub}</div>`:'') +
+    (cardDefs.length ? cardDefs.map((d,i)=>cardMiniHtml(d,{pickId:i})).join('') : `<div class="sub">Nothing eligible right now.</div>`);
+  cardDefs.forEach((d,i)=>{
+    const el = body.querySelector(`[data-pickcard="${i}"]`);
+    if(el) el.onclick = ()=>{ closeModal('modal-view'); onPick(d); };
+  });
+  $("btn-close-view").textContent = allowSkip ? "Skip" : "Close";
+  $("btn-close-view").onclick = ()=>{ closeModal('modal-view'); };
+  openModal('modal-view');
+}
+function openCardRewardPicker(count, onDone){
+  const pool = shuffle(rewardPool()).slice(0, count).map(c=>CARD_BY_ID[c.id]);
+  openCardPicker(pool, "Choose a Card", "Pick one to add to your deck, or skip.", true, (def)=>{
+    addCardToDeck(def.id, false);
+    toast(`Added ${def.name} to your deck.`);
+    onDone();
+  });
+}
+function eligibleDeckCards(filterFn){
+  return run.deck.filter(inst=>{
+    const def = CARD_BY_ID[inst.defId];
+    return def.type!=='curse' && (!filterFn || filterFn(inst,def));
+  });
+}
+function openCardRemovePicker(onDone){
+  const insts = eligibleDeckCards();
+  const defs = insts.map(inst=> Object.assign({}, effectiveCard(inst), {_uid:inst.uid}));
+  openCardPicker(defs, "Remove a Card", "Choose a card to permanently remove from your deck.", true, (def)=>{
+    run.deck = run.deck.filter(c=>c.uid!==def._uid);
+    toast(`Removed ${def.name}.`);
+    saveRun();
+    onDone();
+  });
+}
+function openCardDuplicatePicker(){
+  const insts = eligibleDeckCards();
+  const defs = insts.map(inst=> Object.assign({}, effectiveCard(inst), {_uid:inst.uid, _defId:inst.defId, _upgraded:inst.upgraded}));
+  openCardPicker(defs, "Duplicate a Card", "Choose a card to add a copy of.", true, (def)=>{
+    addCardToDeck(def._defId, def._upgraded);
+    toast(`Duplicated ${def.name}.`);
+  });
+}
+function upgradeRandomCard(){
+  const insts = eligibleDeckCards((inst,def)=> !inst.upgraded && def.up);
+  if(!insts.length){ toast("Nothing eligible to upgrade."); return; }
+  const inst = choice(insts);
+  inst.upgraded = true;
+  saveRun();
+  toast(`${CARD_BY_ID[inst.defId].name} upgraded!`);
+}
+function openCardUpgradePicker(onDone){
+  const insts = eligibleDeckCards((inst,def)=> !inst.upgraded && def.up);
+  const defs = insts.map(inst=> Object.assign({}, effectiveCard(inst), {_uid:inst.uid}));
+  openCardPicker(defs, "Upgrade a Card", "Choose a card to permanently upgrade.", true, (def)=>{
+    const inst = run.deck.find(c=>c.uid===def._uid);
+    if(inst) inst.upgraded = true;
+    toast(`${def.name} upgraded!`);
+    saveRun();
+    onDone();
+  });
+}
+
+/* ============================================================
+   NODE ROUTING / RUN FLOW
+   ============================================================ */
+function enterNode(nodeId){
+  const node = nodeById(nodeId);
+  if(!node) return;
+  if(node.type==='fight'){
+    startCombat(choice(ENCOUNTERS[run.act].fight), 'fight');
+  } else if(node.type==='elite'){
+    startCombat(choice(ENCOUNTERS[run.act].elite), 'elite');
+  } else if(node.type==='boss'){
+    startCombat([choice(ENCOUNTERS[run.act].boss)], 'boss');
+  } else if(node.type==='shop'){
+    openShop();
+  } else if(node.type==='rest'){
+    openRest();
+  } else if(node.type==='event'){
+    openEvent();
+  } else if(node.type==='treasure'){
+    openTreasure();
+  }
+}
+function completeNode(){
+  // Purely a state update — every call site immediately follows with
+  // checkActOrRunComplete(), which is the single place that decides what
+  // to show next (map re-render, act transition, or the Act 4 boss).
+  const id = getCurrentEnteringNodeId();
+  run.lastNodeId = id;
+  if(id && !run.visitedNodeIds.includes(id)){ run.visitedNodeIds.push(id); run.floorsCleared++; }
+  saveRun();
+}
+let enteringNodeId = null;
+function getCurrentEnteringNodeId(){ return enteringNodeId; }
+
+function onNodeClick(nodeId){
+  if(!availableNodeIds().includes(nodeId)) return;
+  SFX.click();
+  enteringNodeId = nodeId;
+  const node = nodeById(nodeId);
+  if(node.type==='fight' || node.type==='elite' || node.type==='boss'){
+    enterNode(nodeId); // routes into combat; completeNode() called from reward-continue
+  } else {
+    enterNode(nodeId); // opens a modal; completeNode() called from that modal's close/continue
+  }
+}
+
+function checkActOrRunComplete(){
+  const bossNode = run.mapObj.nodes.find(n=>n.type==='boss');
+  if(run.lastNodeId === bossNode.id){
+    if(run.act < 3){
+      run.act++;
+      run.mapObj = generateMap(run.act);
+      run.lastNodeId = null;
+      run.visitedNodeIds = [];
+      saveRun();
+      const beat = ACT_STORY[run.act];
+      showStory(beat.eyebrow, beat.title, beat.text, ()=>{ showScreen('screen-map'); renderMap(); });
+    } else if(run.act===3){
+      run.act = 4;
+      saveRun();
+      const beat = ACT_STORY[4];
+      showStory(beat.eyebrow, beat.title, beat.text, ()=> startCombat(['ringmaster'], 'ringmaster'));
+    }
+  } else {
+    showScreen('screen-map');
+    renderMap();
+  }
+}
+
+/* ============================================================
+   REWARD SCREEN (post-combat)
+   ============================================================ */
+function openRewardScreen(gold, relicTier){
+  SFX.gold();
+  $("reward-sub").textContent = `You earned ${fmt(gold)} gold.`;
+  const choiceCount = 3 + relicModTotal('cardChoiceBonus');
+  const pool = shuffle(rewardPool()).slice(0, choiceCount).map(c=>CARD_BY_ID[c.id]);
+  const cardsEl = $("reward-cards");
+  cardsEl.innerHTML = pool.map((d,i)=>cardMiniHtml(d,{pickId:'r'+i})).join('');
+  let picked = false;
+  pool.forEach((d,i)=>{
+    const el = cardsEl.querySelector(`[data-pickcard="r${i}"]`);
+    el.onclick = ()=>{ if(picked) return; picked=true; addCardToDeck(d.id,false); toast(`Added ${d.name}.`); closeModal('modal-reward'); afterReward(relicTier); };
+  });
+  $("reward-relic").innerHTML = '';
+  $("btn-skip-reward").onclick = ()=>{ if(picked) return; picked=true; closeModal('modal-reward'); afterReward(relicTier); };
+  $("btn-continue-reward").style.display = relicTier ? '' : 'none';
+  $("btn-continue-reward").onclick = ()=>{ closeModal('modal-reward'); afterReward(null); };
+  openModal('modal-reward');
+}
+function afterReward(relicTier){
+  if(relicTier==='boss'){
+    const owned = new Set(run.relics);
+    const pool = RELICS.filter(r=>r.rarity==='boss' && !owned.has(r.id));
+    if(pool.length){
+      const r = choice(pool);
+      run.relics.push(r.id);
+      meta.stats.relicsCollected++; saveMeta();
+      SFX.relic();
+      toast(`🎗️ Boss relic gained: ${r.name}`);
+    } else {
+      grantRelic('rare');
+    }
+  } else if(relicTier==='normal'){
+    const rarity = run.act>=3 ? choice(['uncommon','uncommon','rare']) : choice(['common','common','uncommon']);
+    grantRelic(rarity);
+  }
+  meta.stats.mostGold = Math.max(meta.stats.mostGold, run.gold);
+  saveMeta();
+  if(combat && combat.kind==='ringmaster'){
+    // Act 4's final fight has no map of its own — winning it ends the run
+    // outright rather than feeding into the Act 1-3 map/boss-node logic.
+    finishRun(true);
+    return;
+  }
+  completeNode();
+  checkActOrRunComplete();
+}
+
+/* ============================================================
+   SHOP
+   ============================================================ */
+function shopPrice(base){ return Math.round(base * (1 - relicModTotal('shopDiscount'))); }
+function openShop(){
+  const cardOffers = shuffle(rewardPool()).slice(0,5).map(c=>CARD_BY_ID[c.id]);
+  const relicOffers = shuffle(RELICS.filter(r=>!run.relics.includes(r.id) && !['starter','boss'].includes(r.rarity))).slice(0,3);
+  renderShop(cardOffers, relicOffers);
+  openModal('modal-shop');
+}
+function renderShop(cardOffers, relicOffers){
+  $("shop-gold").textContent = fmt(run.gold);
+  const priceForCard = d => shopPrice(d.rarity==='common'?60:d.rarity==='uncommon'?100:150);
+  $("shop-cards").innerHTML = cardOffers.map((d,i)=>{
+    const price = priceForCard(d);
+    return `<div>${cardMiniHtml(d,{pickId:'c'+i, priceLabel:'💰 '+price})}</div>`;
+  }).join('');
+  cardOffers.forEach((d,i)=>{
+    const el = $("shop-cards").querySelector(`[data-pickcard="c${i}"]`);
+    const price = priceForCard(d);
+    el.onclick = ()=>{
+      if(run.gold<price) return;
+      run.gold -= price;
+      addCardToDeck(d.id,false);
+      toast(`Bought ${d.name}.`);
+      renderShop(cardOffers.filter((x,idx)=>idx!==i), relicOffers);
+    };
+  });
+  $("shop-relics").innerHTML = relicOffers.map(r=>{
+    const price = shopPrice(r.rarity==='common'?120:r.rarity==='uncommon'?200:300);
+    return `<div class="shop-item" data-relic="${r.id}"><div style="font-size:26px;">${r.icon}</div><h4 style="margin:6px 0 2px;">${r.name}</h4><p style="font-size:11px; color:var(--ink-1);">${r.desc}</p><p style="color:var(--gold-soft); font-weight:800;">💰 ${price}</p></div>`;
+  }).join('');
+  relicOffers.forEach(r=>{
+    const el = $("shop-relics").querySelector(`[data-relic="${r.id}"]`);
+    const price = shopPrice(r.rarity==='common'?120:r.rarity==='uncommon'?200:300);
+    el.onclick = ()=>{
+      if(run.gold<price) return;
+      run.gold -= price;
+      run.relics.push(r.id);
+      meta.stats.relicsCollected++; saveMeta();
+      toast(`Bought ${r.name}.`);
+      renderShop(cardOffers, relicOffers.filter(x=>x.id!==r.id));
+    };
+  });
+  const removePrice = shopPrice(75);
+  $("shop-services").innerHTML = `<div class="shop-item"><h4>🗑️ Remove a Card</h4><p style="font-size:11px; color:var(--ink-1);">Permanently remove one card from your deck.</p><p style="color:var(--gold-soft); font-weight:800;">💰 ${removePrice}</p><button class="btn small" id="shop-remove-btn" ${run.gold<removePrice?'disabled':''}>Buy</button></div>`;
+  const rb = $("shop-remove-btn");
+  if(rb) rb.onclick = ()=>{ if(run.gold<removePrice) return; run.gold-=removePrice; openCardRemovePicker(()=>renderShop(cardOffers,relicOffers)); };
+  $("btn-leave-shop").onclick = ()=>{ closeModal('modal-shop'); saveRun(); completeNode(); checkActOrRunComplete(); };
+}
+
+/* ============================================================
+   REST
+   ============================================================ */
+function openRest(){
+  const canUpgrade = eligibleDeckCards((inst,def)=> !inst.upgraded && def.up).length>0;
+  $("rest-upgrade").disabled = !canUpgrade;
+  $("rest-heal").onclick = ()=>{
+    const healAmt = Math.round(run.maxHp * (0.3 + relicModTotal('healAtRest')));
+    run.hp = Math.min(run.maxHp, run.hp+healAmt);
+    toast(`Healed ${healAmt} HP.`);
+    saveRun();
+    closeModal('modal-rest');
+    completeNode(); checkActOrRunComplete();
+  };
+  $("rest-upgrade").onclick = ()=>{
+    if(!canUpgrade) return;
+    closeModal('modal-rest');
+    openCardUpgradePicker(()=>{ completeNode(); checkActOrRunComplete(); });
+  };
+  openModal('modal-rest');
+}
+
+/* ============================================================
+   EVENT
+   ============================================================ */
+function openEvent(){
+  const ev = choice(EVENTS);
+  $("event-title").textContent = ev.title;
+  $("event-text").textContent = ev.text;
+  const box = $("event-choices");
+  box.innerHTML = ev.choices.map((c,i)=>`<button class="choice-btn" data-choice="${i}">${c.label}</button>`).join('');
+  ev.choices.forEach((c,i)=>{
+    box.querySelector(`[data-choice="${i}"]`).onclick = ()=>{
+      const ok = c.run();
+      if(ok===false){ toast("You can't afford that."); return; }
+      saveRun();
+      closeModal('modal-event');
+      completeNode(); checkActOrRunComplete();
+    };
+  });
+  openModal('modal-event');
+}
+
+/* ============================================================
+   TREASURE
+   ============================================================ */
+function openTreasure(){
+  const rarity = choice(['common','common','uncommon','uncommon','rare']);
+  let granted = null;
+  $("treasure-sub").textContent = "A relic glints inside.";
+  $("btn-take-treasure").onclick = ()=>{
+    if(!granted) granted = grantRelic(rarity);
+    $("treasure-relic").innerHTML = granted ? `<div class="relic-chip" title="${granted.name}">${granted.icon}</div><p style="width:100%; text-align:center; font-size:12px;">${granted.name} — ${granted.desc}</p>` : '';
+    $("btn-take-treasure").textContent = "Continue";
+    $("btn-take-treasure").onclick = ()=>{ closeModal('modal-treasure'); completeNode(); checkActOrRunComplete(); };
+  };
+  $("treasure-relic").innerHTML = '';
+  $("btn-take-treasure").textContent = "Open Chest";
+  openModal('modal-treasure');
+}
+
+/* ============================================================
+   MAP RENDER
+   ============================================================ */
+const NODE_ICON = {fight:"⚔️", elite:"💀", boss:"🎪", shop:"🛒", rest:"🕯️", event:"❓", treasure:"🎁"};
+function renderMap(){
+  $("map-hp").textContent = fmt(run.hp);
+  $("map-maxhp").textContent = fmt(run.maxHp);
+  $("map-gold").textContent = fmt(run.gold);
+  $("map-act-label").textContent = run.act<=3 ? `Act ${run.act}` : `Act 4 — Center Ring`;
+  const canvas = $("map-canvas");
+  const layerCounts = run.mapObj.layerCounts;
+  const W = Math.max(700, layerCounts.length*130);
+  canvas.style.minWidth = W+'px';
+  const xFor = L => 60 + L*((W-120)/(layerCounts.length-1));
+  const yFor = (L,i,count) => 210 + (i-(count-1)/2) * 90;
+  const positions = {};
+  run.mapObj.nodes.forEach(n=>{
+    const count = layerCounts[n.layer];
+    const idx = run.mapObj.nodes.filter(m=>m.layer===n.layer).indexOf(n);
+    positions[n.id] = {x:xFor(n.layer), y:yFor(n.layer, idx, count)};
+  });
+  const available = availableNodeIds();
+  const visited = new Set(run.visitedNodeIds||[]);
+  let lines = '';
+  run.mapObj.nodes.forEach(n=>{
+    n.connections.forEach(cid=>{
+      const a = positions[n.id], b = positions[cid];
+      const doneEdge = visited.has(n.id) && (visited.has(cid) || cid===run.lastNodeId);
+      lines += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="${doneEdge?'done':''}"/>`;
+    });
+  });
+  let nodesHtml = '';
+  run.mapObj.nodes.forEach(n=>{
+    const p = positions[n.id];
+    const isAvailable = available.includes(n.id);
+    const isCurrent = n.id === run.lastNodeId;
+    const isDone = visited.has(n.id) && !isCurrent;
+    const cls = isCurrent ? 'current' : (isAvailable ? 'available' : (isDone ? 'done' : ''));
+    nodesHtml += `<div class="map-node ${cls}" style="left:${p.x}px; top:${p.y}px;" data-node="${n.id}" title="${n.type}">${NODE_ICON[n.type]}</div>`;
+  });
+  canvas.innerHTML = `<svg class="map-lines" width="${W}" height="420">${lines}</svg>` + nodesHtml;
+  run.mapObj.nodes.forEach(n=>{
+    if(available.includes(n.id)){
+      canvas.querySelector(`[data-node="${n.id}"]`).onclick = ()=> onNodeClick(n.id);
+    }
+  });
+}
+
+/* ============================================================
+   COMBAT RENDER
+   ============================================================ */
+function statusChips(entity){
+  return Object.entries(entity.statuses||{}).filter(([k,v])=>v>0).map(([k,v])=>{
+    const s = STATUSES[k]; return `<span class="status-chip" title="${s.desc}">${s.icon}${v}</span>`;
+  }).join('');
+}
+function renderCombat(){
+  if(!combat) return;
+  $("cb-gold").textContent = fmt(run.gold);
+  $("cb-turn").textContent = `Turn ${combat.turn}`;
+  const p = combat.player;
+  $("p-name").textContent = performerDef(run.performerId).name;
+  $("p-hp-fill").style.width = clamp(p.hp/p.maxHp*100,0,100)+'%';
+  $("p-hp-text").textContent = `${Math.max(0,Math.round(p.hp))}/${p.maxHp}`;
+  $("p-block").textContent = p.block;
+  $("p-energy").textContent = p.energy;
+  $("p-energy-max").textContent = p.energyMax;
+  $("p-status").innerHTML = statusChips(p);
+
+  const targeting = !!combat.targetingCard;
+  $("enemy-row").innerHTML = combat.enemies.map(e=>{
+    const def = ENEMY_BY_ID[e.defId];
+    const tier = def.boss ? 'boss' : (def.elite ? 'elite' : '');
+    return `<div class="enemy ${targeting?'targetable':''}" data-enemy="${e.uid}">
+      <div class="enemy-portrait ${tier}"><canvas class="e-sprite" data-sprite="${e.uid}"></canvas><div class="e-badge">${def.icon}</div></div>
+      <div class="e-name">${def.name}${e.block>0?` 🛡️${e.block}`:''}</div>
+      <div class="e-bar"><i style="width:${clamp(e.hp/e.maxHp*100,0,100)}%"></i></div>
+      <div class="e-hp">${Math.round(e.hp)}/${e.maxHp}</div>
+      <div class="e-intent">${intentLabel(e.intent)}</div>
+      <div class="e-status">${statusChips(e)}</div>
+    </div>`;
+  }).join('');
+  combat.enemies.forEach(e=>{
+    const def = ENEMY_BY_ID[e.defId];
+    const pixelSize = def.boss ? 15 : (def.elite ? 12 : 9);
+    drawMonsterSprite($("enemy-row").querySelector(`[data-sprite="${e.uid}"]`), e.defId, pixelSize);
+  });
+  combat.enemies.forEach(e=>{
+    const el = $("enemy-row").querySelector(`[data-enemy="${e.uid}"]`);
+    el.onclick = ()=>{
+      if(!combat.targetingCard) return;
+      const inst = p.hand.find(c=>c.uid===combat.targetingCard);
+      if(!inst) return;
+      const cardEl = $("hand-row").querySelector(`[data-handcard="${inst.uid}"]`);
+      playCardAnimated(cardEl, inst, e);
+    };
+  });
+
+  $("marionette-row").innerHTML = p.marionettes.filter(m=>m.hp>0).map(m=>`<div class="mario">🎎 ${m.atk} dmg</div>`).join('');
+
+  $("hand-row").innerHTML = p.hand.map(inst=>{
+    const card = effectiveCard(inst);
+    let cost = card.cost;
+    if(!combat.firstCardPlayedThisTurn && run.relics.includes('phantomLimb')) cost = 0;
+    const affordable = card.type!=='curse' && p.energy>=cost;
+    const selected = combat.targetingCard===inst.uid;
+    return `<div class="gcard ${card.type==='curse'?'curse':''} ${!affordable&&card.type!=='curse'?'unaffordable':''} ${selected?'selected':''}" data-handcard="${inst.uid}" style="--sigil-color:${card.type==='curse'?'var(--ink-2)':SIGILS[card.sigil].color}">
+      ${card.type!=='curse'?`<div class="cost">${cost}</div>`:''}
+      <div class="sig">${card.type==='curse'?'💀':SIGILS[card.sigil].icon}</div>
+      <h4>${card.name}</h4>
+      <div class="ctype">${card.type}</div>
+      <p>${card.desc}</p>
+    </div>`;
+  }).join('');
+  p.hand.forEach(inst=>{
+    const card = effectiveCard(inst);
+    const el = $("hand-row").querySelector(`[data-handcard="${inst.uid}"]`);
+    el.onclick = ()=>{
+      if(card.type==='curse') return;
+      if(combat.targetingCard===inst.uid){ cancelTargeting(); return; }
+      if(needsTarget(card) && combat.enemies.length>1){ playCard(inst,null); return; }
+      const autoTarget = needsTarget(card) ? combat.enemies[0] : null;
+      playCardAnimated(el, inst, autoTarget);
+    };
+  });
+
+  const mo = combat.momentum;
+  $("mo-sigil").textContent = mo.sigil ? `${SIGILS[mo.sigil].icon} ${SIGILS[mo.sigil].name}` : '—';
+  const threshold = run.relics.includes('silverBell') ? 2 : 3;
+  const filled = mo.count===0 ? 0 : (mo.count % threshold === 0 ? threshold : mo.count % threshold);
+  const dots = [];
+  for(let i=0;i<threshold;i++){ dots.push(`<div class="mdot ${i<filled?'on':''}" style="--sigil:${mo.sigil?SIGILS[mo.sigil].color:'var(--gold)'}"></div>`); }
+  $("mo-dots").innerHTML = dots.join('');
+
+  $("pile-draw").textContent = `Draw ${p.drawPile.length}`;
+  $("pile-discard").textContent = `Discard ${p.discardPile.length}`;
+  $("pile-exhaust").textContent = `Exhaust ${p.exhaustPile.length}`;
+  $("btn-end-turn").onclick = endPlayerTurn;
+  $("btn-end-turn").disabled = !combat.active;
+  saveCombat();
+}
+
+/* ============================================================
+   RUN COMPLETION / TICKETS / ACHIEVEMENTS
+   ============================================================ */
+function checkAchievementsNow(){
+  ACHIEVEMENTS.forEach(a=>{
+    if(!meta.achClaimed[a.id] && a.cond()){
+      meta.achClaimed[a.id] = true;
+      meta.tickets += 50;
+      toast(`🏅 Achievement: ${a.name} (+50 Tickets)`);
+    }
+  });
+  saveMeta();
+}
+function finishRun(won){
+  clearCombatStorage(); // covers Abandon Run, which reaches here without going through onVictory()/onDefeat()
+  run.won = won; run.over = true;
+  const tickets = Math.round(run.floorsCleared*4 + (won?200:0) + run.ascLevel*15);
+  meta.tickets += tickets;
+  meta.stats.runsPlayed += 0; // already counted at newRun()
+  if(won){
+    meta.stats.wins++;
+    meta.stats.winsByPerformer[run.performerId] = (meta.stats.winsByPerformer[run.performerId]||0)+1;
+    meta.stats.bestAscWin = Math.max(meta.stats.bestAscWin, run.ascLevel);
+    if(run.ascLevel >= meta.ascUnlocked && meta.ascUnlocked < ASCENSION_DEFS.length-1) meta.ascUnlocked++;
+  }
+  if(run.dailySeed){
+    meta.stats.dailyPlays++;
+    if(!meta.dailyBest.seed || meta.dailyBest.seed!==run.dailySeed || run.floorsCleared>meta.dailyBest.floor || (won && !meta.dailyBest.won)){
+      meta.dailyBest = {seed:run.dailySeed, floor:run.floorsCleared, won: won || (meta.dailyBest.seed===run.dailySeed && meta.dailyBest.won)};
+    }
+  }
+  saveMeta();
+  checkAchievementsNow();
+  clearRunStorage();
+  $("runend-title").textContent = won ? "🎉 The Show Goes On" : "💀 The Curtain Falls";
+  $("runend-epilogue").textContent = won ? STORY_VICTORY : STORY_DEFEAT;
+  $("runend-sub").textContent = won
+    ? `You defeated the Ringmaster as ${performerDef(run.performerId).name}.`
+    : `Your run ended on Act ${run.act}, floor ${run.floorsCleared}.`;
+  $("runend-stats").innerHTML = `
+    <div class="pill">🎟️ +${tickets} Tickets</div>
+    <div class="pill">🚪 ${run.floorsCleared} floors</div>
+    <div class="pill">💰 ${fmt(run.gold)} gold</div>`;
+  $("btn-runend-continue").onclick = ()=>{ closeModal('modal-runend'); run=null; combat=null; showScreen('screen-hub'); renderHub(); };
+  showScreen('screen-map');
+  openModal('modal-runend');
+}
+
+/* ============================================================
+   HUB / META SCREEN
+   ============================================================ */
+let selectedPerformer = "strongman";
+function renderHub(){
+  $("hub-tickets").textContent = fmt(meta.tickets);
+  $("hub-asc").textContent = meta.ascUnlocked;
+
+  const savedRun = loadRunFromStorage();
+  if(savedRun && !savedRun.over){
+    const savedCombat = loadCombatFromStorage();
+    const mid = savedCombat && savedCombat.active;
+    $("hub-resume-box").innerHTML = `<div class="pillrow" style="justify-content:space-between; align-items:center;">
+      <div>🎭 Run in progress: <b>${performerDef(savedRun.performerId).name}</b>, Act ${savedRun.act}, ${savedRun.floorsCleared} floors cleared.${mid?' Mid-fight.':''}</div>
+      <button class="btn small" id="btn-resume-run">${mid?'Resume Fight':'Resume'}</button>
+    </div>`;
+    $("btn-resume-run").onclick = ()=>{
+      run = savedRun;
+      if(mid){ combat = savedCombat; showScreen('screen-combat'); renderCombat(); }
+      else { combat = null; showScreen('screen-map'); renderMap(); }
+    };
+  } else {
+    $("hub-resume-box").innerHTML = '';
+  }
+
+  if(!meta.unlockedPerformers.includes(selectedPerformer)) selectedPerformer = meta.unlockedPerformers[0];
+  $("perf-grid").innerHTML = PERFORMERS.map(p=>{
+    const unlocked = meta.unlockedPerformers.includes(p.id);
+    return `<div class="perf-card ${!unlocked?'locked':''} ${selectedPerformer===p.id?'selected':''}" data-perf="${p.id}">
+      <h3>${p.icon} ${p.name}</h3>
+      <p>${unlocked ? p.blurb : `Unlock in the Backstage for 🎟️ ${p.unlockCost} Tickets.`}</p>
+    </div>`;
+  }).join('');
+  PERFORMERS.forEach(p=>{
+    if(meta.unlockedPerformers.includes(p.id)){
+      $("perf-grid").querySelector(`[data-perf="${p.id}"]`).onclick = ()=>{ selectedPerformer=p.id; renderHub(); };
+    }
+  });
+
+  const ascSel = $("asc-select");
+  ascSel.innerHTML = ASCENSION_DEFS.slice(0, meta.ascUnlocked+1).map(a=>`<option value="${a.level}">Asc ${a.level} — ${a.desc}</option>`).join('');
+
+  $("btn-start-run").disabled = !!savedRun && !savedRun.over;
+  $("btn-start-run").onclick = ()=>{
+    SFX.click();
+    newRun(selectedPerformer, Number(ascSel.value)||0, null);
+    const enterMap = ()=>{ showScreen('screen-map'); renderMap(); };
+    const perf = performerDef(selectedPerformer);
+    if(!meta.seenStory[perf.id]){
+      meta.seenStory[perf.id] = true;
+      saveMeta();
+      showStory("Under the Big Top", perf.name, perf.story, enterMap);
+    } else {
+      enterMap();
+    }
+  };
+  $("btn-daily").onclick = startDailyChallenge;
+  $("btn-unlocks").onclick = openUnlocks;
+  $("btn-achievements").onclick = openAchievements;
+  $("btn-stats").onclick = openStats;
+  $("btn-bestiary").onclick = openBestiary;
+  $("btn-howto").onclick = ()=> openModal('modal-howto');
+}
+$("btn-close-howto").onclick = ()=> closeModal('modal-howto');
+
+function startDailyChallenge(){
+  const seedStr = todaySeedString();
+  const rng = mulberry32(hashSeed(seedStr));
+  const savedRng = Math.random;
+  Math.random = rng;
+  newRun(selectedPerformer, 0, seedStr);
+  Math.random = savedRng;
+  toast(`Daily Challenge for ${seedStr}. Best so far: floor ${meta.dailyBest.seed===seedStr?meta.dailyBest.floor:0}.`);
+  showScreen('screen-map');
+  renderMap();
+}
+
+/* ---- Deck / Relic viewer (from map screen) ---- */
+$("btn-view-deck").onclick = ()=>{
+  const defs = run.deck.map(inst=>Object.assign({}, effectiveCard(inst)));
+  $("view-title").textContent = `Your Deck (${defs.length} cards)`;
+  $("view-body").innerHTML = defs.map(d=>cardMiniHtml(d,{})).join('');
+  $("btn-close-view").textContent = "Close";
+  $("btn-close-view").onclick = ()=> closeModal('modal-view');
+  openModal('modal-view');
+};
+$("btn-view-relics").onclick = ()=>{
+  $("view-title").textContent = `Your Relics (${run.relics.length})`;
+  $("view-body").innerHTML = run.relics.map(rid=>{
+    const r = RELIC_BY_ID[rid];
+    return `<div class="shop-item" style="width:140px;"><div style="font-size:26px;">${r.icon}</div><h4 style="margin:6px 0 2px;">${r.name}</h4><p style="font-size:11px; color:var(--ink-1);">${r.desc}</p></div>`;
+  }).join('');
+  $("btn-close-view").textContent = "Close";
+  $("btn-close-view").onclick = ()=> closeModal('modal-view');
+  openModal('modal-view');
+};
+let abandonArmed = false;
+$("btn-abandon").onclick = ()=>{
+  if(!abandonArmed){
+    abandonArmed = true;
+    $("btn-abandon").textContent = "Really abandon? Click again";
+    setTimeout(()=>{ abandonArmed=false; $("btn-abandon").textContent="Abandon Run"; }, 3000);
+    return;
+  }
+  abandonArmed = false;
+  $("btn-abandon").textContent = "Abandon Run";
+  finishRun(false);
+};
+
+/* ---- Unlocks (Backstage) ---- */
+function openUnlocks(){
+  $("unlocks-tickets").textContent = fmt(meta.tickets);
+  $("unlocks-performers").innerHTML = PERFORMERS.filter(p=>!meta.unlockedPerformers.includes(p.id)).map(p=>`
+    <div class="shop-item"><div style="font-size:26px;">${p.icon}</div><h4 style="margin:6px 0 2px;">${p.name}</h4><p style="font-size:11px; color:var(--ink-1);">${p.blurb}</p>
+    <button class="btn small" data-unlock-perf="${p.id}" ${meta.tickets<p.unlockCost?'disabled':''}>Unlock — 🎟️ ${p.unlockCost}</button></div>`).join('') || `<div class="sub">All Performers unlocked.</div>`;
+  PERFORMERS.forEach(p=>{
+    const btn = $("unlocks-performers").querySelector(`[data-unlock-perf="${p.id}"]`);
+    if(btn) btn.onclick = ()=>{ if(meta.tickets<p.unlockCost) return; meta.tickets-=p.unlockCost; meta.unlockedPerformers.push(p.id); saveMeta(); toast(`Unlocked ${p.name}!`); openUnlocks(); };
+  });
+  const lockedCards = CARD_POOL.filter(c=>c.rarity!=='starter' && c.rarity!=='curse' && !meta.unlockedCards.includes(c.id));
+  $("unlocks-cards").innerHTML = lockedCards.map((c,i)=>cardMiniHtml(c,{pickId:'u'+i, priceLabel:'🎟️ '+c.unlockCost})).join('') || `<div class="sub">All cards unlocked.</div>`;
+  lockedCards.forEach((c,i)=>{
+    const el = $("unlocks-cards").querySelector(`[data-pickcard="u${i}"]`);
+    el.onclick = ()=>{ if(meta.tickets<c.unlockCost) return; meta.tickets-=c.unlockCost; meta.unlockedCards.push(c.id); saveMeta(); toast(`Unlocked ${c.name}!`); openUnlocks(); };
+  });
+  $("btn-close-unlocks").onclick = ()=> closeModal('modal-unlocks');
+  openModal('modal-unlocks');
+}
+
+/* ---- Achievements ---- */
+function openAchievements(){
+  $("ach-grid").innerHTML = ACHIEVEMENTS.map(a=>{
+    const done = a.cond();
+    return `<div class="ach-card ${done?'done':''}"><b>${done?'✅':'🔒'} ${a.name}</b><p style="font-size:12px; color:var(--ink-1); margin:4px 0 0;">${a.desc}</p></div>`;
+  }).join('');
+  $("btn-close-ach").onclick = ()=> closeModal('modal-achievements');
+  openModal('modal-achievements');
+}
+
+/* ---- Stats ---- */
+function openStats(){
+  const s = meta.stats;
+  const rows = [
+    ["Runs Played", s.runsPlayed], ["Wins", s.wins],
+    ["Enemies Defeated", s.kills], ["Elites Defeated", s.elitesKilled],
+    ["Relics Collected", s.relicsCollected], ["Best Ascension Won", s.bestAscWin<0?'—':s.bestAscWin],
+    ["Most Gold Held", fmt(s.mostGold)], ["Daily Challenges Played", s.dailyPlays],
+  ];
+  $("stats-grid").innerHTML = rows.map(([l,v])=>`<div class="stat-card"><div style="font-size:20px; font-weight:800; color:var(--gold-soft);">${v}</div><div style="font-size:11.5px; color:var(--ink-1);">${l}</div></div>`).join('');
+  $("btn-close-stats").onclick = ()=> closeModal('modal-stats');
+  openModal('modal-stats');
+}
+
+function openBestiary(){
+  const kills = meta.stats.killsByEnemy || {};
+  const grid = $("bestiary-grid");
+  grid.innerHTML = ENEMY_DEFS.map((def,i)=>{
+    const k = kills[def.id] || 0;
+    const known = k > 0;
+    const tier1 = k >= WEAKNESS_TIER1_KILLS, tier2 = k >= WEAKNESS_TIER2_KILLS;
+    const bar1 = clamp(k/WEAKNESS_TIER1_KILLS*100, 0, 100);
+    const bar2 = clamp((k-WEAKNESS_TIER1_KILLS)/(WEAKNESS_TIER2_KILLS-WEAKNESS_TIER1_KILLS)*100, 0, 100);
+    return `<div class="beast-card">
+      ${known ? `<canvas class="beast-sprite" data-beastsprite="${i}"></canvas>` : `<div class="beast-sprite-placeholder">❔</div>`}
+      <h4>${known ? def.name : '???'}</h4>
+      <div class="beast-lore">${known ? def.lore : 'Not yet encountered.'}</div>
+      <div class="beast-kills">${k} defeated</div>
+      <div class="beast-weak ${tier1?'unlocked':''}">🎯 Weakness (${WEAKNESS_TIER1_KILLS} kills): +15% damage dealt${tier1?' ✅':''}</div>
+      <div class="bar-mini"><i style="width:${bar1}%"></i></div>
+      <div class="beast-weak ${tier2?'unlocked':''}">🎯 Deep weakness (${WEAKNESS_TIER2_KILLS} kills): starts Vulnerable${tier2?' ✅':''}</div>
+      <div class="bar-mini"><i style="width:${bar2}%"></i></div>
+    </div>`;
+  }).join('');
+  ENEMY_DEFS.forEach((def,i)=>{
+    if((kills[def.id]||0) > 0){
+      drawMonsterSprite(grid.querySelector(`[data-beastsprite="${i}"]`), def.id, 9);
+    }
+  });
+  $("btn-close-bestiary").onclick = ()=> closeModal('modal-bestiary');
+  openModal('modal-bestiary');
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+function boot(){
+  const icon = meta.muted ? '🔇' : '🔊';
+  $("btn-mute-hub").textContent = icon;
+  $("btn-mute-combat").textContent = icon;
+  renderHub();
+  showScreen('screen-hub');
+}
+boot();
+</script>
+<div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#4a3a42;z-index:9999;pointer-events:none">v1.0.0-暗黑嘉年华 20261015</div>
+</body>
+</html>

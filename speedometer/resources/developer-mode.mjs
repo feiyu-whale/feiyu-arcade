@@ -1,0 +1,353 @@
+import { params, LAYOUT_MODES, defaultParams } from "./shared/params.mjs";
+import { benchmarkConfigurator } from "./benchmark-configurator.mjs";
+import { handleComplexityChange } from "./shared/todomvc-utils.mjs";
+
+const { suites, tags } = benchmarkConfigurator;
+
+export function createDeveloperModeContainer() {
+    const container = document.createElement("div");
+    container.className = "developer-mode";
+
+    const details = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = "Developer Mode";
+    details.append(summary);
+
+    const content = document.createElement("div");
+    content.className = "developer-mode-content";
+
+    content.append(createUIForSuites());
+
+    const settings = document.createElement("div");
+    settings.className = "settings";
+    settings.append(createUIForIterationCount());
+    settings.append(createUIForMeasurePrepare());
+    settings.append(createUIForWarmupSuite());
+    settings.append(createUIForWarmupBeforeSync());
+    settings.append(createUIForWaitAfterSetup());
+    settings.append(createUIForSyncStepDelay());
+    settings.append(createUIForWaitAfterSuite());
+    settings.append(createUIForAsyncSteps());
+    settings.append(createUIForLayoutMode());
+    settings.append(createUIForComplexity());
+
+    content.append(document.createElement("hr"));
+    content.append(settings);
+
+    content.append(document.createElement("hr"));
+    content.append(createUIForRun());
+
+    details.append(content);
+    container.append(details);
+    return container;
+}
+
+function span(text) {
+    const span = document.createElement("span");
+    span.textContent = text;
+    return span;
+}
+
+function createUIForWarmupSuite() {
+    return createCheckboxUI("Use Warmup Suite", params.useWarmupSuite, (isChecked) => {
+        params.useWarmupSuite = isChecked;
+    });
+}
+
+function createUIForMeasurePrepare() {
+    return createCheckboxUI("Measure Prepare", params.measurePrepare, (isChecked) => {
+        params.measurePrepare = isChecked;
+    });
+}
+
+function createUIForAsyncSteps() {
+    return createCheckboxUI("Use Async Steps", params.useAsyncSteps, (isChecked) => {
+        params.useAsyncSteps = isChecked;
+    });
+}
+
+function createCheckboxUI(labelValue, initialValue, paramsUpdateCallback) {
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = !!initialValue;
+    checkbox.onchange = () => {
+        paramsUpdateCallback(checkbox.checked);
+        handleParamsChange();
+    };
+
+    const label = document.createElement("label");
+    label.append(checkbox, span(labelValue));
+
+    return label;
+}
+
+function createUIForIterationCount() {
+    return createLinearRangeUI("Iterations: ", "iterationCount", "#", 1, 200);
+}
+
+function createUIForWarmupBeforeSync() {
+    return createLinearRangeUI("Warmup time: ", "warmupBeforeSync");
+}
+
+function createUIForSyncStepDelay() {
+    return createLinearRangeUI("Sync step delay: ", "waitBeforeSync");
+}
+
+function createUIForWaitAfterSetup() {
+    return createLinearRangeUI("Post setup delay: ", "waitAfterSetup");
+}
+
+function createUIForWaitAfterSuite() {
+    return createLinearRangeUI("Post suite delay: ", "waitAfterSuite");
+}
+
+function createUIForComplexity() {
+    return createExpRangeUI("Relative complexity: ", "complexity", "x", 0.01, 100, 0.01);
+}
+
+function createLinearRangeUI(labelText, paramKey, unit = "ms", min = 0, max = 1000, step = 1) {
+    const initialValue = params[paramKey];
+    const linearMap = (value) => value;
+    const { range, label } = createTimeRangeUI(labelText, paramKey, unit, linearMap, 0);
+    range.min = min;
+    range.max = max;
+    range.step = step;
+    range.value = initialValue;
+    return label;
+}
+
+function createExpRangeUI(labelText, paramKey, unit = "ms", min = 0, max = 1000, step = 1) {
+    const defaultValue = defaultParams[paramKey];
+    const initialValue = params[paramKey];
+    const b = defaultValue - 1;
+    const a = -Math.log(min - b);
+    const logMap = (value) => Math.round((Math.exp(value * a) + b) / step) * step;
+    const { range, label } = createTimeRangeUI(labelText, paramKey, unit, logMap, 2);
+    range.min = -1;
+    range.max = Math.log(max - b) / a;
+    range.step = 0.01;
+    range.value = Math.log(initialValue - b) / a;
+    return label;
+}
+
+function createTimeRangeUI(labelText, paramKey, unit = "ms", map, decimals) {
+    const range = document.createElement("input");
+    range.type = "range";
+
+    const rangeValueAndUnit = document.createElement("span");
+    rangeValueAndUnit.className = "range-label-data";
+
+    const rangeValue = document.createElement("span");
+    rangeValue.textContent = params[paramKey];
+    rangeValueAndUnit.append(rangeValue, " ", unit);
+
+    const label = document.createElement("label");
+    label.append(span(labelText), range, rangeValueAndUnit);
+
+    range.oninput = () => {
+        rangeValue.textContent = map(Number(range.value)).toFixed(decimals);
+    };
+    range.onchange = () => {
+        params[paramKey] = map(Number(range.value));
+        handleParamsChange();
+    };
+
+    return { range, label };
+}
+
+function createUIForLayoutMode() {
+    return createSelectUI("Force layout mode", params.layoutMode, LAYOUT_MODES, (value) => {
+        params.layoutMode = value;
+    });
+}
+
+function createSelectUI(labelValue, initialValue, choices, paramsUpdateCallback) {
+    const select = document.createElement("select");
+    select.onchange = () => {
+        paramsUpdateCallback(select.value);
+        handleParamsChange();
+    };
+
+    choices.forEach((choice) => {
+        const option = new Option(choice, choice);
+        select.add(option);
+    });
+    select.value = initialValue;
+
+    const label = document.createElement("label");
+    label.append(span(labelValue), select);
+
+    return label;
+}
+
+function createUIForSuites() {
+    const control = document.createElement("nav");
+    control.className = "suites";
+    const checkboxes = [];
+    const setSuiteEnabled = (suiteIndex, enabled) => {
+        suites[suiteIndex].enabled = enabled;
+        checkboxes[suiteIndex].checked = enabled;
+    };
+
+    control.appendChild(createSuitesGlobalSelectButtons(setSuiteEnabled));
+
+    const ol = document.createElement("ol");
+    for (const suite of suites) {
+        const li = document.createElement("li");
+        const checkbox = document.createElement("input");
+        checkbox.id = suite.name;
+        checkbox.type = "checkbox";
+        checkbox.checked = suite.enabled;
+        checkbox.onchange = () => {
+            suite.enabled = checkbox.checked;
+            handleParamsChange();
+        };
+        checkboxes.push(checkbox);
+
+        const label = document.createElement("label");
+        label.append(checkbox, " ", suite.name);
+        li.appendChild(label);
+        label.onclick = (event) => {
+            if (event?.ctrlKey || event?.metaKey) {
+                for (let suiteIndex = 0; suiteIndex < suites.length; suiteIndex++) {
+                    if (suites[suiteIndex] !== suite)
+                        setSuiteEnabled(suiteIndex, false);
+                    else
+                        setSuiteEnabled(suiteIndex, true);
+                }
+            }
+        };
+
+        const link = document.createElement("a");
+        link.href = suite.url;
+        link.target = "_blank";
+        link.title = "Raw workload URL";
+        link.className = "workload-url-link";
+        link.textContent = "\u{1F517}";
+        li.appendChild(link);
+
+        ol.appendChild(li);
+    }
+    control.appendChild(ol);
+    control.appendChild(createSuitesTagsButton(setSuiteEnabled));
+    return control;
+}
+
+function createSuitesGlobalSelectButtons(setSuiteEnabled) {
+    const buttons = document.createElement("div");
+    buttons.className = "button-bar";
+
+    let button = document.createElement("button");
+    button.className = "select-all";
+    button.textContent = "Select all";
+    button.onclick = () => {
+        for (let suiteIndex = 0; suiteIndex < suites.length; suiteIndex++)
+            setSuiteEnabled(suiteIndex, true);
+
+        handleParamsChange();
+    };
+    buttons.appendChild(button);
+
+    button = document.createElement("button");
+    button.textContent = "Unselect all";
+    button.className = "unselect-all";
+    button.onclick = () => {
+        for (let suiteIndex = 0; suiteIndex < suites.length; suiteIndex++)
+            setSuiteEnabled(suiteIndex, false);
+
+        handleParamsChange();
+    };
+    buttons.appendChild(button);
+    return buttons;
+}
+
+function createSuitesTagsButton(setSuiteEnabled) {
+    let container = document.createElement("div");
+    let buttons = container.appendChild(document.createElement("div"));
+    buttons.className = "button-bar";
+    let i = 0;
+    const kTagsPerLine = 3;
+    for (const tag of tags) {
+        if (tag === "all")
+            continue;
+        if (!(i % kTagsPerLine)) {
+            buttons = container.appendChild(document.createElement("div"));
+            buttons.className = "button-bar";
+        }
+        i++;
+        const button = document.createElement("button");
+        button.className = "tag";
+        button.textContent = `#${tag}`;
+        button.dataTag = tag;
+        button.onclick = (event) => {
+            const extendSelection = event?.shiftKey;
+            const invertSelection = event?.ctrlKey || event?.metaKey;
+            const selectedTag = event.target.dataTag;
+            for (let suiteIndex = 0; suiteIndex < suites.length; suiteIndex++) {
+                let enabled = suites[suiteIndex].tags.includes(selectedTag);
+                if (invertSelection)
+                    enabled = !enabled;
+                if (extendSelection && !enabled)
+                    continue;
+                setSuiteEnabled(suiteIndex, enabled);
+            }
+            handleParamsChange();
+        };
+        buttons.appendChild(button);
+    }
+    return container;
+}
+
+function createUIForRun() {
+    const stepTestButton = document.createElement("button");
+    stepTestButton.className = "step-button";
+    stepTestButton.innerHTML = "Step Test<span>\u23EF</span>";
+    stepTestButton.onclick = (event) => {
+        globalThis.benchmarkClient.step();
+    };
+    const startTestButton = document.createElement("button");
+    startTestButton.innerHTML = "Start Test<span>\u23F5</span>";
+    startTestButton.onclick = (event) => {
+        globalThis.benchmarkClient.start();
+    };
+    const buttons = document.createElement("div");
+    buttons.className = "button-bar";
+    buttons.appendChild(stepTestButton);
+    buttons.appendChild(startTestButton);
+    return buttons;
+}
+
+function updateParamsSuitesAndTags() {
+    params.suites = [];
+    params.tags = [];
+
+    // If less than all suites are selected then change the URL "Suites" GET parameter
+    // to comma separate only the selected
+    const selectedSuites = suites.filter((suite) => suite.enabled);
+    if (!selectedSuites.length)
+        return;
+
+    // Try finding common tags that would result in the current suite selection.
+    let commonTags = new Set(selectedSuites[0].tags);
+    for (const suite of suites) {
+        if (suite.enabled)
+            commonTags = new Set(suite.tags.filter((tag) => commonTags.has(tag)));
+        else
+            suite.tags.forEach((tag) => commonTags.delete(tag));
+    }
+    if (selectedSuites.length > 1 && commonTags.size)
+        params.tags = [...commonTags];
+    else
+        params.suites = selectedSuites.map((suite) => suite.name);
+}
+
+function handleParamsChange() {
+    updateParamsSuitesAndTags();
+    handleComplexityChange();
+
+    const url = new URL(window.location.href);
+    url.search = params.toSearchParams();
+    // Only push state if changed
+    if (url.href !== window.location.href)
+        window.history.pushState({}, "", url);
+}

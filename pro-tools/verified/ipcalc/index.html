@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🌐 IP / 子网掩码</title>
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+  html,body { min-height:100%; background:radial-gradient(120% 80% at 50% 0%, #14283a 0%, #0a1622 60%, #060a10 100%); }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; color:#dbeafe; padding:6px 6px 12px;
+    user-select:none; display:flex; justify-content:center; }
+  #wrap { width:100%; max-width:600px; }
+  .back { display:inline-block; text-decoration:none; color:#6b8fb3; font-size:13px; margin-bottom:12px;
+    padding:6px 12px; border:1px solid #22384c; border-radius:20px; }
+  h1 { font-size:12px; color:#9fe0ff; text-align:center; margin-bottom:6px; }
+  .sub { text-align:center; color:#5b7a99; font-size:12px; margin-bottom:16px; }
+  .card { background:#0e1a26; border:1px solid #24384c; border-radius:12px; padding:14px; margin-bottom:12px; }
+  .lbl { font-size:11px; color:#6b8fb3; margin-bottom:9px; letter-spacing:1px; }
+  .f { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .f label { width:72px; font-size:13px; color:#9fe0ff; }
+  .f input { flex:1; background:#060a10; border:1px solid #24384c; border-radius:9px; padding:10px 11px;
+    color:#eaf4ff; font-size:14px; font-family:ui-monospace,monospace; }
+  .f input:focus { outline:none; border-color:#4d8fc9; }
+  .r { display:flex; justify-content:space-between; padding:9px 12px; background:#060a10; border-radius:9px;
+    margin-bottom:7px; font-size:14px; gap:10px; }
+  .r .k { color:#8fb3cf; white-space:nowrap; }
+  .r .v { color:#8fe0c0; font-weight:700; font-family:ui-monospace,monospace; text-align:right; word-break:break-all; }
+  .hint { font-size:12px; color:#5b7a99; margin-top:4px; line-height:1.6; }
+  .err { color:#e08; }
+  .ver { text-align:center; color:#22383c; font-size:10px; margin-top:22px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <a class="back" href="../">← 回大厅</a>
+  <h1>🌐 IP / 子网掩码</h1>
+  <div class="sub">工控网络常备 · 网段/广播/主机范围</div>
+
+  <div class="card">
+    <div class="lbl">输入</div>
+    <div class="f"><label>IP 地址</label><input type="text" id="ip" placeholder="192.168.1.10" value="192.168.1.10"></div>
+    <div class="f"><label>掩码/CIDR</label><input type="text" id="mask" placeholder="255.255.255.0 或 /24" value="/24">
+      <select id="quick" style="flex:0 0 96px;background:#060a10;border:1px solid #24384c;border-radius:9px;color:#eaf4ff;padding:10px">
+        <option value="">常用…</option>
+        <option value="/24">/24 (C类)</option>
+        <option value="/16">/16 (B类)</option>
+        <option value="/8">/8 (A类)</option>
+        <option value="/25">/25</option>
+        <option value="/26">/26</option>
+        <option value="/27">/27</option>
+        <option value="/28">/28</option>
+        <option value="/30">/30</option>
+      </select>
+    </div>
+    <div class="hint">支持点分掩码(255.255.255.0)或 CIDR 前缀(/24)</div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">结果</div>
+    <div id="out"></div>
+  </div>
+  <div class="ver">v1.0.0-IP子网 20261016</div>
+</div>
+<script>
+(function(){
+'use strict';
+  // 依据：IPv4 CIDR 位运算（RFC 4632）；子网/广播/主机范围标准算法。
+  const $ = id => document.getElementById(id);
+
+  function ipToInt(s){
+    const p = s.trim().split(".");
+    if(p.length !== 4) throw new Error("IP 需为 4 段");
+    let n = 0;
+    for(const x of p){ const v = Number(x); if(!Number.isInteger(v)||v<0||v>255) throw new Error("每段需 0-255"); n = (n<<8)|v; }
+    return n >>> 0;
+  }
+  function intToIp(n){ return [(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255].join("."); }
+
+  function parseMask(s){
+    s = s.trim();
+    let prefix;
+    if(s.startsWith("/")) prefix = Number(s.slice(1));
+    else if(/^\d+$/.test(s)) prefix = Number(s);
+    else {
+      const m = ipToInt(s);
+      // 校验连续
+      const bin = m.toString(2).padStart(32,"0");
+      if(!/^1*0*$/.test(bin)) throw new Error("掩码不连续");
+      prefix = bin.split("0")[0].length;
+    }
+    if(!Number.isInteger(prefix) || prefix<0 || prefix>32) throw new Error("前缀需 0-32");
+    return prefix;
+  }
+  function prefixToInt(p){ return p === 0 ? 0 : (0xFFFFFFFF << (32-p)) >>> 0; }
+
+  function calc(){
+    $("out").className = "";
+    try {
+      const ip = ipToInt($("ip").value);
+      const prefix = parseMask($("mask").value);
+      const maskI = prefixToInt(prefix);
+      const wildcard = (~maskI) >>> 0;
+      const network = (ip & maskI) >>> 0;
+      const broadcast = (network | wildcard) >>> 0;
+      const total = Math.pow(2, 32-prefix);
+      const hosts = total <= 2 ? total : total - 2;
+
+      let firstHost, lastHost;
+      if(total <= 2){ firstHost = network; lastHost = broadcast; }
+      else { firstHost = (network+1)>>>0; lastHost = (broadcast-1)>>>0; }
+
+      const rows = [
+        ["IP 地址", intToIp(ip)],
+        ["CIDR", "/" + prefix],
+        ["子网掩码", intToIp(maskI)],
+        ["反掩码(Wildcard)", intToIp(wildcard)],
+        ["网络地址", intToIp(network)],
+        ["广播地址", intToIp(broadcast)],
+        ["可用主机范围", total<=2 ? intToIp(network)+" ~ "+intToIp(broadcast) : intToIp(firstHost)+" ~ "+intToIp(lastHost)],
+        ["可用主机数", String(hosts)],
+        ["地址总数", String(total)],
+        ["IP 类别", ipClass(ip)],
+      ];
+      $("out").innerHTML = rows.map(([k,v]) => `<div class="r"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("");
+    } catch(e){ $("out").className = "err"; $("out").innerHTML = "❌ " + e.message; }
+  }
+  function ipClass(ip){
+    const f = (ip>>>24)&255;
+    if(f < 128) return "A 类 (1-126)";
+    if(f < 192) return "B 类 (128-191)";
+    if(f < 224) return "C 类 (192-223)";
+    if(f < 240) return "D 类 组播";
+    return "E 类 保留";
+  }
+
+  ["ip","mask"].forEach(id => $(id).addEventListener("input", calc));
+  $("quick").addEventListener("change", e => { if(e.target.value){ $("mask").value = e.target.value; calc(); } });
+  calc();
+})();
+</script>
+</body>
+</html>
