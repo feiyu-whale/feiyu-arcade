@@ -18,6 +18,16 @@
     margin-bottom:12px; font-size:11px; line-height:1.6; color:#ffd0a0; }
   .cat { background:linear-gradient(160deg,#112c3a,#0a1e28); border:1px solid #2e5f6e;
     border-radius:11px; padding:10px 9px; margin-bottom:10px; }
+  .cat-h { cursor:pointer; display:flex; flex-wrap:wrap; align-items:baseline; gap:6px; }
+  .arrow { color:#4d9ab5; font-size:11px; transition:.2s; }
+  .cat.open .arrow { transform:rotate(90deg); }
+  .cat-body { display:none; }
+  .cat.open .cat-body { display:block; }
+  .cat-n { flex:0 0 auto; }
+  .cat-d { flex:1 1 100%; }
+  .badges { flex:1 1 auto; text-align:right; font-size:10px; }
+  .badges .b-ok { color:#9fe6b8; }
+  .badges .b-no { color:#ffbe7a; }
   .cat-h { margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid #234a58; }
   .cat-n { font-size:15px; font-weight:700; color:#7fd4e8; }
   .cat-d { display:block; font-size:10px; color:#5b8494; margin-top:3px; }
@@ -47,8 +57,8 @@
   </div>
 
   <div class="cat">
-    <div class="cat-h"><span class="cat-n">📖 文科</span><span class="cat-d">汉字 · 诗词 · 公文 · 古籍 · 历法</span></div>
-    <div class="grp">
+    <div class="cat-h" onclick="tog(this)"><span class="cat-n">📖 文科</span><span class="arrow">▸</span><span class="cat-d">汉字 · 诗词 · 公文 · 古籍 · 历法</span><span class="badges"><span class="b-ok">✅ 1</span> <span class="b-no">⚠️ 35</span></span></div>
+    <div class="cat-body"><div class="grp">
       <div class="grp-h ok">✅ 已审查 · 1</div>
       <div class="items">
         <a class="item ver" href="verified/dou-sheng/">斗升容量</a>
@@ -93,12 +103,12 @@
         <a class="item" href="unverified/shi-ci-yun/">诗韵与词韵 · 平水韵106部与词林正韵19部查询工具</a>
         <a class="item" href="unverified/xushu-paixu/">部首与检字 - 康熙字典214部首</a>
       </div>
-    </div>
+    </div></div>
   </div>
 
   <div class="cat">
-    <div class="cat-h"><span class="cat-n">🔬 理科</span><span class="cat-d">工程 · 物理 · 化学 · 电子 · 医疗</span></div>
-    <div class="grp">
+    <div class="cat-h" onclick="tog(this)"><span class="cat-n">🔬 理科</span><span class="arrow">▸</span><span class="cat-d">工程 · 物理 · 化学 · 电子 · 医疗</span><span class="badges"><span class="b-ok">✅ 25</span> <span class="b-no">⚠️ 90</span></span></div>
+    <div class="cat-body"><div class="grp">
       <div class="grp-h ok">✅ 已审查 · 25</div>
       <div class="items">
         <a class="item ver" href="verified/ampacity/">载流量 · BS 7671</a>
@@ -222,12 +232,12 @@
         <a class="item" href="unverified/gear/">齿轮传动比计算工具</a>
         <a class="item" href="unverified/gear-full/">齿轮参数计算器（含图解）</a>
       </div>
-    </div>
+    </div></div>
   </div>
 
   <div class="cat">
-    <div class="cat-h"><span class="cat-n">🍵 食品标准</span><span class="cat-d">酱油 · 茶叶 · 酒类</span></div>
-    <div class="grp">
+    <div class="cat-h" onclick="tog(this)"><span class="cat-n">🍵 食品标准</span><span class="arrow">▸</span><span class="cat-d">酱油 · 茶叶 · 酒类</span><span class="badges"><span class="b-ok">✅ 1</span> <span class="b-no">⚠️ 2</span></span></div>
+    <div class="cat-body"><div class="grp">
       <div class="grp-h ok">✅ 已审查 · 1</div>
       <div class="items">
         <a class="item ver" href="verified/tea-grade/">茶叶等级</a>
@@ -239,12 +249,12 @@
         <a class="item" href="unverified/alcohol-calorie/">酒类酒精度与卡路里换算工具 v2.0.0</a>
         <a class="item" href="unverified/soy-sauce/">酱油等级标准查询</a>
       </div>
-    </div>
+    </div></div>
   </div>
 
   <div class="cat">
-    <div class="cat-h"><span class="cat-n">🎲 娱乐</span><span class="cat-d">概率 · 民俗 · 生活小工具</span></div>
-    <div class="grp">
+    <div class="cat-h" onclick="tog(this)"><span class="cat-n">🎲 娱乐</span><span class="arrow">▸</span><span class="cat-d">概率 · 民俗 · 生活小工具</span><span class="badges"><span class="b-ok">✅ 0</span> <span class="b-no">⚠️ 12</span></span></div>
+    <div class="cat-body"><div class="grp">
       <div class="grp-h ok">✅ 已审查 · 0</div>
       <div class="items">
 <div class="empty">暂无</div>
@@ -266,10 +276,14 @@
         <a class="item" href="unverified/aquarium/">鱼缸容积与养鱼密度计算器</a>
         <a class="item" href="unverified/dice-prob/">🎲 骰子概率计算器</a>
       </div>
-    </div>
+    </div></div>
   </div>
 
-  <div class="ver">v3.3.0-四分区整合 20261022</div>
+  <div class="ver">v3.4.0-四区折叠 20261022</div>
 </div>
+
+<script>
+function tog(el){ el.parentElement.classList.toggle('open'); }
+</script>
 </body>
 </html>
