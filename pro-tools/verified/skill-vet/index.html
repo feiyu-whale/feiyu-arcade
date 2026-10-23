@@ -82,6 +82,22 @@ textarea:focus { outline: none; border-color: #3d6a96; }
 .perm { font-size: 12px; color: #8fa8bd; margin-bottom: 6px; }
 .perm b { color: #b8c8d8; }
 .footnote { font-size: 11px; color: #5a6a78; margin-top: 14px; line-height: 1.8; }
+/* 页内顶部固定警示条（2026-10-24） */
+#topWarn { position:fixed; top:0; left:0; right:0; z-index:9999;
+  box-shadow:0 3px 14px rgba(0,0,0,.5); }
+.tw-bar { display:flex; align-items:flex-start; gap:10px;
+  background:linear-gradient(180deg,#5a1a14,#3a1414);
+  border-bottom:2px solid #e74c3c; padding:11px 14px 11px 16px;
+  font-size:12.5px; line-height:1.65; color:#ffd9d0; }
+.tw-ico { font-size:16px; line-height:1.2; flex:0 0 auto; }
+.tw-txt { flex:1 1 auto; }
+.tw-txt b { color:#ffb3a0; }
+.tw-x { flex:0 0 auto; background:transparent; border:1px solid #a8453a; color:#ffb3a0;
+  border-radius:5px; width:24px; height:24px; line-height:1; cursor:pointer; font-size:15px; padding:0; }
+.tw-x:hover { background:#7a2a22; }
+body { padding-top: 96px; }
+@media(max-width:640px){ .tw-bar{ font-size:11.5px; padding:9px 10px; } body{ padding-top:120px; } }
+
 .secwarn { background:#3a1414; border:1px solid #c0392b; border-left:5px solid #e74c3c;
     border-radius:8px; padding:14px 18px; margin:14px 0 18px; font-size:13px; line-height:1.9; color:#f0c0b8; }
   .secwarn b { color:#ff9a8a; }
@@ -164,7 +180,7 @@ textarea:focus { outline: none; border-color: #3d6a96; }
     <div id="deepResult" style="margin-top:16px"></div>
   </div>
 </div>
-<div class="version">v1.8.0-解压加固 20261024</div>
+<div class="version">v1.9.0-页内警示条 20261024</div>
 
 <script>
 /* ============================================================
@@ -731,19 +747,29 @@ function confirmDynamicScan(what) {
   );
 }
 
-// 进入页面弹一次（每次打开都弹，不记住）
-window.addEventListener('load', function () {
-  setTimeout(function () {
-    window.alert(
-      '⚠️ 技能安检 · 使用前请知悉\n\n' +
-      '本工具含「动态扫描 / 全量扫描」，会在你的浏览器里真正执行待检代码。\n\n' +
-      '· Worker 隔离只能降低风险，不是真沙盒，理论上可能被绕过\n' +
-      '· 请勿在登录重要账号的浏览器、公司/学校内网、生产机上运行不可信样本\n' +
-      '· 建议在一次性浏览器配置 / 虚拟机 / 隔离机器上做动态扫描\n\n' +
-      '本工具按 MIT「AS IS」提供，不对任何直接或间接损失承担责任。'
-    );
-  }, 300);
-});
+// 进入页面的提醒改为「页内固定警示条」（2026-10-24 老爹反馈 alert 完全看不到）
+// 浏览器会拦截/静默 window.alert，改用常驻 DOM 提示，不依赖弹窗
+(function mountTopWarn() {
+  function mount() {
+    if (document.getElementById('topWarn')) return;
+    var d = document.createElement('div');
+    d.id = 'topWarn';
+    d.innerHTML =
+      '<div class="tw-bar">' +
+        '<span class="tw-ico">⚠️</span>' +
+        '<span class="tw-txt"><b>技能安检 · 使用前请知悉：</b>本工具含「深度扫描 / 全量扫描」，会在你的浏览器里<b>真正执行待检代码</b>。' +
+        'Worker 隔离只能降低风险、<b>不是真沙盒</b>；请勿在登录重要账号的浏览器、公司/学校内网、生产机上运行不可信样本。' +
+        '建议用一次性浏览器配置 / 虚拟机隔离。<b>本工具按 MIT「AS IS」提供，不对任何损失负责。</b></span>' +
+        '<button class="tw-x" title="收起">×</button>' +
+      '</div>';
+    document.body.insertBefore(d, document.body.firstChild);
+    var x = d.querySelector('.tw-x');
+    if (x) x.onclick = function(){ d.style.display = 'none'; document.body.style.paddingTop = '0'; };
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mount);
+  } else { mount(); }
+})();
 
 function runFullScan() {
   if (!pendingFiles.length) return;
