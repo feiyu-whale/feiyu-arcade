@@ -122,7 +122,7 @@
 
 <button id="quit" title="退出 (Esc)">✕</button>
 <div id="hint2">Esc 退出</div>
-<div class="ver">v1.0.0-白饭大爆炸 20261024</div>
+<div class="ver">v1.1.0-加大音量 20261024</div>
 
 <script>
 (function(){
@@ -166,7 +166,7 @@
       if (!AC) return;
       audioCtx = new AC();
       masterGain = audioCtx.createGain();
-      masterGain.gain.value = 0.16;          // 整体音量压小，不吓人
+      masterGain.gain.value = 0.55;          // 2026-10-24 老爹要求：要吓人，音量拉高
       masterGain.connect(audioCtx.destination);
       startDrone();
     } catch(e){ audioCtx = null; }
@@ -181,8 +181,8 @@
     var lfoGain = audioCtx.createGain();
 
     osc.type = 'sawtooth';
-    osc.frequency.value = 55;                 // 低频 A
-    gain.gain.value = 0.055;
+    osc.frequency.value = 42;                 // 更深沉的低频
+    gain.gain.value = 0.14;
 
     // 低通滤波，闷一点
     var filt = audioCtx.createBiquadFilter();
@@ -207,8 +207,8 @@
     var osc2 = audioCtx.createOscillator();
     var g2 = audioCtx.createGain();
     osc2.type = 'triangle';
-    osc2.frequency.value = 82.4;              // 低 E
-    g2.gain.value = 0.022;
+    osc2.frequency.value = 63.0;              // 加厚五度
+    g2.gain.value = 0.075;
     osc2.connect(g2);
     g2.connect(masterGain);
     osc2.start();
@@ -225,7 +225,7 @@
       o.type = type || 'sine';
       o.frequency.setValueAtTime(freq, audioCtx.currentTime);
       o.frequency.exponentialRampToValueAtTime(Math.max(40, freq * 0.45), audioCtx.currentTime + dur);
-      g.gain.setValueAtTime(vol || 0.13, audioCtx.currentTime);
+      g.gain.setValueAtTime((vol || 0.13) * 2.2, audioCtx.currentTime);
       g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
       o.connect(g);
       g.connect(masterGain);
@@ -242,11 +242,11 @@
       var g = audioCtx.createGain();
       var f = audioCtx.createBiquadFilter();
       o.type = 'sine';
-      o.frequency.setValueAtTime(160, audioCtx.currentTime);
+      o.frequency.setValueAtTime(140, audioCtx.currentTime);
       o.frequency.exponentialRampToValueAtTime(58, audioCtx.currentTime + 0.12);
       f.type = 'lowpass';
       f.frequency.value = 800;
-      g.gain.setValueAtTime(0.22, audioCtx.currentTime);
+      g.gain.setValueAtTime(0.55, audioCtx.currentTime);
       g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.18);
       o.connect(f); f.connect(g); g.connect(masterGain);
       o.start(); o.stop(audioCtx.currentTime + 0.2);
@@ -259,9 +259,9 @@
       if (!('speechSynthesis' in window)) return;
       var u = new SpeechSynthesisUtterance(text.replace(/[🍚！]/g, ''));
       u.lang = 'zh-CN';
-      u.rate = 0.62;        // 拖长
-      u.pitch = 0.55;       // 压低
-      u.volume = 0.7;
+      u.rate = 0.52;        // 更拖
+      u.pitch = 0.35;       // 压得更低
+      u.volume = 1.0;
       var vs = speechSynthesis.getVoices().filter(function(v){ return /zh|Chinese/i.test(v.lang); });
       if (vs.length) u.voice = vs[0];
       speechSynthesis.speak(u);
@@ -361,8 +361,30 @@
     // 每 7 秒来一次狂暴
     timers.push(setInterval(rageMode, 7000));
 
-    // 第一轮狂暴早一点
-    timers.push(setTimeout(rageMode, 2600));
+    // 开场 2 秒：全音量炸一次（吓一跳的关键）
+    timers.push(setTimeout(function(){
+      if (!audioCtx) return;
+      // 低频重击三连
+      knock();
+      timers.push(setTimeout(knock, 180));
+      timers.push(setTimeout(knock, 400));
+      // 高频扫频尖叫
+      try {
+        var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(120, audioCtx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(1400, audioCtx.currentTime + 0.9);
+        g.gain.setValueAtTime(0.34, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1.0);
+        o.connect(g); g.connect(masterGain);
+        o.start(); o.stop(audioCtx.currentTime + 1.05);
+      } catch(e){}
+      speak('开——饭——了——');
+      rageMode();
+    }, 2000));
+
+    // 第一轮狂暴再往后
+    timers.push(setTimeout(rageMode, 9000));
   }
 
   /* ────────── 退出 ────────── */
