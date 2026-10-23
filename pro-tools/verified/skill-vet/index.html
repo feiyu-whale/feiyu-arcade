@@ -82,7 +82,10 @@ textarea:focus { outline: none; border-color: #3d6a96; }
 .perm { font-size: 12px; color: #8fa8bd; margin-bottom: 6px; }
 .perm b { color: #b8c8d8; }
 .footnote { font-size: 11px; color: #5a6a78; margin-top: 14px; line-height: 1.8; }
-.version { position: fixed; bottom: 10px; right: 14px; font-size: 11px; color: #4a5a68; }
+.secwarn { background:#3a1414; border:1px solid #c0392b; border-left:5px solid #e74c3c;
+    border-radius:8px; padding:14px 18px; margin:14px 0 18px; font-size:13px; line-height:1.9; color:#f0c0b8; }
+  .secwarn b { color:#ff9a8a; }
+  .version { position: fixed; bottom: 10px; right: 14px; font-size: 11px; color: #4a5a68; }
 .note { background: #1a2018; border-left: 3px solid #4a7a4a; padding: 10px 14px; border-radius: 5px; font-size: 12px; color: #8fb88f; margin-top: 12px; }
 </style>
 </head>
@@ -90,6 +93,15 @@ textarea:focus { outline: none; border-color: #3d6a96; }
 <div class="wrap">
   <h1>🔒 技能安检 · Skill Vetter</h1>
   <p class="sub">装任何外部技能之前，先把它过一遍闸。全部在本地跑，不上传、不联网。</p>
+
+  <div class="secwarn">
+    <b>⚠️ 使用前必读 · 风险自担</b><br>
+    本工具的「深度扫描 / 全量扫描」会在你的浏览器里<b>实际运行待检代码</b>。<br>
+    Worker 隔离只是<b>降低</b>风险，<b>并不是真沙盒</b>——理论上存在被特殊构造的样本绕过的可能。<br>
+    <b>请勿在以下环境运行不可信样本：</b>登录着重要账号的浏览器、公司/学校内网、生产机、存有密钥或隐私数据的设备。<br>
+    建议：用一次性的浏览器配置 / 虚拟机 / 与主力环境隔离的机器来做动态扫描。<br>
+    <b>本工具按 MIT「AS IS」提供，不对任何直接或间接损失承担责任。你点击「开始深度扫描」即视为已阅读并接受本条。</b>
+  </div>
 
   <div class="card">
     <h2>① 丢进来（ZIP 压缩包 / 整个文件夹 / 粘贴代码）</h2>
@@ -138,7 +150,8 @@ textarea:focus { outline: none; border-color: #3d6a96; }
       • 需要较新的浏览器（支持 Web Worker + Proxy）<br>
       • 大文件或复杂代码可能卡顿，建议单个文件 ≤ 2MB<br>
       • 会在隔离环境里<span style="color:#ffd28a">实际执行 JS 逻辑</span>（已断网、已限时），耗电略高<br>
-      • <b>只跑 JS</b>；Python / Shell 等只能做静态扫描
+      • <b>只跑 JS</b>；Python / Shell 等只能做静态扫描<br>
+      • <span style="color:#ff9a6a"><b>⚠️ Worker 隔离不是真沙盒</b>，恶意样本理论上可能绕过；请在隔离环境使用，风险自担</span>
     </div>
     <p style="font-size:13px;color:#8fa8bd;margin-bottom:14px">
       原理：把 JS 放进 Worker 隔离环境跑起来，但先把 <code style="color:#a8c8e0">fetch / XMLHttpRequest / WebSocket / eval / localStorage</code> 全部换成“记录器”——
@@ -151,16 +164,41 @@ textarea:focus { outline: none; border-color: #3d6a96; }
     <div id="deepResult" style="margin-top:16px"></div>
   </div>
 </div>
-<div class="version">v1.6.1-修可疑域名误报 20261022</div>
+<div class="version">v1.7.0-加动态扫描风险提示 20261023</div>
 
 <script>
 /* ============================================================
  *  第一部分：ZIP 解压（纯原生实现，不依赖任何外部库）
  *  原理：读文件末尾的中央目录(EOCD) → 遍历条目 → DecompressionStream 解压
  * ============================================================ */
+/* ── 安全上限（防 ZIP 炸弹 / 防卡死）── */
+const MAX_FILE_BYTES  = 8 * 1024 * 1024;    // 单个条目解压后上限 8MB
+const MAX_TOTAL_BYTES = 64 * 1024 * 1024;   // 单个 ZIP 解压总量上限 64MB
+const MAX_ENTRIES     = 5000;               // 条目数上限
+
+/* GBK 解码器（懒加载，失败退回 UTF-8） */
+let _gbk = null;
+function decodeName(bytes) {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch (e) {
+    try {
+      if (!_gbk) _gbk = new TextDecoder('gbk');
+      return _gbk.decode(bytes);
+    } catch (e2) {
+      return new TextDecoder('utf-8').decode(bytes);
+    }
+  }
+}
+
 async function unzipEntries(file) {
   const buf = new Uint8Array(await file.arrayBuffer());
   const dv = new DataView(buf.buffer);
+  const out = [];
+
+  // 0) 最小长度拦截：EOCD 最少 22 字节
+  if (buf.length < 22) throw new Error('文件太小（不足 22 字节），不是有效 ZIP');
+
   // 1) 从末尾往前找 EOCD 签名 0x06054b50
   let eocd = -1;
   const minPos = Math.max(0, buf.length - 65558);
@@ -168,47 +206,137 @@ async function unzipEntries(file) {
     if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
   }
   if (eocd < 0) throw new Error('不是有效的 ZIP 文件（找不到中央目录）');
-  const total  = dv.getUint16(eocd + 10, true);
-  let cdOff    = dv.getUint32(eocd + 16, true);
-  const dec    = new TextDecoder('utf-8');
-  const out    = [];
-  // 2) 遍历中央目录
+
+  let total = dv.getUint16(eocd + 10, true);
+  let cdOff = dv.getUint32(eocd + 16, true);
+
+  // 2) ZIP64 检测与解析
+  if (total === 0xFFFF || cdOff === 0xFFFFFFFF) {
+    const z64 = findZip64Eocd(dv, buf, eocd);
+    if (z64) {
+      total = z64.total;
+      cdOff = z64.cdOff;
+    } else {
+      throw new Error('检测到 ZIP64 格式，但找不到 ZIP64 目录（文件可能损坏）');
+    }
+  }
+  if (total > MAX_ENTRIES) throw new Error('ZIP 内条目过多（' + total + " 个，上限 " + MAX_ENTRIES + '），已停止');
+
+  let totalOut = 0;
+  let truncated = false;
+
+  // 3) 遍历中央目录
   for (let i = 0; i < total; i++) {
-    if (cdOff + 46 > buf.length) break;
+    if (cdOff < 0 || cdOff + 46 > buf.length) break;
     if (dv.getUint32(cdOff, true) !== 0x02014b50) break;
+
+    const flags  = dv.getUint16(cdOff + 8, true);
     const method = dv.getUint16(cdOff + 10, true);
-    const csize  = dv.getUint32(cdOff + 20, true);
-    const usize  = dv.getUint32(cdOff + 24, true);
+    let   csize  = dv.getUint32(cdOff + 20, true);
+    let   usize  = dv.getUint32(cdOff + 24, true);
     const nlen   = dv.getUint16(cdOff + 28, true);
     const elen   = dv.getUint16(cdOff + 30, true);
     const clen   = dv.getUint16(cdOff + 32, true);
-    const lho    = dv.getUint32(cdOff + 42, true);
-    const name   = dec.decode(buf.subarray(cdOff + 46, cdOff + 46 + nlen));
+    let   lho    = dv.getUint32(cdOff + 42, true);
+
+    const name = decodeName(buf.subarray(cdOff + 46, cdOff + 46 + nlen));
+
+    // 解析 ZIP64 扩展字段（0x0001）补全 4GB 以上的尺寸/偏移
+    const z64data = readZip64Extra(dv, cdOff + 46 + nlen, elen, usize, csize, lho);
+    if (z64data) { usize = z64data.usize; csize = z64data.csize; lho = z64data.lho; }
+
     cdOff += 46 + nlen + elen + clen;
-    if (name.endsWith('/')) continue;
-    // 3) 定位本地头，取数据区
+    if (name.endsWith('/') || name.endsWith('\\')) continue;
+
+    // 加密标志（bit 0）
+    if (flags & 0x1) {
+      out.push({ name, content: null, err: '文件已加密（需要密码），跳过', size: usize });
+      continue;
+    }
+
+    // 4) 定位本地头
     if (lho + 30 > buf.length || dv.getUint32(lho, true) !== 0x04034b50) {
-      out.push({ name, content: null, err: '本地文件头损坏' });
+      out.push({ name, content: null, err: '本地文件头损坏', size: usize });
       continue;
     }
     const lnlen = dv.getUint16(lho + 26, true);
     const lelen = dv.getUint16(lho + 28, true);
-    const ds    = lho + 30 + lnlen + lelen;
-    const raw   = buf.subarray(ds, ds + csize);
+    const ds = lho + 30 + lnlen + lelen;
+
+    if (ds + csize > buf.length) {
+      out.push({ name, content: null, err: '数据区越界（文件可能被截断）', size: usize });
+      continue;
+    }
+
+    // 5) 大小上限（防炸弹）
+    if (usize > MAX_FILE_BYTES) {
+      out.push({ name, content: null, err: '单文件过大（' + (usize / 1048576).toFixed(1) + 'MB，上限 8MB），跳过', size: usize });
+      continue;
+    }
+    if (totalOut + usize > MAX_TOTAL_BYTES) {
+      truncated = true;
+      out.push({ name: '(其余文件)', content: null, err: '解压总量超过 64MB 上限，后续文件已跳过' });
+      break;
+    }
+
+    const raw = buf.subarray(ds, ds + csize);
     let content = null, err = null;
     try {
       if (method === 0) {
-        content = dec.decode(raw);
+        content = new TextDecoder('utf-8').decode(raw);
       } else if (method === 8) {
         const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-        content = dec.decode(new Uint8Array(await new Response(stream).arrayBuffer()));
+        content = new TextDecoder('utf-8').decode(new Uint8Array(await new Response(stream).arrayBuffer()));
       } else {
         err = '不支持的压缩方式(' + method + ')';
       }
-    } catch (e) { err = e.message; }
+    } catch (e) { err = '解压失败：' + e.message; }
+
+    if (content != null) totalOut += usize;
     out.push({ name, content, err, size: usize });
   }
+
+  if (truncated && !out.length) throw new Error('未能解出任何文件');
   return out;
+}
+
+/* 查找 ZIP64 目录（在 EOCD 前找 ZIP64 EOCD locator） */
+function findZip64Eocd(dv, buf, eocd) {
+  try {
+    for (let i = eocd - 20; i >= Math.max(0, eocd - 128); i--) {
+      if (dv.getUint32(i, true) === 0x07064b50) {          // ZIP64 EOCD locator
+        const z64Off = Number(dv.getBigUint64(i + 8, true));
+        if (z64Off + 56 > buf.length) return null;
+        if (dv.getUint32(z64Off, true) !== 0x06064b50) return null;
+        const total  = Number(dv.getBigUint64(z64Off + 32, true));
+        const cdOff  = Number(dv.getBigUint64(z64Off + 48, true));
+        return { total, cdOff };
+      }
+    }
+  } catch (e) { return null; }
+  return null;
+}
+
+/* 读 ZIP64 扩展字段，补全被写成 0xFFFFFFFF 的值 */
+function readZip64Extra(dv, off, elen, usize, csize, lho) {
+  const end = off + elen;
+  let p = off;
+  while (p + 4 <= end) {
+    const tag = dv.getUint16(p, true);
+    const len = dv.getUint16(p + 2, true);
+    if (tag === 0x0001) {
+      let q = p + 4;
+      const r = { usize, csize, lho };
+      try {
+        if (usize === 0xFFFFFFFF && q + 8 <= end) { r.usize = Number(dv.getBigUint64(q, true)); q += 8; }
+        if (csize === 0xFFFFFFFF && q + 8 <= end) { r.csize = Number(dv.getBigUint64(q, true)); q += 8; }
+        if (lho === 0xFFFFFFFF && q + 8 <= end)   { r.lho   = Number(dv.getBigUint64(q, true)); q += 8; }
+        return r;
+      } catch (e) { return null; }
+    }
+    p += 4 + len;
+  }
+  return null;
 }
 
 /* ============================================================
@@ -300,6 +428,13 @@ function isTextFile(name) {
 /* ============================================================
  *  第三部分：扫描与评级
  * ============================================================ */
+window.addEventListener('error', function(ev) {
+  try {
+    const box = document.getElementById('filelist');
+    if (box) box.insertAdjacentHTML('afterbegin',
+      '<div class="fi"><span style="color:#e07a7a">⚠ 处理出错：' + (ev.message || '未知错误') + '（已拦截，页面未崩溃）</span></div>');
+  } catch (e) {}
+});
 let pendingFiles = [];   // [{name, content, err, size}]
 
 function togglePaste() {
@@ -361,16 +496,42 @@ function walkEntry(entry, out, prefix) {
   });
 }
 
+const MAX_INPUT_MODULE = 80 * 1024 * 1024;   // 整包上限 80MB
+
 async function addFile(f) {
-  if (/\.zip$/i.test(f.name)) {
-    try {
-      const entries = await unzipEntries(f);
-      entries.forEach(x => pendingFiles.push({ name: x.name, content: x.content, err: x.err, size: x.size }));
-    } catch (e) {
-      pendingFiles.push({ name: f.name, content: null, err: e.message });
+  try {
+    if (f.size > MAX_INPUT_MODULE) {
+      pendingFiles.push({ name: f.name, content: null, err: '文件过大（' + (f.size / 1048576).toFixed(1) + 'MB，上限 80MB）', size: f.size });
+      return;
     }
-  } else {
-    pendingFiles.push({ name: f.name, content: await f.text().catch(() => null), size: f.size });
+    if (/\.zip$/i.test(f.name)) {
+      let entries;
+      try {
+        entries = await unzipEntries(f);
+      } catch (e) {
+        pendingFiles.push({ name: f.name, content: null, err: e.message || '解压失败', size: f.size });
+        return;
+      }
+      if (!entries.length) {
+        pendingFiles.push({ name: f.name, content: null, err: 'ZIP 内没有可读文件（或全部被跳过）', size: f.size });
+        return;
+      }
+      entries.forEach(x => pendingFiles.push({ name: x.name, content: x.content, err: x.err, size: x.size }));
+    } else {
+      // 非 ZIP：只读文本，二进制不硬解成字符串
+      if (!isTextFile(f.name)) {
+        pendingFiles.push({ name: f.name, content: null, err: '二进制文件，不参与文本扫描', size: f.size });
+        return;
+      }
+      if (f.size > MAX_FILE_BYTES) {
+        pendingFiles.push({ name: f.name, content: null, err: '单文件过大（' + (f.size / 1048576).toFixed(1) + 'MB），跳过', size: f.size });
+        return;
+      }
+      const t = await f.text().catch(() => null);
+      pendingFiles.push({ name: f.name, content: t, err: t == null ? '读取失败' : null, size: f.size });
+    }
+  } catch (e) {
+    pendingFiles.push({ name: f.name, content: null, err: '处理出错：' + (e.message || e), size: f.size });
   }
 }
 
@@ -382,7 +543,14 @@ document.getElementById('fileInput').addEventListener('change', async e => {
 document.getElementById('dirInput').addEventListener('change', async e => {
   pendingFiles = [];
   for (const f of e.target.files) {
-    pendingFiles.push({ name: f.webkitRelativePath || f.name, content: await f.text().catch(() => null), size: f.size });
+    try {
+      const nm = f.webkitRelativePath || f.name;
+      if (!isTextFile(nm)) { pendingFiles.push({ name: nm, content: null, err: '二进制文件，跳过', size: f.size }); continue; }
+      if (f.size > MAX_FILE_BYTES) { pendingFiles.push({ name: nm, content: null, err: '文件过大，跳过', size: f.size }); continue; }
+      pendingFiles.push({ name: nm, content: await f.text().catch(() => null), size: f.size });
+    } catch (err) {
+      pendingFiles.push({ name: f.name, content: null, err: '读取失败', size: 0 });
+    }
   }
   afterLoad();
 });
@@ -550,7 +718,39 @@ function scanAll() {
 const DEEP_TIMEOUT = 3000;
 
 /* ===== 全量扫描：静态 + 动态一次跑完 ===== */
+// 深度/全量扫描前的二次确认（2026-10-23 老爹要求）
+function confirmDynamicScan(what) {
+  return window.confirm(
+    '⚠️ 即将在实际运行中执行待检代码\n\n' +
+    what + ' 会在你的浏览器里真正跑起来待检的 JS。\n\n' +
+    '· Worker 隔离不是真沙盒，恶意样本理论上可能绕过\n' +
+    '· 别在登录着重要账号的浏览器 / 公司内网 / 生产机上跑不可信样本\n' +
+    '· 建议用一次性浏览器配置、虚拟机或隔离机器\n\n' +
+    '本工具按 MIT「AS IS」提供，不对任何损失负责。\n\n' +
+    '确定继续吗？'
+  );
+}
+
+// 进入页面弹一次（每次打开都弹，不记住）
+window.addEventListener('load', function () {
+  setTimeout(function () {
+    window.alert(
+      '⚠️ 技能安检 · 使用前请知悉\n\n' +
+      '本工具含「动态扫描 / 全量扫描」，会在你的浏览器里真正执行待检代码。\n\n' +
+      '· Worker 隔离只能降低风险，不是真沙盒，理论上可能被绕过\n' +
+      '· 请勿在登录重要账号的浏览器、公司/学校内网、生产机上运行不可信样本\n' +
+      '· 建议在一次性浏览器配置 / 虚拟机 / 隔离机器上做动态扫描\n\n' +
+      '本工具按 MIT「AS IS」提供，不对任何直接或间接损失承担责任。'
+    );
+  }, 300);
+});
+
 function runFullScan() {
+  if (!pendingFiles.length) return;
+  if (!confirmDynamicScan('「全量扫描」')) {
+    document.getElementById('fullStatus').textContent = '已取消（未执行动态扫描）';
+    return;
+  }
   if (!pendingFiles.length) return;
   const fbtn = document.getElementById('fullBtn');
   const fstatus = document.getElementById('fullStatus');
@@ -630,6 +830,10 @@ function renderCombined() {
 }
 
 function runDeepScan(onDone) {
+  if (pendingFiles.length && !confirmDynamicScan('「深度扫描」')) {
+    document.getElementById('deepStatus').textContent = '已取消（未执行）';
+    return;
+  }
   const resBox = document.getElementById('deepResult');
   const status = document.getElementById('deepStatus');
   const btn = document.getElementById('deepBtn');
