@@ -75,6 +75,30 @@
     color:#90c0e0; font-size:10px; cursor:pointer; text-align:left; }
   .choice:active { background:#1e3850; }
 
+  /* 贷款面板 */
+  #loanPanel { display:none; background:#101820; border:1px solid #2a4a3a; border-radius:12px; padding:12px; margin-bottom:10px; }
+  .loanhead { font-size:10px; color:#7a94ac; margin-bottom:10px; line-height:1.9; }
+  .loanhead b { color:#80c8a0; }
+  .loanhead b.warn2 { color:#d0a040; }
+  .loanhead b.bad { color:#e05050; }
+  .loansub { font-size:9px; color:#4a6a7a; margin:10px 0 6px; letter-spacing:1px; }
+  .loanrow { display:flex; align-items:center; gap:8px; font-size:9px; color:#8aa8c0;
+    background:#0c151c; border:1px solid #1e3448; border-radius:7px; padding:7px 9px; margin-bottom:5px; }
+  .loanrow .pay { margin-left:auto; color:#d0a040; }
+  .loanprod { border:1px solid #24404a; border-radius:9px; padding:9px 11px; margin-bottom:7px; }
+  .loanprod.disabled { opacity:.45; }
+  .lpname { font-size:11px; font-weight:700; color:#90c0d8; }
+  .lpterm { font-size:9px; color:#5a7a90; font-weight:400; }
+  .lpdesc { font-size:9px; color:#6a8aa0; margin:3px 0 5px; line-height:1.6; }
+  .lprate { font-size:10px; color:#d0a040; margin-bottom:5px; }
+  .lpno { font-size:9px; color:#a05a5a; }
+  .lpbtns { display:flex; gap:6px; }
+  .tiny { padding:5px 10px; background:#16283a; border:1px solid #2a4a68; border-radius:6px;
+    color:#90c0e0; font-size:9px; cursor:pointer; }
+  .tiny:active { background:#1e3850; }
+  .loanwarn { font-size:9px; color:#8a7040; margin-top:10px; line-height:1.7;
+    background:#181408; border:1px solid #3a3018; border-radius:7px; padding:7px 9px; }
+
   /* 换赛道面板 */
   #switchPanel { display:none; background:#101820; border:1px solid #3a2a4a; border-radius:12px; padding:12px; margin-bottom:10px; }
   .switem { padding:10px; border:1px solid #2a3a4a; border-radius:9px; margin-bottom:8px; }
@@ -156,15 +180,22 @@
       <div class="stat"><div class="k">口碑</div><div class="v" id="rep">50</div></div>
       <div class="stat"><div class="k">士气</div><div class="v" id="morale">70</div></div>
     </div>
+    <div class="stats">
+      <div class="stat"><div class="k">信用评分</div><div class="v" id="credit">100</div></div>
+      <div class="stat"><div class="k">可贷余额</div><div class="v" id="avail">-</div></div>
+      <div class="stat"><div class="k">月供合计</div><div class="v" id="monthlyPay">-</div></div>
+      <div class="stat"><div class="k">员工</div><div class="v" id="staff2">-</div></div>
+    </div>
 
     <div class="actions">
       <button class="tbtn primary" id="btnNext" onclick="doSettle()">▶ 下一个月</button>
       <button class="tbtn" id="btnOpen" onclick="doOpen()">开新店</button>
-      <button class="tbtn" onclick="doBorrow()">贷款 20万</button>
+      <button class="tbtn" onclick="showLoan()">💰 贷款</button>
       <button class="tbtn" onclick="showSwitch()">换赛道</button>
     </div>
 
     <div id="status"></div>
+    <div id="loanPanel"></div>
     <div id="switchPanel"></div>
     <div id="log"></div>
 
@@ -177,7 +208,7 @@
     </div>
   </div>
 
-  <div class="ver">v1.0.0-首版单店 20261024</div>
+  <div class="ver">v1.1.0-真实借贷 20261024</div>
 </div>
 
 <script src="params.js"></script>

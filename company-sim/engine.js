@@ -23,7 +23,11 @@ const G = {
   revenueLast: 0,        // 上月营收（事件用）
   mods: [],              // 生效中的事件修饰器 {type, value, until}
   usedEvents: [],        // 本月已出事件
-  pendingChoice: null    // 等待玩家选择的事件
+  pendingChoice: null,   // 等待玩家选择的事件
+  loans: [],             // 每笔贷款：{principal, remain, rate, term, startMonth}
+  credit: 100,           // 信用评分 0-100（逾期扣、按时还款加分）
+  overdue: 0,            // 累计逾期次数
+  lastRBI: 6.0           // 当前基准利率（年化 %）——2026 中国 LPR 水平
 };
 
 function P() { return SEGMENTS[G.seg]; }
@@ -82,14 +86,28 @@ function settleMonth() {
   log.items.push(['水电', utilCost, 'out']);
   log.items.push(['杂费', miscCost, 'out']);
 
-  // ── 3. 利息 ──
-  let interest = 0;
-  if (G.debt > 0) {
-    interest = G.debt * 0.008;   // 月息 0.8%（年化约 10%）
-    log.items.push(['贷款利息', interest, 'out']);
+  // ── 3. 贷款月供（等额本息：本金+利息一起还）──
+  let totalPayment = 0, totalInterest = 0;
+  G.loans.forEach(ln => {
+    if (ln.remain <= 0) return;
+    const r = ln.rate / 12;                                     // 月利率
+    const n = ln.term;                                          // 总期数
+    const pay = ln.principal * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+    const intPart = ln.remain * r;
+    const priPart = Math.min(pay - intPart, ln.remain);
+    ln.remain -= priPart;
+    totalPayment += priPart + intPart;
+    totalInterest += intPart;
+  });
+  G.loans = G.loans.filter(l => l.remain > 0.01);
+  if (totalPayment > 0) {
+    log.items.push(['贷款月供', totalPayment, 'out']);
+    log.items.push(['　其中利息', totalInterest, 'memo']);
   }
 
-  const netProfit = grossProfit - interest;
+  const netProfit = grossProfit - totalInterest;
+
+  // 利息不重复扣（已在月供里）——下面现金流只扣 totalPayment
 
   // ── 4. 现金流：营收不是当月全到账 ──
   //    按账期排队
@@ -133,17 +151,37 @@ function settleMonth() {
   });
   G.payables = G.payables.filter(a => !a.paid);
 
-  // 利息必须当月付
-  if (interest > 0) G.cash -= interest;
+  // 月供必须当月还（还不上就是逾期）
+  if (totalPayment > 0) {
+    if (G.cash >= totalPayment) {
+      G.cash -= totalPayment;
+      G.credit = Math.min(100, G.credit + 0.5);      // 按时还款加分
+    } else {
+      // 逾期：罚息 + 扣信用
+      const penalty = totalPayment * 0.05;
+      G.cash -= (totalPayment + penalty);
+      G.overdue++;
+      G.credit = Math.max(0, G.credit - 15);
+      log.events.push({ type: 'bad',
+        text: '⚠️ 贷款逾期！罚息 ' + (penalty / 1e4).toFixed(1) + ' 万，信用评分 -15（现 ' + G.credit.toFixed(0) + '）' });
+    }
+  }
 
   // ── 6. 破产判定 ──
   if (G.cash < 0) {
     // 现金断了 → 看能不能紧急借
-    if (G.debt < 3000000 && Math.random() < 0.4) {
-      const borrow = 200000;
-      G.debt += borrow;
-      G.cash += borrow;
-      log.events.push({ type: 'warn', text: '现金断裂，紧急借入 ' + (borrow / 1e4) + ' 万（月息 0.8%）' });
+    // 现金断裂时，银行只肯给高息过桥贷（信用差的人借不到）
+    const emergLimit = creditLimit() - totalDebt();
+    if (emergLimit > 0 && G.credit >= 30) {
+      const amt = Math.min(emergLimit, 200000);
+      const rate = loanRate() * 2.5;     // 过桥贷利率极高
+      const r = rate / 12, n = 6;
+      const pay = amt * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+      G.loans.push({ principal: amt, remain: amt, rate, term: n, startMonth: G.month, product: '过桥贷' });
+      G.cash += amt;
+      G.credit = Math.max(0, G.credit - 5);
+      log.events.push({ type: 'warn',
+        text: '💸 现金断裂！银行只给过桥贷 ' + (amt / 1e4).toFixed(1) + ' 万，年化 ' + (rate * 100).toFixed(1) + '%，每月还 ' + (pay / 1e4).toFixed(2) + ' 万' });
     } else {
       G.status = 'bankrupt';
       log.events.push({ type: 'bad', text: '💀 现金耗尽，供应商停供，公司破产' });
@@ -200,13 +238,90 @@ function openStore() {
   return { ok: true, msg: '新开一家' + p.name + '店，投入 ' + (cost / 1e4).toFixed(0) + ' 万' };
 }
 
-/* 贷款 */
-function borrow(amount) {
-  const limit = 3000000 - G.debt;
-  if (amount > limit) return { ok: false, msg: '超过授信额度（剩余 ' + (limit / 1e4).toFixed(0) + ' 万）' };
-  G.debt += amount;
+/* ═══ 真实商业借贷系统 ═══
+ * 真实规则：
+ *  1. 授信额度取决于「信用评分 + 经营能力」，不是想借多少借多少
+ *  2. 利率分档：信用越好越便宜；基准利率浮动
+ *  3. 还款方式：等额本息，每月固定还，不能选择性不还
+ *  4. 逾期代价：罚息 5% + 信用暴跌 15 分，还会连锁影响后续授信
+ */
+
+/* 计算当前授信额度（真实银行逻辑：看现金流、看资产、看信用） */
+function creditLimit() {
+  const p = P();
+  // 年化营收规模
+  const annualRev = p.revenue * G.stores * 12;
+  // 净资产（现金 + 资产 - 负债）
+  const assets = G.stores * p.setupCost * 0.7;
+  const netWorth = G.cash + assets - totalDebt();
+  // 银行最看重：年营收的 30% 为上限，且不超过净资产 2 倍
+  const byRev = annualRev * 0.30;
+  const byNet = Math.max(0, netWorth) * 2.0;
+  // 信用系数 0.3 ~ 1.0
+  const creditCoef = 0.3 + (G.credit / 100) * 0.7;
+  // 已逾期过 → 授信打折
+  const overdueCoef = Math.max(0.3, 1 - G.overdue * 0.15);
+  return Math.max(0, Math.min(byRev, byNet) * creditCoef * overdueCoef);
+}
+
+function totalDebt() {
+  return G.loans.reduce((s, l) => s + Math.max(0, l.remain), 0);
+}
+
+/* 利率（年化）：基准 + 信用溢价 */
+function loanRate() {
+  // 信用 100 分 → 基准；信用 0 分 → 基准 + 12%
+  const premium = (100 - G.credit) / 100 * 0.12;
+  return G.lastRBI / 100 + premium;
+}
+
+/* 贷款产品（真实银行的几类） */
+const LOAN_PRODUCTS = [
+  { id: 'credit',  name: '信用贷',   term: 12, minCredit: 60,
+    desc: '无抵押，看经营流水。额度小、利率高、期限短' },
+  { id: 'business',name: '经营贷',   term: 36, minCredit: 40,
+    desc: '需经营满 6 个月。额度中等，可用设备/门店抵押' },
+  { id: 'longterm',name: '长期贷',   term: 60, minCredit: 70,
+    desc: '信用优秀才能申请。额度大、期限长，用于扩张' }
+];
+
+/* 申请贷款 */
+function applyLoan(productId, amount) {
+  const prod = LOAN_PRODUCTS.find(p => p.id === productId);
+  if (!prod) return { ok: false, msg: '没有这种贷款' };
+  if (G.credit < prod.minCredit) {
+    return { ok: false, msg: '信用评分 ' + G.credit.toFixed(0) + ' 分，不够申请' + prod.name + '（要求 ' + prod.minCredit + ' 分）' };
+  }
+  if (prod.id === 'business' && G.month < 6) {
+    return { ok: false, msg: '经营贷要求经营满 6 个月（当前 ' + G.month + ' 个月）' };
+  }
+  const limit = creditLimit() - totalDebt();
+  if (amount > limit) {
+    return { ok: false, msg: '超出可贷额度（还能借 ' + (Math.max(0, limit) / 1e4).toFixed(1) + ' 万）' };
+  }
+  const rate = loanRate();
+  // 等额本息月供
+  const r = rate / 12, n = prod.term;
+  const payment = amount * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+  G.loans.push({ principal: amount, remain: amount, rate, term: n, startMonth: G.month, product: prod.name });
   G.cash += amount;
-  return { ok: true, msg: '借入 ' + (amount / 1e4).toFixed(0) + ' 万' };
+  return { ok: true, rate, payment, term: n,
+    msg: prod.name + ' ' + (amount / 1e4).toFixed(1) + ' 万，年利率 ' + (rate * 100).toFixed(2) + '%，' +
+         n + ' 期，每月还 ' + (payment / 1e4).toFixed(2) + ' 万' };
+}
+
+/* 提前还款（真实：可以还，但可能收违约金） */
+function repayLoan(idx, amount) {
+  const ln = G.loans[idx];
+  if (!ln) return { ok: false, msg: '没有这笔贷款' };
+  const actual = Math.min(amount, ln.remain, G.cash);
+  if (actual <= 0) return { ok: false, msg: '没得还' };
+  const penalty = actual * 0.01;    // 提前还款违约金 1%
+  G.cash -= (actual + penalty);
+  ln.remain -= actual;
+  if (ln.remain - actual < 0.01) ln.remain = 0;
+  G.loans = G.loans.filter(l => l.remain > 0.01);
+  return { ok: true, msg: '提前还款 ' + (actual / 1e4).toFixed(1) + ' 万（违约金 ' + (penalty / 1e4).toFixed(2) + ' 万）' };
 }
 
 /* 换赛道：老爹要求的核心机制 */

@@ -12,20 +12,41 @@ let choiceCtx = null;   // 待选事件
 function render() {
   const p = P();
   $('cash').textContent = money(G.cash);
-  $('debt').textContent = money(G.debt);
+  const _td = totalDebt();
+  $('debt').textContent = money(_td);
   $('month').textContent = G.month;
   $('stores').textContent = G.stores;
   $('seg').textContent = p.icon + ' ' + p.name;
   $('rep').textContent = G.reputation.toFixed(0);
   $('morale').textContent = G.morale.toFixed(0);
   $('staff').textContent = G.staff;
+  if ($('staff2')) $('staff2').textContent = G.staff;
+  if ($('credit')) {
+    const c = G.credit;
+    $('credit').textContent = c.toFixed(0);
+    $('credit').className = 'v ' + (c >= 70 ? 'good' : c >= 40 ? 'warn' : 'bad');
+  }
+  if ($('avail')) {
+    const av = Math.max(0, creditLimit() - totalDebt());
+    $('avail').textContent = money(av);
+    $('avail').className = 'v' + (av < 50000 ? ' bad' : '');
+  }
+  if ($('monthlyPay')) {
+    let mpay = 0;
+    G.loans.forEach(ln => {
+      const r = ln.rate / 12, n = ln.term;
+      mpay += ln.principal * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+    });
+    $('monthlyPay').textContent = mpay > 0 ? money(mpay) : '无';
+    $('monthlyPay').className = 'v' + (mpay > 0 ? ' warn' : '');
+  }
 
   const stage = STAGES.find(s => G.stores >= s.minStores && G.stores <= s.maxStores) || STAGES[0];
   $('stage').textContent = stage.name;
 
   // 现金为负变红
   $('cash').className = G.cash < 0 ? 'v bad' : 'v';
-  $('debt').className = G.debt > 0 ? 'v warn' : 'v';
+  $('debt').className = _td > 0 ? 'v warn' : 'v';
 
   // 月度历史
   const tbody = $('history');
@@ -121,9 +142,74 @@ function doOpen() {
   render();
 }
 
-function doBorrow() {
-  const r = borrow(200000);
+/* 打开贷款面板 */
+function showLoan() {
+  const panel = $('loanPanel');
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+  if (panel.style.display !== 'block') return;
+  const limit = creditLimit();
+  const debt = totalDebt();
+  const avail = Math.max(0, limit - debt);
+  const rate = loanRate();
+
+  let html = `<div class="loanhead">信用评分 <b class="${G.credit >= 70 ? 'good' : G.credit >= 40 ? 'warn2' : 'bad'}">${G.credit.toFixed(0)}</b> / 100
+    · 可贷余额 <b>${money(avail)}</b> · 基准利率 <b>${(G.lastRBI).toFixed(2)}%</b></div>`;
+
+  // 已有贷款
+  if (G.loans.length) {
+    html += '<div class="loansub">当前贷款</div>';
+    G.loans.forEach((ln, i) => {
+      const r = ln.rate / 12, n = ln.term;
+      const pay = ln.principal * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+      html += `<div class="loanrow">
+        <span>${ln.product} · 余 ${money(ln.remain)} · 年化 ${(ln.rate * 100).toFixed(2)}%</span>
+        <span class="pay">月供 ${money(pay)}</span>
+        <button class="tiny" onclick="doRepay(${i})">提前还</button>
+      </div>`;
+    });
+  }
+
+  // 可申请的贷款
+  html += '<div class="loansub">可申请</div>';
+  LOAN_PRODUCTS.forEach(prod => {
+    const okCredit = G.credit >= prod.minCredit;
+    const okMonth = prod.id !== 'business' || G.month >= 6;
+    const okAmount = avail >= 50000;
+    const disabled = !okCredit || !okMonth || !okAmount;
+    let reason = '';
+    if (!okCredit) reason = '信用不足（需 ' + prod.minCredit + ' 分）';
+    else if (!okMonth) reason = '需经营满 6 个月';
+    else if (!okAmount) reason = '可贷余额不足';
+
+    html += `<div class="loanprod ${disabled ? 'disabled' : ''}">
+      <div class="lpname">${prod.name} <span class="lpterm">${prod.term} 期</span></div>
+      <div class="lpdesc">${prod.desc}</div>
+      ${disabled ? `<div class="lpno">${reason}</div>` : `
+        <div class="lprate">年利率 ${(rate * 100).toFixed(2)}%</div>
+        <div class="lpbtns">
+          ${[5, 10, 20].filter(w => w * 1e4 <= avail).map(w =>
+            `<button class="tiny" onclick="doLoan('${prod.id}',${w * 1e4})">借 ${w} 万</button>`).join('')}
+        </div>`}
+    </div>`;
+  });
+
+  html += `<div class="loanwarn">⚠️ 利率随信用浮动：信用越低越贵。逾期一次罚息 5% 并扣 15 分信用。</div>`;
+  panel.innerHTML = html;
+}
+
+function doLoan(prodId, amount) {
+  const r = applyLoan(prodId, amount);
   $('log').innerHTML = `<div class="evresult ${r.ok ? 'good' : 'bad'}">${r.msg}</div>`;
+  showLoan(); showLoan();   // 刷新面板
+  render();
+}
+
+function doRepay(idx) {
+  const ln = G.loans[idx];
+  if (!ln) return;
+  const r = repayLoan(idx, ln.remain);
+  $('log').innerHTML = `<div class="evresult ${r.ok ? 'good' : 'bad'}">${r.msg}</div>`;
+  showLoan(); showLoan();
   render();
 }
 
@@ -168,7 +254,10 @@ function startGame() {
   G.reputation = 50;
   G.morale = 70;
   G.monthsNegProfit = 0;
-  G.debt = 0;
+  G.loans = [];
+  G.credit = 100;
+  G.overdue = 0;
+  G.lastRBI = 6.0;
   G.staff = Math.max(3, Math.round(p.revenue * p.staffRate / 6000 / 10));
   $('setup').style.display = 'none';
   $('game').style.display = 'block';
