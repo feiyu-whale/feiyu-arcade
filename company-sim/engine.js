@@ -60,7 +60,10 @@ const G = {
   // ═══ 违法操作 ═══
   illegalActs: {},
   illegalRisk: {},
-  caughtBy: null
+  caughtBy: null,
+  pendingAftermath: null,
+  crimes: [],
+  official: null
 };
 
 function P() { return SEGMENTS[G.seg]; }
@@ -404,8 +407,15 @@ function settleMonth() {
     }
     ill.warnings.forEach(w => log.events.push({ type: 'warn', text: w }));
     if (ill.caught) {
-      const res = handleCaught(ill.caught);
-      log.events.push({ type: 'bad', text: res.text, detail: res.detail });
+      // 被查了 —— 先不判生死，把决定权交给玩家
+      if (typeof makeAftermath === 'function') {
+        G.pendingAftermath = makeAftermath(ill.caught);
+        log.events.push({ type: 'bad',
+          text: '🚨 「' + ill.caught.name + '」被查了！现场被控制，接下来怎么办，你自己决定。' });
+      } else {
+        const res = handleCaught(ill.caught);
+        log.events.push({ type: 'bad', text: res.text, detail: res.detail });
+      }
     }
   }
 
@@ -445,6 +455,25 @@ function settleMonth() {
       log.events.push({ type: 'warn',
         text: '📡 风声：' + ev.inMonths + ' 个月后可能「' + ev.name + '」（' + ev.severity + '）' });
     });
+  }
+
+  // ═══ 打点之后的关系：来要钱 / 或者落马 ═══
+  if (typeof officialMonthly === 'function' && G.official && G.official.active) {
+    const off = officialMonthly();
+    if (off) {
+      if (off.type === 'busted') log.events.push({ type: 'bad', text: off.text });
+      else if (off.type === 'escape') log.events.push({ type: 'warn', text: off.text });
+      else if (off.type === 'demand') {
+        G.pendingOfficialDemand = off.demand;
+        log.events.push({ type: 'warn', text: off.text });
+      }
+    }
+  }
+
+  // ═══ 挂着的罪名：逃过一次不等于安全，调查组会一直跟进 ═══
+  if (typeof checkPendingCrimes === 'function') {
+    const crimeHit = checkPendingCrimes();
+    if (crimeHit) log.events.push({ type: 'bad', text: crimeHit });
   }
 
   // 对赌到期检查

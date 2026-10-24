@@ -142,8 +142,17 @@ function doSettle() {
     html += `<div class="evresult ${e.type}">${e.text}</div>`;
   });
 
+  // 被查之后：先让玩家做选择，不选不能继续
+  if (G.pendingAftermath) {
+    html += renderAftermath();
+  }
+  if (G.pendingOfficialDemand) {
+    html += renderOfficialDemand();
+  }
+
   $('log').innerHTML = html;
   render();
+  if (G.pendingAftermath || G.pendingOfficialDemand) $('btnNext').disabled = true;
 }
 
 function applyEffect(eff) {
@@ -707,5 +716,61 @@ function doToggleIllegal(id) {
   const r = toggleIllegal(id);
   $('log').innerHTML = `<div class="evresult ${r.ok ? 'warn' : 'bad'}">${r.msg}</div>`;
   showIllegal(); showIllegal();
+  render();
+}
+
+/* ═══ 被查之后：四条路怎么走 ═══ */
+function renderAftermath() {
+  const pa = G.pendingAftermath;
+  if (!pa) return '';
+
+  let html = `<div class="bigEvent" style="border-color:#8a2020;background:#1e0a0a">
+    <div class="betitle" style="color:#ff6060">🚨 「${pa.actName}」被查了 —— 接下来怎么办？</div>
+    <div class="betext">罚款基数约 ${money(pa.baseFine)}。怎么应对，决定公司还能不能开下去。</div>
+    <div class="choices">`;
+  pa.choices.forEach(c => {
+    html += `<button class="choice" onclick="pickAftermath('${c.id}')">
+      <b>${c.name}</b><br><span style="color:#7a94ac;font-size:9px">${c.desc}</span>
+    </button>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
+
+function pickAftermath(choiceId) {
+  const pa = G.pendingAftermath;
+  if (!pa) return;
+  const r = resolveAftermath(pa.actId, choiceId);
+  G.pendingAftermath = null;
+
+  $('log').innerHTML = `<div class="evresult ${r.gameOver ? 'bad' : 'warn'}">${r.text}</div>`;
+  $('btnNext').disabled = (G.status !== 'running');
+  render();
+}
+
+/* ═══ 官员来要钱：给还是不给 ═══ */
+function renderOfficialDemand() {
+  if (!G.pendingOfficialDemand || !G.official || !G.official.active) return '';
+  const amt = G.pendingOfficialDemand;
+  const o = G.official;
+  return `<div class="bigEvent" style="border-color:#8a6a20;background:#1e1a0a">
+    <div class="betitle" style="color:#e0b050">💸 那位官员又来"借"钱了</div>
+    <div class="betext">
+      这次要 <b>${money(amt)}</b>。关系亲密度 ${o.relation.toFixed(0)}/100，累计已给 ${money(o.totalPaid)}。<br>
+      给：关系更铁，但他下次要得更多（真实：胃口会变大）<br>
+      不给：关系裂一道缝，对方可能恼羞成怒
+    </div>
+    <div class="choices">
+      <button class="choice" onclick="answerOfficial(true)">给钱（${money(amt)}）</button>
+      <button class="choice" onclick="answerOfficial(false)">不给</button>
+    </div>
+  </div>`;
+}
+
+function answerOfficial(yes) {
+  const r = payOfficial(yes);
+  G.pendingOfficialDemand = null;
+  $('log').innerHTML = `<div class="evresult ${r.gameOver ? 'bad' : 'warn'}">${r.text}</div>`;
+  $('btnNext').disabled = (G.status !== 'running');
   render();
 }
