@@ -1,0 +1,11 @@
+# 备份与中间产物
+*.bak.*
+*.bak
+bak/
+# 抓取失败的空壳 PDF
+data/*.pdf
+data/download-report.json
+# 系统
+.DS_Store
+__pycache__/
+*.pyc

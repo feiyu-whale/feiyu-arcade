@@ -19,7 +19,7 @@ function render() {
   $('seg').textContent = p.icon + ' ' + p.name;
   $('rep').textContent = G.reputation.toFixed(0);
   $('morale').textContent = G.morale.toFixed(0);
-  $('staff').textContent = G.staff;
+  if ($('staff')) $('staff').textContent = G.staff;
   if ($('staff2')) $('staff2').textContent = G.staff;
   if ($('credit')) {
     const c = G.credit;
@@ -80,14 +80,63 @@ function render() {
 
   // 状态
   if (G.status === 'bankrupt') {
-    $('status').innerHTML = '<div class="over">💀 公司破产</div>';
-    $('btnNext').disabled = true;
-    $('btnOpen').disabled = true;
+    // v3.0.0：破产不再直接 Game Over，先给一纸清算通知，可选择「打工还债」
+    $('status').innerHTML = '<div class="over">💀 公司破产清算</div>';
+    if ($('btnNext')) $('btnNext').disabled = true;
+    if ($('btnOpen')) $('btnOpen').disabled = true;
+    const ep = $('endingPanel');
+    if (ep) {
+      if (!G.debtMode) {
+        ep.innerHTML = `<div style="background:#141418;border:1px solid #3a3a40;padding:18px;text-align:center;color:#c0c0c0;line-height:1.9;max-width:560px;margin:12px auto">
+          <div style="font-size:16px;color:#e05050;margin-bottom:10px">资产清算完毕</div>
+          <div style="font-size:13px;color:#999">店没了，设备搬走了，供应商在门口等钱。<br>账上还欠着钱，债不会因为公司没了就消失。</div>
+          <button class="tbtn" style="margin-top:14px" onclick="enterDebtMode()">去打工还债 →</button>
+        </div>`;
+      } else {
+        ep.innerHTML = debtHTML() + `<div style="text-align:center;margin:12px 0">
+          <button class="tbtn" onclick="debtNextMonth()">再干一个月</button>
+          <button class="tbtn" onclick="giveUpDebt()">放弃（重开）</button></div>`;
+      }
+    }
   } else if (G.status === 'caught') {
-    $('status').innerHTML = '<div class="over" style="color:#ff4040">🚨 被查处关停 · 游戏结束</div>';
-    $('btnNext').disabled = true;
-    $('btnOpen').disabled = true;
+    $('status').innerHTML = '<div class="over" style="color:#ff4040">🚨 被查处关停</div>';
+    if ($('btnNext')) $('btnNext').disabled = true;
+    if ($('btnOpen')) $('btnOpen').disabled = true;
+    const ep = $('endingPanel');
+    if (ep) ep.innerHTML = (typeof verdictHTML === 'function') ? verdictHTML() : '';
+  } else if (G.status === 'debt') {
+    const ep = $('endingPanel');
+    if (ep) ep.innerHTML = debtHTML() + `<div style="text-align:center;margin:12px 0">
+      <button class="tbtn" onclick="debtNextMonth()">再干一个月</button>
+      <button class="tbtn" onclick="giveUpDebt()">放弃（重开）</button></div>`;
   }
+}
+
+/* ═══ v3.0.0 结算体验：打工还债流程 ═══ */
+function enterDebtMode() {
+  if (typeof startDebtMode !== 'function') return;
+  const d = startDebtMode();
+  if (!d) { G.status = 'bankrupt'; render(); return; }
+  render();
+}
+
+function debtNextMonth() {
+  if (typeof debtMonthAdvance !== 'function') return;
+  const r = debtMonthAdvance();
+  if (r && r.type === 'free') {
+    $('endingPanel').innerHTML = `<div style="background:#141418;border:1px solid #3a3a40;padding:24px;text-align:center;color:#c0c0c0;line-height:2;max-width:560px;margin:12px auto">
+      <div style="font-size:20px;color:#7fbf7f">债 清 了</div>
+      <div style="font-size:13px;color:#999;margin-top:10px">用了 ${G.debtMode.months} 个月，还了 ${(G.debtMode.paid / 1e4).toFixed(1)} 万</div>
+      <div style="font-size:13px;color:#8a8a8a;margin-top:10px">你走在街上，第一次觉得风是软的。</div>
+      <button class="tbtn" style="margin-top:16px" onclick="location.reload()">重新开始</button>
+    </div>`;
+  } else {
+    render();
+  }
+}
+
+function giveUpDebt() {
+  if (confirm('放弃还债，直接重开？')) location.reload();
 }
 
 function doSettle() {
@@ -261,6 +310,7 @@ function doRepay(idx) {
 function showSwitch() {
   $('switchPanel').style.display = 'block';
   const list = $('switchList');
+  if (!list) return;
   list.innerHTML = Object.entries(SEGMENTS).map(([k, v]) => {
     if (k === G.seg) return '';
     const prev = switchSegment(k);
@@ -318,13 +368,46 @@ function startGame() {
   G.mods = [];
   G.receivables = [];
   G.payables = [];
-  G.reputation = 50;
+  G.reputation = 62;   // v3.0.0 修复（01:00）：跟引擎默认一致，50 太低会把营收拉塞
   G.morale = 70;
   G.monthsNegProfit = 0;
   G.loans = [];
   G.credit = 100;
   G.overdue = 0;
   G.lastRBI = 6.0;
+  // ═══ v3.0.0 新增字段初始化（否则上一局残留会带进新局）═══
+  G.fixedAssetsGross = p.setupCost;      // 开局第一家店的固定资产原值
+  G.accumDepreciation = 0;
+  G.deposits = Math.round(p.rentFixed * cm.rentMult * 3);   // 房租押金 3 个月
+  G.arrears = 0;
+  G.covenantWatch = false;
+  G.debtCheck = null;
+  G.stockPolicy = 'normal';
+  G.inventory = 0;
+  G.foodCostLast = 0;
+  G.entropyLoss = 0;
+  G.hasRelativeManager = false;
+  G.relativeMonths = 0;
+  G.familyPressure = 0;
+  G.partner = null;
+  G.bigCustomer = null;
+  G.platformRate = 0.18;
+  G.supplierMode = 'single';
+  G.hasInsurance = false;
+  G.insuranceMonthly = 0;
+  G.pandemicHit = false;
+  G.disaster = null;
+  G.debtMode = null;
+  G.pendingPeopleEvent = null;
+  G.pendingLandlord = null;
+  G.loanShark = null;
+  G.hasOutsideExec = false;
+  G.execMonthly = 0;
+  G.crimes = [];
+  G.caughtBy = null;
+  G.priceWar = null;
+  G.priceWarHistory = [];
+  if (typeof initPartner === 'function') initPartner();
   G.mortgages = [];
   G.terms = 'normal';
   G.listed = false;

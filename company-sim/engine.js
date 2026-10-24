@@ -9,7 +9,7 @@ const G = {
   month: 0,              // 已过月数（0 = 第1月）
   stores: 1,             // 门店数
   seg: 'zhengcan',       // 当前品类
-  reputation: 50,        // 口碑 0-100
+  reputation: 62,        // 口碑 0-100（真实新店正常水准 60~70）
   morale: 70,            // 士气 0-100
   staff: 5,              // 员工数
   receivables: [],       // 应收账：{amount, dueMonth}
@@ -63,7 +63,22 @@ const G = {
   caughtBy: null,
   pendingAftermath: null,
   crimes: [],
-  official: null
+  official: null,
+  // ═══ v3.0.0 资产负债表 ═══
+  fixedAssetsGross: 0,   // 固定资产原值（装修+设备）
+  accumDepreciation: 0,  // 累计折旧
+  deposits: 0,           // 房租押金等
+  arrears: 0,            // 欠薪欠税欠租
+  covenantWatch: false,  // 是否被银行列入关注名单
+  debtCheck: null,       // 本月抽贷检查结果
+  // ═══ v3.0.0 库存 ═══
+  stockPolicy: 'normal', // lean / normal / bulk
+  // ═══ v3.0.0 宏观 ═══
+  macroConsumer: 1.0,    // 消费意愿系数（隐藏）
+  macroRate: 0.06,       // 资金成本（隐藏）
+  // ═══ v3.0.0 组织熵增 ═══
+  entropyLoss: 0,        // 熵增隐性流失（元/月）
+  hasRelativeManager: false
 };
 
 function P() { return SEGMENTS[G.seg]; }
@@ -96,6 +111,7 @@ function settleMonth() {
     if (ps.openMonth <= G.month) {
       G.stores++;
       G.staff += (P().staffCount || 3);
+      // v3.0.0：开业时固定资产已由 openStore 入账，这里只推爬坡
       G.rampingStores.push({ months: 0, rampMonths: ps.rampMonths });
       return false;
     }
@@ -118,29 +134,52 @@ function settleMonth() {
   // 口碑影响客流：最低 0.85，最高 1.20（口碑差会掉客流，但不是腰斩——靠老客和位置兜底）
   // 口碑影响客流（真实：餐饮业口碑就是命，差评会真的没人来）
   //  口碑 0 → 45% 客流（只剩过路客老客硬撑）｜50 → 85%｜80 → 109%｜100 → 125%
+  // ═══ v3.0.0 营收系数：从「连乘」改成「加权平均」═══
+  //  病根：原来 6~7 个系数直接相乘，每项单独看不过分（0.65、0.6、0.85…），
+  //        乘起来变成 0.22，营收直接砍到基准的 22%，固定成本却没减 → 必死
+  //  改法：压制类系数用「1 - Σ(1-x)×w」合并，权重总和封顶 1.0
+  //        单项影响还在，但不会叠成悬崖（真实商业也不会那么巧同时全中）
+  //
+  //  分工：
+  //   ① 自身经营（口碑/士气/季节）→ 保留乘法（这是自己店的本事，该叠加）
+  //   ② 外部环境（竞争/历史/宏观/违法增益）→ 加权平均合并
   const repFactor = 0.45 + (G.reputation / 100) * 0.8;   // 0.45 ~ 1.25
-  // 士气影响（士气低 → 服务差 → 客流降）
   const morFactor = 0.85 + (G.morale / 100) * 0.3;      // 0.85 ~ 1.15
-  // 季节波动（正餐冬季旺、茶饮夏季旺）
   const seasonFactor = seasonFactorFor(G.seg, G.month);
-  // 随机波动
   const rand = 1 + (Math.random() * 2 - 1) * p.volatility;
 
   const revMod = 1 + modSum('revenueDelta');
 
-  // ═══ 城市系数：城市的客流水平 ═══
   const cityRev = (G.cityMod && G.cityMod.revenueMult) || 1.0;
-  // ═══ 竞争压制：对手越多越强，客流越少 ═══
   const compPressure = (typeof competitionPressure === 'function') ? competitionPressure() : 1.0;
-  // ═══ 历史大环境：疫情/反弹/消费降级 ═══
   const hist = (typeof historyRevenueMult === 'function')
     ? historyRevenueMult(G.month, G.startYear) : { mult: 1, events: [] };
   G.historyEvent = hist.events.length ? hist.events : null;
 
-  // 违法操作带来的短期营收增益（刷单/虚假宣传）
+  // ═══ v3.0.0 宏观引力场：消费意愿（隐藏全局变量）═══
+  let macroConsumer = 1.0;
+  if (typeof macroState === 'function') {
+    const ms = macroState(G.month, G.startYear);
+    macroConsumer = ms.consumer;
+  }
+
   const illegalBoost = (G.illegalActs && G.illegalActs.fake) ? 1.15 : 1.0;
+
+  // 外部压制加权合并（权重代表“这因素的影响力”）
+  //   竞争：权重 0.35（对手确实抢客，但不是全部）
+  //   历史/事件：权重 0.45（疫情这种猛，该重）
+  //   宏观消费：权重 0.40（大环境是把大伞，压所有店）
+  const externalDrag =
+      (1 - compPressure) * 0.35 +
+      (1 - hist.mult) * 0.45 +
+      (1 - macroConsumer) * 0.40;
+  // 封顶 0.55：再糟也保 45% 基本盘（过路客+老客+刚需）
+  const externalFactor = 1 - Math.min(0.55, externalDrag);
+
+  // 违法增益单独算（这是自己主动加的，保留乘法）
   const rev = Math.max(0,
-    baseRev * repFactor * morFactor * seasonFactor * rand * revMod * cityRev * compPressure * hist.mult * illegalBoost);
+    baseRev * repFactor * morFactor * seasonFactor * rand * revMod *
+    externalFactor * illegalBoost);
   G.revenueLast = rev;
   G.revenueLast = rev;
   log.items.push(['营业收入', rev, 'in']);
@@ -165,9 +204,15 @@ function settleMonth() {
   const rentCost = p.rentFixed * stores * rentMult * cityRent;
   const utilCost = p.utilFixed * stores;
   // 其他运营成本（耗材/营销/外卖抽成/支付手续费/维修）——真实餐饮这笔不小
-  const otherOpexCost = rev * (p.otherOpexRate || 0.05);
+  // v3.0.0：叠加价格战降价（跟进降价 = 实收打折）
+  const priceWarCut = modSum('priceWarDiscount');
+  const revAfterCut = rev * (1 - priceWarCut);
+  const otherOpexCost = rev * (p.otherOpexRate || 0.05) + rev * modSum('otherOpexDelta');
   // 折旧：装修与设备按年摊销（真实：一次性投入要分摊到每月成本里）
-  const depreciationCost = p.setupCost * stores * (p.depreciationRate || 0.05) / 12;
+  // v3.0.0：改为按「固定资产原值 - 累计折旧」算，不再是简单的 店数×setupCost
+  const depreciationCost = (typeof monthlyDepreciation === 'function')
+    ? monthlyDepreciation()
+    : p.setupCost * stores * (p.depreciationRate || 0.05) / 12;
   // ═══ 管理费：建了组织 = 固定开支；没建 = 效率损失（风险累积）═══
   let orgCost = 0;
   let efficiencyLoss = 0;
@@ -184,9 +229,23 @@ function settleMonth() {
   if (!needHQ && !needCo) G.riskBuildup = Math.max(0, G.riskBuildup - 0.5);
 
   const miscCost = rev * (p.miscRate + efficiencyLoss) + orgCost;
-  const grossProfit = rev - foodCost - staffCost - rentCost - utilCost - miscCost - otherOpexCost - depreciationCost;
 
-  log.items.push(['食材成本', foodCost, 'out']);
+  // ═══ v3.0.0 组织熵增：利润暗中流失（报表上看不出来的那种）═══
+  let entropyLoss = 0;
+  if (typeof entropyDrain === 'function') {
+    const ed = entropyDrain(rev, stores);
+    entropyLoss = ed.loss * ((typeof entropyCoef === 'function') ? entropyCoef() : 1);
+    G.entropyLoss = entropyLoss;
+    if (entropyLoss > 0) log.items.push(['组织内耗（看不见的出血）', entropyLoss, 'memo']);
+  }
+  // 空降高管年薪（摊月）
+  if (G.execMonthly) {
+    orgCost += G.execMonthly;
+    log.items.push(['外聘高管薪酬', G.execMonthly, 'out']);
+  }
+  const grossProfit = revAfterCut - foodCost - staffCost - rentCost - utilCost - miscCost - otherOpexCost - depreciationCost - entropyLoss;
+
+  log.items.push(['食材成本', foodCost, 'memo']);
   log.items.push(['人工成本', staffCost, 'out']);
   log.items.push(['房租', rentCost, 'out']);
   log.items.push(['水电', utilCost, 'out']);
@@ -213,12 +272,47 @@ function settleMonth() {
     log.items.push(['　其中利息', totalInterest, 'memo']);
   }
 
+  // ═══ v3.0.0 库存引擎：补货 → 损耗 → 耗用 ═══
+  //  ⚠ 财务口径铁律（00:51 修复重复扣账）：
+  //    利润表：食材成本只在 grossProfit 里扣一次
+  //    现金流：食材钱只走「应付货款」一条线（按账期付）
+  //    库存：只记录物理进了多少货，不再从现金扣（否则同一笔钱扣两三遍）
+  let spoilInfo = { spoil: 0, rate: 0 };
+  let stockoutInfo = { shortageRatio: 0, revenuePenalty: 0 };
+  if (typeof spoilMonthly === 'function' && typeof stockoutCheck === 'function') {
+    const pol = (typeof currentStockPolicy === 'function') ? currentStockPolicy() : { days: 10 };
+    const baseFoodCost = (G.foodCostLast && G.foodCostLast > 0) ? G.foodCostLast : foodCost;
+    const needStock = baseFoodCost / 30 * pol.days;
+    const gap = needStock - (G.inventory || 0);
+    if (gap > 0) {
+      const bulkDisc = (typeof bulkDiscount === 'function') ? bulkDiscount() : 1.0;
+      // 物理入库：只记账，不扣现金（现金走下面应付货款）
+      G.inventory = (G.inventory || 0) + gap * bulkDisc;
+      log.items.push(['补货入库（' + pol.days + '天备货）', gap * bulkDisc, 'memo']);
+    }
+    // ② 月度自然损耗（真实损失，计入成本，不是现金流出）
+    spoilInfo = spoilMonthly();
+    if (spoilInfo.spoil > 1) {
+      log.items.push(['库存损耗（计入成本）', spoilInfo.spoil, 'out']);
+    }
+    // ③ 耗用（不够就断货）
+    const use = stockoutCheck(foodCost);
+    stockoutInfo = use;
+    if (use.shortageRatio > 0.01) {
+      addMod('revenueDelta', -use.revenuePenalty, 1);
+      G.reputation = Math.max(0, G.reputation - 3);
+      log.events.push({ type: 'bad', text: use.text });
+    }
+    G.foodCostLast = foodCost;
+  }
+
   const netProfit = grossProfit - totalInterest;
 
   // 利息不重复扣（已在月供里）——下面现金流只扣 totalPayment
 
   // ── 4. 现金流：营收不是当月全到账 ──
-  //    按账期排队
+  //    按账期排队（v3.0.0：按降价后实收算）
+  const revCash = revAfterCut;
   G.receivables.forEach(r => {
     if (r.dueMonth <= G.month) {
       G.cash += r.amount;
@@ -232,11 +326,11 @@ function settleMonth() {
   //  团购券（抖音/美团）：T+15 ~ T+45，取 30 天
   //  这两块当月收不回来，是真实现金流压力的主要来源
   const dineInRate = p.dineInRatio !== undefined ? p.dineInRatio : 0.6;
-  const cashNow = rev * dineInRate;
+  const cashNow = revCash * dineInRate;
   G.cash += cashNow;
 
-  const deliveryAmt = rev * (1 - dineInRate) * 0.6;   // 其中外卖
-  const grouponAmt  = rev * (1 - dineInRate) * 0.4;   // 其中团购券
+  const deliveryAmt = revCash * (1 - dineInRate) * 0.6;   // 其中外卖
+  const grouponAmt  = revCash * (1 - dineInRate) * 0.4;   // 其中团购券
   if (deliveryAmt > 0) {
     G.receivables.push({ amount: deliveryAmt, dueMonth: G.month + 1, paid: false });
   }
@@ -288,11 +382,38 @@ function settleMonth() {
     }
   }
 
+  // ═══ v3.0.0 资产负债勾稽 + 抽贷（真实里压垮房企的那一下）═══
+  G.debtCheck = null;
+  if (typeof checkDebtCovenant === 'function') {
+    const dc = checkDebtCovenant();
+    G.debtCheck = dc;
+    if (dc.text) {
+      log.events.push({ type: dc.level === 'watch' ? 'warn' : 'bad', text: dc.text });
+    }
+  }
+
   // ── 6. 破产判定 ──
   if (G.cash < 0) {
+    // v3.0.0 现实修正：现金一断，银行不给你慢慢熬的机会，直接抽贷
+    //  真实房企暴雷就是这样：不是负债率先到高位，是资金链先断，
+    //  银行一看你现金流为负，立马提前收回贷款，一刀砍死
+    if (typeof crisisCall === 'function') {
+      const cc = crisisCall();
+      if (cc && cc.triggered) {
+        log.events.push({ type: 'bad', text: cc.text });
+        G.debtCheck = { level: cc.level || 'call', text: cc.text, callAmount: cc.amount, crisis: true };
+      }
+    }
+    // 抽贷后还是撑不住 → 才能走后面的过桥贷/破产
+    if (G.cash < 0) {
     // 现金断了 → 看能不能紧急借
-    // 现金断裂时，银行只肯给高息过桥贷（信用差的人借不到）
-    const emergLimit = creditLimit() - totalDebt();
+    // v3.0.0 真实修正：银行只救“还有救的”
+    //   负债率已经高 / 信用差 / 已逾期过 → 银行跑得比谁都快，不给过桥贷
+    //   现实里过桥贷是最后一根稻草，不是救命绳
+    const bsNow = (typeof balanceSheet === 'function') ? balanceSheet() : null;
+    const ratioNow = bsNow ? bsNow.debtRatio : 0;
+    const stillWorthSaving = ratioNow <= 0.55 && G.credit >= 50 && G.overdue === 0;
+    const emergLimit = stillWorthSaving ? (creditLimit() - totalDebt()) : 0;
     if (emergLimit > 0 && G.credit >= 30) {
       const amt = Math.min(emergLimit, 200000);
       const rate = loanRate() * 2.5;     // 过桥贷利率极高
@@ -305,33 +426,70 @@ function settleMonth() {
         text: '💸 现金断裂！银行只给过桥贷 ' + (amt / 1e4).toFixed(1) + ' 万，年化 ' + (rate * 100).toFixed(1) + '%，每月还 ' + (pay / 1e4).toFixed(2) + ' 万' });
     } else {
       G.status = 'bankrupt';
-      log.events.push({ type: 'bad', text: '💀 现金耗尽，供应商停供，公司破产' });
+      log.events.push({ type: 'bad',
+        text: '💀 现金耗尽，银行拒绝续命，供应商停供，公司破产' +
+              (ratioNow > 0.55 ? '（资产负债率 ' + (ratioNow * 100).toFixed(0) + '%，没银行敢接）' : '') });
+    }
+    }
+  }
+
+  // ═══ v3.0.0 非钱风险：火灾/水灾（累计风险，一次终局）═══
+  //  放在最前面：一次就结束，不和其他系统纠缠
+  //  违规状态出事 → 坐牢；干净经营 → 破产清算
+  if (typeof disasterCheck === 'function' && G.status === 'running') {
+    const disaster = disasterCheck();
+    if (disaster) {
+      const res = resolveDisaster(disaster);
+      G.disaster = { kind: disaster.kind, illegal: disaster.illegal, result: res };
+      log.events.push({ type: 'bad', text: res.text });
     }
   }
 
   // ── 7. 士气 / 口碑自然变化 ──
+  //  v3.0.0 修正（00:52）：原设计的「亏钱 → 口碑每期 -0.2」是死亡螺旋：
+  //    亏钱扣口碑 → 口碑差客流少 → 更亏钱 → 口碑更差，永远回不来
+  //    真实餐饮：亏损本身不伤口碑，伤口碑的是「出事」（差评/食安/断货/涨价）
+  //    位置好、菜不难吃，口碑本身是相对稳的资产
   if (netProfit < 0) {
     G.monthsNegProfit++;
-    G.morale = Math.max(0, G.morale - 3);
+    // 士气受影响（员工担心发不出工资，这是真的）
+    G.morale = Math.max(0, G.morale - 2);
     if (G.monthsNegProfit >= 3 && G.events.length < 3) {
       log.events.push({ type: 'warn', text: '连续 ' + G.monthsNegProfit + ' 个月亏损，员工开始人心浮动' });
     }
   } else {
     G.monthsNegProfit = 0;
-    G.morale = Math.min(100, G.morale + 1);
+    G.morale = Math.min(100, G.morale + 2);
   }
+
   // 口碑机制（真实：声誉是最慢的资产，也是最快的负债）
-  //  ① 只有赚钱（客人真的回来了）才恢复；亏钱口碑还在跌
-  //  ② 离天花板越近恢复越慢：长期稳定在 70 上下才真实
-  //  ③ 店越多恢复越慢（管理半径）
+  //  ① 口碑有「基线」：位置 + 出品水平决定，不会无限掍
+  //     单店选好位置、菜不难吃 → 基线 60 左右，守着这个区间浮动
+  //  ② 赚钱时缓慢回升，但回不到基线以上（除非真的做出名声）
+  //  ③ 亏钱不再直接扣口碑（只扣士气）
+  //  ④ 真正扣口碑的只有事件：差评/食安/断货/涨价（那几处单独处理）
   const scaleDrag = 1 / (1 + G.stores * 0.05);
-  const ceilling = 70;
+  // 口碑基线：好位置 60，商圈差 50，有品牌溢价 +8
+  let base = 65;
+  if (G.cityMod && G.cityMod.trafficMult >= 1.3) base += 6;
+  else if (G.cityMod && G.cityMod.trafficMult < 0.7) base -= 6;
+  if (G.hasHQ) base += 3;                 // 总部督导，出品稳定
+  if (G.franchise) base -= 5;             // 加盟品控差
+  G.reputationBase = base;
+
+  // 低于基线 → 自然回升（客人慢慢回头）；高于基线 → 自然回落（守不住高端）
+  const gapToBase = base - G.reputation;
   let recover;
-  if (netProfit > 0) {
-    const gap = Math.max(0, ceilling - G.reputation);
-    recover = Math.min(1.2, gap * 0.06 + 0.15) * scaleDrag;
+  if (gapToBase > 0) {
+    // 往基线回升：越快补回但封顶到基线
+    recover = Math.min(gapToBase, Math.max(0.6, gapToBase * 0.20)) * scaleDrag;
   } else {
-    recover = -0.2;
+    // 高于基线：缓慢回落（除非持续投入）
+    if (netProfit > 0) {
+      recover = 0.3 * scaleDrag;          // 赚钱时守得住
+    } else {
+      recover = gapToBase * 0.08;         // 亏钱时慢慢掍回基线
+    }
   }
   G.reputation = Math.max(0, Math.min(100, G.reputation + recover));
 
@@ -388,6 +546,12 @@ function settleMonth() {
       addMod('revenueDelta', cut.revenueDelta, cut.months);
       log.events.push({ type: 'bad', text: cut.text });
     }
+  }
+
+  // ═══ v3.0.0 组织熵增事件（偶发、金额大、说不清怎么没的）═══
+  if (typeof entropyEvent === 'function') {
+    const ee = entropyEvent(rev, stores);
+    if (ee) log.events.push({ type: 'bad', text: ee.text });
   }
 
   // ═══ 违法操作：短期省钱，长期要命 ═══
@@ -482,6 +646,106 @@ function settleMonth() {
     if (vc) log.events.push(vc);
   }
 
+  // ═══ v3.0.0 人的因素：合伙人 / 家族 / 主厨 ═══
+  //  合伙人心态每月变，分家会抛出一个待决策事件
+  if (typeof partnerMonthly === 'function') {
+    const ps = partnerMonthly(netProfit);
+    if (ps && ps.type === 'partner_split') {
+      G.pendingPeopleEvent = ps;
+      log.events.push({ type: 'bad', text: ps.text });
+    }
+  }
+  // 家族塞人（店有起色才会来）
+  if (typeof familyIntervention === 'function' && !G.pendingPeopleEvent) {
+    const fi = familyIntervention();
+    if (fi) {
+      G.pendingPeopleEvent = fi;
+      log.events.push({ type: 'warn', text: fi.text });
+    }
+  }
+  // 表弟倒数（3 个月后可赶走）
+  if (typeof relativeMonthly === 'function') {
+    const rm = relativeMonthly();
+    if (rm) log.events.push({ type: 'warn', text: rm });
+  }
+  // 主厨带团队出走
+  if (typeof chefLeaveCheck === 'function' && !G.pendingPeopleEvent) {
+    const cl = chefLeaveCheck();
+    if (cl && cl.apply) {
+      const msg = cl.apply();
+      log.events.push({ type: 'bad', text: cl.text + '｜' + msg });
+    }
+  }
+
+  // ═══ v3.0.0 渠道：大客户跑单 / 平台限流 / 断供 ═══
+  if (typeof bigCustomerMonthly === 'function') {
+    const bc = bigCustomerMonthly();
+    if (bc) {
+      addMod('revenueDelta', -bc.revenueCut, 999);
+      log.events.push({ type: 'bad', text: bc.text });
+    }
+  }
+  if (typeof platformCommission === 'function') {
+    G.platformRate = platformCommission();
+    // 抽成上涨直接吃利润（其他运营成本口径）
+    const extra = rev * (G.platformRate - 0.18) * 0.4;
+    if (extra > 0) {
+      G.cash -= extra;
+      log.items.push(['平台抽成上浮', extra, 'out']);
+    }
+  }
+  if (typeof platformThrottleCheck === 'function') {
+    const pt = platformThrottleCheck();
+    if (pt) {
+      addMod('revenueDelta', -pt.revenuePenalty, pt.months);
+      log.events.push({ type: 'bad', text: pt.text });
+    }
+  }
+  if (typeof supplyBreakCheck === 'function') {
+    const sb = supplyBreakCheck();
+    if (sb) {
+      addMod('revenueDelta', -sb.revenuePenalty, sb.months);
+      log.events.push({ type: 'bad', text: sb.text });
+    }
+  }
+
+  // ═══ v3.0.0 黑天鹅（真实年份触发）═══
+  if (typeof blackSwanCheck === 'function') {
+    const monthAbs = (typeof playerMonthToAbs === 'function') ? playerMonthToAbs(G.month, G.startYear) : G.month;
+    const bs2 = blackSwanCheck(monthAbs);
+    if (bs2) {
+      if (bs2.foodCostDelta) addMod('foodCostDelta', bs2.foodCostDelta, bs2.months || 3);
+      if (bs2.revenuePenalty) addMod('revenueDelta', -bs2.revenuePenalty, bs2.months || 2);
+      if (bs2.inventoryLoss) {
+        const lost = G.inventory || 0;
+        G.inventory = 0;
+        log.events.push({ type: 'bad', text: bs2.text + '，损失 ' + (lost / 1e4).toFixed(1) + ' 万食材' });
+      } else {
+        log.events.push({ type: 'bad', text: bs2.text });
+      }
+    }
+  }
+
+  // ═══ v3.0.0 房东毁约（没有谈判余地，但可以选怎么接）═══
+  if (typeof landlordCheck === 'function') {
+    const ll = landlordCheck();
+    if (ll) {
+      G.pendingLandlord = ll;
+      log.events.push({ type: 'bad', text: ll.text });
+    }
+  }
+
+  // ═══ v3.0.0 保险月费 + 高利贷月供 ═══
+  if (G.hasInsurance && G.insuranceMonthly) {
+    G.cash -= G.insuranceMonthly;
+    log.items.push(['财产险保费', G.insuranceMonthly, 'out']);
+  }
+  if (typeof loanSharkMonthly === 'function') {
+    const ls = loanSharkMonthly();
+    if (ls) log.events.push({ type: 'bad', text: ls });
+  }
+
+
   expireMods();
   G.usedEvents = [];
   log.netProfit = netProfit;
@@ -515,10 +779,19 @@ function openStore() {
   }
   const prepMonths = G.hasHQ ? 2 : 4;   // 没总部：选址装修办证全靠老板自己跑
   G.cash -= cost;
+  // v3.0.0：开店 = 重资产化（现金→固定资产原值 + 房租押金），之后按月折旧
+  let capInfo = null;
+  if (typeof capitalizeStore === 'function') {
+    capInfo = capitalizeStore(cost, p.rentFixed);
+  } else {
+    // 降级兼容：老逻辑用 店数×setupCost 算资产，这里补上原值
+    G.fixedAssetsGross = (G.fixedAssetsGross || 0) + cost;
+  }
   G.pendingStores.push({ openMonth: G.month + prepMonths, rampMonths: 6, seg: G.seg });
   return { ok: true,
-    msg: '🏗 新店进入筹备期（2 个月后开业），已投入 ' + (cost / 1e4).toFixed(0) +
-         ' 万。开业后还有 6 个月爬坡期，客流从 50% 起步' };
+    msg: '🏗 新店进入筹备期（' + prepMonths + ' 个月后开业），已投入 ' + (cost / 1e4).toFixed(0) +
+         ' 万' + (capInfo ? '，另押租金 ' + (capInfo.depositAdded / 1e4).toFixed(1) + ' 万（退租才回）' : '') +
+         '。开业后还有 6 个月爬坡期，客流从 50% 起步' };
 }
 
 /* ═══ 真实商业借贷系统 ═══
@@ -534,9 +807,14 @@ function creditLimit() {
   const p = P();
   // 年化营收规模
   const annualRev = p.revenue * G.stores * 12;
-  // 净资产（现金 + 资产 - 负债）
-  const assets = G.stores * p.setupCost * 0.7;
-  const netWorth = G.cash + assets - totalDebt();
+  // 净资产（v3.0.0：改用资产负债表口径）
+  let netWorth;
+  if (typeof balanceSheet === 'function') {
+    netWorth = balanceSheet().equity;
+  } else {
+    const assets = G.stores * p.setupCost * 0.7;
+    netWorth = G.cash + assets - totalDebt();
+  }
   // 银行最看重：年营收的 30% 为上限，且不超过净资产 2 倍
   const byRev = annualRev * 0.30;
   const byNet = Math.max(0, netWorth) * 2.0;
@@ -668,4 +946,4 @@ function executeSwitch(toSeg, preview) {
   }
 }
 
-if (typeof module !== 'undefined') module.exports = { G, settleMonth, openStore, borrow, switchSegment, executeSwitch, seasonFactorFor };
+if (typeof module !== 'undefined') module.exports = { G, settleMonth, openStore, applyLoan, repayLoan, switchSegment, executeSwitch, seasonFactorFor };

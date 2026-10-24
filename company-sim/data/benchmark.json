@@ -1,0 +1,863 @@
+{
+  "generated": "2026-10-24",
+  "source": "东方财富 datacenter（A股年报 + 港股年报）",
+  "caliber_note": "A股人工=现金流量表「支付给职工」；港股人工=利润表「薪金福利支出」。港股多数公司未单独披露人工，缺者为 null，不补零。",
+  "companies": [
+    {
+      "company": "全聚德",
+      "segment": "正餐·老字号",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 12.5,
+      "latest": {
+        "gross_margin": 17.02,
+        "staff_rate": 39.56,
+        "dep_or_lease_rate": 12.92,
+        "admin_rate": 11.71,
+        "sell_rate": 4.16,
+        "net_margin": 0.62,
+        "debt_ratio": 41.24,
+        "inv_days": 30.3,
+        "ar_days": 21.3
+      },
+      "avg5y": {
+        "gross_margin": 8.47,
+        "staff_rate": 45.75,
+        "staff_sample": 5,
+        "dep_or_lease_rate": 16.83,
+        "admin_rate": 15.16,
+        "sell_rate": 4.8,
+        "net_margin": -9.57,
+        "debt_ratio": 43.84
+      },
+      "years": 12,
+      "caliber": "A股·人工取自现金流量表"
+    },
+    {
+      "company": "广州酒家",
+      "segment": "餐饮+食品",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 53.8,
+      "latest": {
+        "gross_margin": 31.6,
+        "staff_rate": 16.12,
+        "dep_or_lease_rate": 9.53,
+        "admin_rate": 8.5,
+        "sell_rate": 10.11,
+        "net_margin": 9.07,
+        "debt_ratio": 39.75,
+        "inv_days": 28.2,
+        "ar_days": 6.8
+      },
+      "avg5y": {
+        "gross_margin": 34.48,
+        "staff_rate": 18.81,
+        "staff_sample": 5,
+        "dep_or_lease_rate": 10.2,
+        "admin_rate": 9.22,
+        "sell_rate": 10.06,
+        "net_margin": 11.4,
+        "debt_ratio": 38.05
+      },
+      "years": 12,
+      "caliber": "A股·人工取自现金流量表"
+    },
+    {
+      "company": "西安饮食",
+      "segment": "正餐·地方",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 5.6,
+      "latest": {
+        "gross_margin": -0.94,
+        "staff_rate": 44.32,
+        "dep_or_lease_rate": 21.13,
+        "admin_rate": 12.41,
+        "sell_rate": 4.0,
+        "net_margin": -26.0,
+        "debt_ratio": 86.36,
+        "inv_days": 24.6,
+        "ar_days": 29.1
+      },
+      "avg5y": {
+        "gross_margin": 10.57,
+        "staff_rate": 44.27,
+        "staff_sample": 5,
+        "dep_or_lease_rate": 34.28,
+        "admin_rate": 8.44,
+        "sell_rate": 24.58,
+        "net_margin": -27.67,
+        "debt_ratio": 74.9
+      },
+      "years": 12,
+      "caliber": "A股·人工取自现金流量表"
+    },
+    {
+      "company": "同庆楼",
+      "segment": "正餐·连锁",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 26.8,
+      "latest": {
+        "gross_margin": 19.29,
+        "staff_rate": 27.02,
+        "dep_or_lease_rate": 30.81,
+        "admin_rate": 4.64,
+        "sell_rate": 5.49,
+        "net_margin": 3.81,
+        "debt_ratio": 61.28,
+        "inv_days": 22.9,
+        "ar_days": 6.7
+      },
+      "avg5y": {
+        "gross_margin": 20.9,
+        "staff_rate": 28.54,
+        "staff_sample": 5,
+        "dep_or_lease_rate": 27.86,
+        "admin_rate": 5.78,
+        "sell_rate": 4.63,
+        "net_margin": 7.0,
+        "debt_ratio": 45.14
+      },
+      "years": 12,
+      "caliber": "A股·人工取自现金流量表"
+    },
+    {
+      "company": "桃李面包",
+      "segment": "食品制造·参考",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 54.5,
+      "latest": {
+        "gross_margin": 22.53,
+        "staff_rate": 15.49,
+        "dep_or_lease_rate": 0.3,
+        "admin_rate": 2.3,
+        "sell_rate": 8.79,
+        "net_margin": 5.21,
+        "debt_ratio": 27.96,
+        "inv_days": 12.0,
+        "ar_days": 23.0
+      },
+      "avg5y": {
+        "gross_margin": 23.79,
+        "staff_rate": 15.89,
+        "staff_sample": 5,
+        "dep_or_lease_rate": 0.81,
+        "admin_rate": 2.06,
+        "sell_rate": 8.33,
+        "net_margin": 8.78,
+        "debt_ratio": 25.06
+      },
+      "years": 12,
+      "caliber": "A股·人工取自现金流量表"
+    },
+    {
+      "company": "洽洽食品",
+      "segment": "食品制造·参考",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 65.7,
+      "latest": {
+        "gross_margin": 23.41,
+        "staff_rate": 9.96,
+        "dep_or_lease_rate": 0.09,
+        "admin_rate": 4.8,
+        "sell_rate": 11.22,
+        "net_margin": 4.84,
+        "debt_ratio": 44.49,
+        "inv_days": 140.1,
+        "ar_days": 18.0
+      },
+      "avg5y": {
+        "gross_margin": 28.57,
+        "staff_rate": 9.26,
+        "staff_sample": 5,
+        "dep_or_lease_rate": 0.07,
+        "admin_rate": 4.56,
+        "sell_rate": 10.11,
+        "net_margin": 11.65,
+        "debt_ratio": 41.52
+      },
+      "years": 12,
+      "caliber": "A股·人工取自现金流量表"
+    },
+    {
+      "company": "青岛啤酒",
+      "segment": "饮料制造·参考",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 324.7,
+      "latest": {
+        "gross_margin": 41.84,
+        "staff_rate": 17.38,
+        "dep_or_lease_rate": 0.37,
+        "admin_rate": 4.51,
+        "sell_rate": 13.81,
+        "net_margin": 14.13,
+        "debt_ratio": 39.55,
+        "inv_days": 62.6,
+        "ar_days": 1.4
+      },
+      "avg5y": {
+        "gross_margin": 38.86,
+        "staff_rate": 16.96,
+        "staff_sample": 5,
+        "dep_or_lease_rate": 0.42,
+        "admin_rate": 4.71,
+        "sell_rate": 13.73,
+        "net_margin": 12.44,
+        "debt_ratio": 44.16
+      },
+      "years": 12,
+      "caliber": "A股·人工取自现金流量表"
+    },
+    {
+      "company": "海底捞",
+      "segment": "火锅·直营大店",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 432.3,
+      "latest": {
+        "gross_margin": 59.45,
+        "staff_rate": 32.56,
+        "dep_or_lease_rate": 5.05,
+        "admin_rate": 3.41,
+        "sell_rate": null,
+        "net_margin": 9.35,
+        "debt_ratio": 54.71,
+        "inv_days": 16.4,
+        "ar_days": 28.6
+      },
+      "avg5y": {
+        "gross_margin": 59.07,
+        "staff_rate": 33.14,
+        "staff_sample": 5,
+        "dep_or_lease_rate": 7.86,
+        "admin_rate": 3.42,
+        "sell_rate": null,
+        "net_margin": 5.1,
+        "debt_ratio": 59.85
+      },
+      "years": 8,
+      "caliber": "港股·人工取自利润表薪金福利"
+    },
+    {
+      "company": "九毛九",
+      "segment": "火锅+酸菜鱼·多品牌",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 52.3,
+      "latest": {
+        "gross_margin": 64.48,
+        "staff_rate": 29.48,
+        "dep_or_lease_rate": 14.73,
+        "admin_rate": 4.21,
+        "sell_rate": 1.63,
+        "net_margin": 0.98,
+        "debt_ratio": 44.75,
+        "inv_days": 18.3,
+        "ar_days": 6.6
+      },
+      "avg5y": {
+        "gross_margin": 64.04,
+        "staff_rate": 27.53,
+        "staff_sample": 5,
+        "dep_or_lease_rate": 13.58,
+        "admin_rate": 3.78,
+        "sell_rate": 1.46,
+        "net_margin": 4.01,
+        "debt_ratio": 44.89
+      },
+      "years": 8,
+      "caliber": "港股·人工取自利润表薪金福利"
+    },
+    {
+      "company": "呷哺呷哺",
+      "segment": "火锅·快餐化小火锅",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 37.9,
+      "latest": {
+        "gross_margin": 64.99,
+        "staff_rate": 34.8,
+        "dep_or_lease_rate": 16.34,
+        "admin_rate": 4.27,
+        "sell_rate": null,
+        "net_margin": -7.82,
+        "debt_ratio": 83.36,
+        "inv_days": 4.7,
+        "ar_days": 12.1
+      },
+      "avg5y": {
+        "gross_margin": 63.25,
+        "staff_rate": 32.57,
+        "staff_sample": 5,
+        "dep_or_lease_rate": 17.18,
+        "admin_rate": 3.86,
+        "sell_rate": null,
+        "net_margin": -6.22,
+        "debt_ratio": 70.27
+      },
+      "years": 8,
+      "caliber": "港股·人工取自利润表薪金福利"
+    },
+    {
+      "company": "特海国际",
+      "segment": "火锅·海外",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 59.1,
+      "latest": {
+        "gross_margin": 66.36,
+        "staff_rate": 4.83,
+        "dep_or_lease_rate": 1.4,
+        "admin_rate": 0.49,
+        "sell_rate": null,
+        "net_margin": 4.32,
+        "debt_ratio": 47.49,
+        "inv_days": 8.2,
+        "ar_days": 25.3
+      },
+      "avg5y": {
+        "gross_margin": 65.48,
+        "staff_rate": 5.23,
+        "staff_sample": 5,
+        "dep_or_lease_rate": 1.97,
+        "admin_rate": 0.52,
+        "sell_rate": null,
+        "net_margin": -8.98,
+        "debt_ratio": 67.07
+      },
+      "years": 7,
+      "caliber": "港股·人工取自利润表薪金福利"
+    },
+    {
+      "company": "百胜中国",
+      "segment": "快餐·西式(KFC/必胜客)",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 829.2,
+      "latest": {
+        "gross_margin": 21.71,
+        "staff_rate": null,
+        "dep_or_lease_rate": null,
+        "admin_rate": 0.7,
+        "sell_rate": null,
+        "net_margin": 8.51,
+        "debt_ratio": 43.44,
+        "inv_days": 21.9,
+        "ar_days": 135.6
+      },
+      "avg5y": {
+        "gross_margin": 20.55,
+        "staff_rate": null,
+        "staff_sample": 0,
+        "dep_or_lease_rate": null,
+        "admin_rate": 0.78,
+        "sell_rate": null,
+        "net_margin": 8.15,
+        "debt_ratio": 41.21
+      },
+      "years": 8,
+      "caliber": "港股·人工未单独披露"
+    },
+    {
+      "company": "蜜雪集团",
+      "segment": "茶饮·加盟小店",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 335.6,
+      "latest": {
+        "gross_margin": 31.14,
+        "staff_rate": null,
+        "dep_or_lease_rate": null,
+        "admin_rate": 3.22,
+        "sell_rate": 6.07,
+        "net_margin": 17.66,
+        "debt_ratio": 19.57,
+        "inv_days": 7.8,
+        "ar_days": 1202.4
+      },
+      "avg5y": {
+        "gross_margin": 30.57,
+        "staff_rate": null,
+        "staff_sample": 0,
+        "dep_or_lease_rate": null,
+        "admin_rate": 3.31,
+        "sell_rate": 5.72,
+        "net_margin": 16.92,
+        "debt_ratio": 23.98
+      },
+      "years": 5,
+      "caliber": "港股·人工未单独披露"
+    },
+    {
+      "company": "古茗",
+      "segment": "茶饮·加盟",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 129.1,
+      "latest": {
+        "gross_margin": 33.0,
+        "staff_rate": null,
+        "dep_or_lease_rate": null,
+        "admin_rate": 2.83,
+        "sell_rate": 5.44,
+        "net_margin": 24.13,
+        "debt_ratio": 64.91,
+        "inv_days": 7.6,
+        "ar_days": 29.4
+      },
+      "avg5y": {
+        "gross_margin": 30.59,
+        "staff_rate": null,
+        "staff_sample": 0,
+        "dep_or_lease_rate": null,
+        "admin_rate": 3.25,
+        "sell_rate": 4.87,
+        "net_margin": 12.53,
+        "debt_ratio": 101.64
+      },
+      "years": 5,
+      "caliber": "港股·人工未单独披露"
+    },
+    {
+      "company": "茶百道",
+      "segment": "茶饮·加盟",
+      "latest_date": "2025-12-31",
+      "revenue_yi": 54.0,
+      "latest": {
+        "gross_margin": 32.51,
+        "staff_rate": null,
+        "dep_or_lease_rate": null,
+        "admin_rate": 8.94,
+        "sell_rate": 6.77,
+        "net_margin": 15.22,
+        "debt_ratio": 16.79,
+        "inv_days": 16.9,
+        "ar_days": 28.9
+      },
+      "avg5y": {
+        "gross_margin": 33.65,
+        "staff_rate": null,
+        "staff_sample": 0,
+        "dep_or_lease_rate": null,
+        "admin_rate": 8.69,
+        "sell_rate": 3.81,
+        "net_margin": 17.86,
+        "debt_ratio": 49.93
+      },
+      "years": 6,
+      "caliber": "港股·人工未单独披露"
+    }
+  ],
+  "segments": [
+    {
+      "segment": "正餐",
+      "companies": [
+        "全聚德",
+        "西安饮食",
+        "同庆楼"
+      ],
+      "n": 3,
+      "gross_margin": {
+        "min": 8.47,
+        "median": 10.57,
+        "max": 20.9,
+        "n": 3,
+        "missing": []
+      },
+      "staff_rate": {
+        "min": 28.54,
+        "median": 44.27,
+        "max": 45.75,
+        "n": 3,
+        "missing": []
+      },
+      "dep_or_lease_rate": {
+        "min": 16.83,
+        "median": 27.86,
+        "max": 34.28,
+        "n": 3,
+        "missing": []
+      },
+      "admin_rate": {
+        "min": 5.78,
+        "median": 8.44,
+        "max": 15.16,
+        "n": 3,
+        "missing": []
+      },
+      "sell_rate": {
+        "min": 4.63,
+        "median": 4.8,
+        "max": 24.58,
+        "n": 3,
+        "missing": []
+      },
+      "net_margin": {
+        "min": -27.67,
+        "median": -9.57,
+        "max": 7.0,
+        "n": 3,
+        "missing": []
+      },
+      "debt_ratio": {
+        "min": 43.84,
+        "median": 45.14,
+        "max": 74.9,
+        "n": 3,
+        "missing": []
+      }
+    },
+    {
+      "segment": "火锅",
+      "companies": [
+        "海底捞",
+        "呷哺呷哺",
+        "特海国际"
+      ],
+      "n": 3,
+      "gross_margin": {
+        "min": 59.07,
+        "median": 63.25,
+        "max": 65.48,
+        "n": 3,
+        "missing": []
+      },
+      "staff_rate": {
+        "min": 5.23,
+        "median": 32.57,
+        "max": 33.14,
+        "n": 3,
+        "missing": []
+      },
+      "dep_or_lease_rate": {
+        "min": 1.97,
+        "median": 7.86,
+        "max": 17.18,
+        "n": 3,
+        "missing": []
+      },
+      "admin_rate": {
+        "min": 0.52,
+        "median": 3.42,
+        "max": 3.86,
+        "n": 3,
+        "missing": []
+      },
+      "sell_rate": null,
+      "net_margin": {
+        "min": -8.98,
+        "median": -6.22,
+        "max": 5.1,
+        "n": 3,
+        "missing": []
+      },
+      "debt_ratio": {
+        "min": 59.85,
+        "median": 67.07,
+        "max": 70.27,
+        "n": 3,
+        "missing": []
+      }
+    },
+    {
+      "segment": "火锅+酸菜鱼",
+      "companies": [
+        "九毛九"
+      ],
+      "n": 1,
+      "gross_margin": {
+        "min": 64.04,
+        "median": 64.04,
+        "max": 64.04,
+        "n": 1,
+        "missing": []
+      },
+      "staff_rate": {
+        "min": 27.53,
+        "median": 27.53,
+        "max": 27.53,
+        "n": 1,
+        "missing": []
+      },
+      "dep_or_lease_rate": {
+        "min": 13.58,
+        "median": 13.58,
+        "max": 13.58,
+        "n": 1,
+        "missing": []
+      },
+      "admin_rate": {
+        "min": 3.78,
+        "median": 3.78,
+        "max": 3.78,
+        "n": 1,
+        "missing": []
+      },
+      "sell_rate": {
+        "min": 1.46,
+        "median": 1.46,
+        "max": 1.46,
+        "n": 1,
+        "missing": []
+      },
+      "net_margin": {
+        "min": 4.01,
+        "median": 4.01,
+        "max": 4.01,
+        "n": 1,
+        "missing": []
+      },
+      "debt_ratio": {
+        "min": 44.89,
+        "median": 44.89,
+        "max": 44.89,
+        "n": 1,
+        "missing": []
+      }
+    },
+    {
+      "segment": "快餐",
+      "companies": [
+        "百胜中国"
+      ],
+      "n": 1,
+      "gross_margin": {
+        "min": 20.55,
+        "median": 20.55,
+        "max": 20.55,
+        "n": 1,
+        "missing": []
+      },
+      "staff_rate": null,
+      "dep_or_lease_rate": null,
+      "admin_rate": {
+        "min": 0.78,
+        "median": 0.78,
+        "max": 0.78,
+        "n": 1,
+        "missing": []
+      },
+      "sell_rate": null,
+      "net_margin": {
+        "min": 8.15,
+        "median": 8.15,
+        "max": 8.15,
+        "n": 1,
+        "missing": []
+      },
+      "debt_ratio": {
+        "min": 41.21,
+        "median": 41.21,
+        "max": 41.21,
+        "n": 1,
+        "missing": []
+      }
+    },
+    {
+      "segment": "茶饮",
+      "companies": [
+        "蜜雪集团",
+        "古茗",
+        "茶百道"
+      ],
+      "n": 3,
+      "gross_margin": {
+        "min": 30.57,
+        "median": 30.59,
+        "max": 33.65,
+        "n": 3,
+        "missing": []
+      },
+      "staff_rate": null,
+      "dep_or_lease_rate": null,
+      "admin_rate": {
+        "min": 3.25,
+        "median": 3.31,
+        "max": 8.69,
+        "n": 3,
+        "missing": []
+      },
+      "sell_rate": {
+        "min": 3.81,
+        "median": 4.87,
+        "max": 5.72,
+        "n": 3,
+        "missing": []
+      },
+      "net_margin": {
+        "min": 12.53,
+        "median": 16.92,
+        "max": 17.86,
+        "n": 3,
+        "missing": []
+      },
+      "debt_ratio": {
+        "min": 23.98,
+        "median": 49.93,
+        "max": 101.64,
+        "n": 3,
+        "missing": []
+      }
+    },
+    {
+      "segment": "食品制造",
+      "companies": [
+        "桃李面包",
+        "洽洽食品"
+      ],
+      "n": 2,
+      "gross_margin": {
+        "min": 23.79,
+        "median": 26.18,
+        "max": 28.57,
+        "n": 2,
+        "missing": []
+      },
+      "staff_rate": {
+        "min": 9.26,
+        "median": 12.57,
+        "max": 15.89,
+        "n": 2,
+        "missing": []
+      },
+      "dep_or_lease_rate": {
+        "min": 0.07,
+        "median": 0.44,
+        "max": 0.81,
+        "n": 2,
+        "missing": []
+      },
+      "admin_rate": {
+        "min": 2.06,
+        "median": 3.31,
+        "max": 4.56,
+        "n": 2,
+        "missing": []
+      },
+      "sell_rate": {
+        "min": 8.33,
+        "median": 9.22,
+        "max": 10.11,
+        "n": 2,
+        "missing": []
+      },
+      "net_margin": {
+        "min": 8.78,
+        "median": 10.21,
+        "max": 11.65,
+        "n": 2,
+        "missing": []
+      },
+      "debt_ratio": {
+        "min": 25.06,
+        "median": 33.29,
+        "max": 41.52,
+        "n": 2,
+        "missing": []
+      }
+    },
+    {
+      "segment": "餐饮+食品",
+      "companies": [
+        "广州酒家"
+      ],
+      "n": 1,
+      "gross_margin": {
+        "min": 34.48,
+        "median": 34.48,
+        "max": 34.48,
+        "n": 1,
+        "missing": []
+      },
+      "staff_rate": {
+        "min": 18.81,
+        "median": 18.81,
+        "max": 18.81,
+        "n": 1,
+        "missing": []
+      },
+      "dep_or_lease_rate": {
+        "min": 10.2,
+        "median": 10.2,
+        "max": 10.2,
+        "n": 1,
+        "missing": []
+      },
+      "admin_rate": {
+        "min": 9.22,
+        "median": 9.22,
+        "max": 9.22,
+        "n": 1,
+        "missing": []
+      },
+      "sell_rate": {
+        "min": 10.06,
+        "median": 10.06,
+        "max": 10.06,
+        "n": 1,
+        "missing": []
+      },
+      "net_margin": {
+        "min": 11.4,
+        "median": 11.4,
+        "max": 11.4,
+        "n": 1,
+        "missing": []
+      },
+      "debt_ratio": {
+        "min": 38.05,
+        "median": 38.05,
+        "max": 38.05,
+        "n": 1,
+        "missing": []
+      }
+    },
+    {
+      "segment": "饮料制造",
+      "companies": [
+        "青岛啤酒"
+      ],
+      "n": 1,
+      "gross_margin": {
+        "min": 38.86,
+        "median": 38.86,
+        "max": 38.86,
+        "n": 1,
+        "missing": []
+      },
+      "staff_rate": {
+        "min": 16.96,
+        "median": 16.96,
+        "max": 16.96,
+        "n": 1,
+        "missing": []
+      },
+      "dep_or_lease_rate": {
+        "min": 0.42,
+        "median": 0.42,
+        "max": 0.42,
+        "n": 1,
+        "missing": []
+      },
+      "admin_rate": {
+        "min": 4.71,
+        "median": 4.71,
+        "max": 4.71,
+        "n": 1,
+        "missing": []
+      },
+      "sell_rate": {
+        "min": 13.73,
+        "median": 13.73,
+        "max": 13.73,
+        "n": 1,
+        "missing": []
+      },
+      "net_margin": {
+        "min": 12.44,
+        "median": 12.44,
+        "max": 12.44,
+        "n": 1,
+        "missing": []
+      },
+      "debt_ratio": {
+        "min": 44.16,
+        "median": 44.16,
+        "max": 44.16,
+        "n": 1,
+        "missing": []
+      }
+    }
+  ]
+}

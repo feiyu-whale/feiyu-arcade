@@ -276,6 +276,7 @@
     </div>
 
     <div id="status"></div>
+    <div id="endingPanel"></div>
     <div id="loanPanel"></div>
     <div id="mortgagePanel"></div>
     <div id="termsPanel"></div>
@@ -295,7 +296,7 @@
     </div>
   </div>
 
-  <div class="ver">v2.2.0-事后官员开源 20261025</div>
+  <div class="ver">v3.0.0-六大引擎重构 20261025</div>
 </div>
 
 <script src="params.js"></script>
@@ -308,6 +309,20 @@
 <script src="org.js"></script>
 <script src="illegal.js"></script>
 <script src="events.js"></script>
+<script src="balance.js"></script>
+<script src="inventory.js"></script>
+<script src="people.js"></script>
+<script src="channel.js"></script>
+<script src="risk.js"></script>
+<script src="ending.js"></script>
 <script src="ui.js"></script>
+<script>
+  // v3.0.0 修复（00:59）：initSetup 从来没被调用 → 城市下拉框为空 → startGame 读 null.rentMult 报错
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSetup);
+  } else {
+    initSetup();
+  }
+</script>
 </body>
 </html>
