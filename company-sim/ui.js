@@ -83,11 +83,15 @@ function render() {
     $('status').innerHTML = '<div class="over">💀 公司破产</div>';
     $('btnNext').disabled = true;
     $('btnOpen').disabled = true;
+  } else if (G.status === 'caught') {
+    $('status').innerHTML = '<div class="over" style="color:#ff4040">🚨 被查处关停 · 游戏结束</div>';
+    $('btnNext').disabled = true;
+    $('btnOpen').disabled = true;
   }
 }
 
 function doSettle() {
-  if (G.status !== 'running') return;
+  if (G.status !== 'running') return;   // 破产/被查处都不能继续
   const log = settleMonth();
 
   // 展示本月明细
@@ -661,5 +665,47 @@ function doVC(id) {
   const r = takeVCD(id);
   $('log').innerHTML = `<div class="evresult ${r.ok ? 'good' : 'bad'}">${r.msg}</div>`;
   showVC(); showVC();
+  render();
+}
+
+/* ═══ 违法操作面板 ═══ */
+function showIllegal() {
+  const panel = $('illegalPanel');
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+  if (panel.style.display !== 'block') return;
+
+  let html = `<div class="loanhead" style="color:#c06060">⚠️ 这些操作短期能省钱，但风险月月累积</div>`;
+  ILLEGAL_ACTS.forEach(a => {
+    const on = G.illegalActs && G.illegalActs[a.id];
+    const months = (G.illegalRisk && G.illegalRisk[a.id]) || 0;
+    const curRisk = (a.baseRisk + a.riskGrowth * Math.pow(months, a.riskCurve || 2)) * 100;
+    html += `<div class="loanprod ${on ? 'activeIllegal' : ''}">
+      <div class="lpname">${a.icon} ${a.name} ${on ? '<span class="lpterm" style="color:#c06060">使用中</span>' : ''}</div>
+      <div class="lpdesc">${a.desc}</div>
+      <div class="lprate">
+        ${a.savingRate ? '省 ' + (a.savingRate * 100).toFixed(0) + '% ' + (a.id === 'oil' ? '食材' : a.id === 'labor' ? '人工' : '营收') : ''}
+        ${a.revenueBoost ? '客流 +' + (a.revenueBoost * 100).toFixed(0) + '%' : ''}
+        ${on ? ' ｜ 当前月被查概率 <b style="color:' + (curRisk > 8 ? '#e05050' : '#d0a040') + '">' + curRisk.toFixed(1) + '%</b>' : ''}
+      </div>
+      <div class="lpbtns">
+        <button class="tiny ${on ? 'danger' : ''}" onclick="doToggleIllegal('${a.id}')">${on ? '停用' : '启用'}</button>
+      </div>
+    </div>`;
+  });
+  html += `<div class="loanwarn" style="color:#c06060">
+    🚨 被查处后果：<br>
+    · 劣质油 → 刑事案，吊照关停，<b>游戏直接结束</b><br>
+    · 偷税 → 补缴+罚款，金额巨大可追刑责<br>
+    · 黑工 → 停产停业、吊销执照，<b>游戏直接结束</b><br>
+    · 刷单 → 罚款、平台降权<br><br>
+    用得越久，查得越准。这不是能不能做的问题，是赌不赌得起。
+  </div>`;
+  panel.innerHTML = html;
+}
+
+function doToggleIllegal(id) {
+  const r = toggleIllegal(id);
+  $('log').innerHTML = `<div class="evresult ${r.ok ? 'warn' : 'bad'}">${r.msg}</div>`;
+  showIllegal(); showIllegal();
   render();
 }

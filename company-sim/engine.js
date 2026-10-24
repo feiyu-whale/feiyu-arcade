@@ -56,7 +56,11 @@ const G = {
   rivalsPriceWarMonths: 0,
   // ═══ 历史事件预警 ═══
   warnings: [],
-  historyEvent: null
+  historyEvent: null,
+  // ═══ 违法操作 ═══
+  illegalActs: {},
+  illegalRisk: {},
+  caughtBy: null
 };
 
 function P() { return SEGMENTS[G.seg]; }
@@ -130,8 +134,10 @@ function settleMonth() {
     ? historyRevenueMult(G.month, G.startYear) : { mult: 1, events: [] };
   G.historyEvent = hist.events.length ? hist.events : null;
 
+  // 违法操作带来的短期营收增益（刷单/虚假宣传）
+  const illegalBoost = (G.illegalActs && G.illegalActs.fake) ? 1.15 : 1.0;
   const rev = Math.max(0,
-    baseRev * repFactor * morFactor * seasonFactor * rand * revMod * cityRev * compPressure * hist.mult);
+    baseRev * repFactor * morFactor * seasonFactor * rand * revMod * cityRev * compPressure * hist.mult * illegalBoost);
   G.revenueLast = rev;
   G.revenueLast = rev;
   log.items.push(['营业收入', rev, 'in']);
@@ -378,6 +384,28 @@ function settleMonth() {
     if (cut) {
       addMod('revenueDelta', cut.revenueDelta, cut.months);
       log.events.push({ type: 'bad', text: cut.text });
+    }
+  }
+
+  // ═══ 违法操作：短期省钱，长期要命 ═══
+  if (typeof illegalMonthly === 'function') {
+    const ill = illegalMonthly(rev, foodCost, staffCost);
+    if (ill.foodSave > 0) {
+      G.cash += ill.foodSave;
+      log.items.push(['省下的食材钱（劣质油）', -ill.foodSave, 'memo']);
+    }
+    if (ill.staffSave > 0) {
+      G.cash += ill.staffSave;
+      log.items.push(['省下的人工钱（黑工）', -ill.staffSave, 'memo']);
+    }
+    if (ill.taxSave > 0) {
+      G.cash += ill.taxSave;
+      log.items.push(['没交的税', -ill.taxSave, 'memo']);
+    }
+    ill.warnings.forEach(w => log.events.push({ type: 'warn', text: w }));
+    if (ill.caught) {
+      const res = handleCaught(ill.caught);
+      log.events.push({ type: 'bad', text: res.text, detail: res.detail });
     }
   }
 

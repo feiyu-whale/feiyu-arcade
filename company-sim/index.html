@@ -107,7 +107,7 @@
   .choice:active { background:#1e3850; }
 
   /* 贷款面板 */
-  #loanPanel, #mortgagePanel, #termsPanel, #ipoPanel, #reportPanel, #orgPanel { display:none; background:#101820; border:1px solid #2a4a3a; border-radius:12px; padding:12px; margin-bottom:10px; }
+  #loanPanel, #mortgagePanel, #termsPanel, #ipoPanel, #reportPanel, #orgPanel, #illegalPanel { display:none; background:#101820; border:1px solid #2a4a3a; border-radius:12px; padding:12px; margin-bottom:10px; }
   .loanhead { font-size:10px; color:#7a94ac; margin-bottom:10px; line-height:1.9; }
   .loanhead b { color:#80c8a0; }
   .loanhead b.warn2 { color:#d0a040; }
@@ -127,6 +127,8 @@
   .tiny { padding:5px 10px; background:#16283a; border:1px solid #2a4a68; border-radius:6px;
     color:#90c0e0; font-size:9px; cursor:pointer; }
   .tiny:active { background:#1e3850; }
+  .loanprod.activeIllegal { border-color:#7a3a3a; background:#1a1010; }
+  .tiny.danger { border-color:#7a3a3a; color:#e09090; }
   .loanwarn { font-size:9px; color:#8a7040; margin-top:10px; line-height:1.7;
     background:#181408; border:1px solid #3a3018; border-radius:7px; padding:7px 9px; }
 
@@ -268,6 +270,7 @@
       <button class="tbtn" onclick="showMortgage()">🏠 抵押</button>
       <button class="tbtn" onclick="showTerms()">📦 账期</button>
       <button class="tbtn" onclick="showOrg()">🏢 组织</button>
+      <button class="tbtn" style="border-color:#5a2a2a;color:#c08080" onclick="showIllegal()">⚠️ 违法</button>
       <button class="tbtn" onclick="showIPO()">📈 上市</button>
       <button class="tbtn" onclick="showReport()">📊 报表</button>
     </div>
@@ -279,6 +282,7 @@
     <div id="ipoPanel"></div>
     <div id="reportPanel"></div>
     <div id="orgPanel"></div>
+    <div id="illegalPanel"></div>
     <div id="switchPanel"></div>
     <div id="log"></div>
 
@@ -291,7 +295,7 @@
     </div>
   </div>
 
-  <div class="ver">v2.0.0-城市加盟对手 20261024</div>
+  <div class="ver">v2.1.0-加违法操作 20261024</div>
 </div>
 
 <script src="params.js"></script>
@@ -302,6 +306,7 @@
 <script src="engine.js"></script>
 <script src="finance.js"></script>
 <script src="org.js"></script>
+<script src="illegal.js"></script>
 <script src="events.js"></script>
 <script src="ui.js"></script>
 </body>
