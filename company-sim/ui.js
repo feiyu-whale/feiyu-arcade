@@ -11,6 +11,7 @@ let choiceCtx = null;   // 待选事件
 
 function render() {
   const p = P();
+  if (typeof renderActions === 'function') renderActions();
   $('cash').textContent = money(G.cash);
   const _td = totalDebt();
   $('debt').textContent = money(_td);
@@ -154,6 +155,47 @@ function doSettle() {
   html += `<tr class="total"><td>当月净利</td><td class="${log.netProfit >= 0 ? 'good' : 'bad'}">${money(log.netProfit)}</td></tr>`;
   html += '</table>';
 
+  // ═══ v3.0.1 引导：人话诊断（老爹 01:34「稀里糊涂就死了」）═══
+  //  真实创业者不是瞎蒙的，他看账、听员工、看隔壁
+  //  所以这里把「这个月为什么赚/为什么亏」用人话说一遍
+  if (typeof diagnoseMonth === 'function') {
+    const diag = diagnoseMonth(log);
+    if (diag.length) {
+      html += `<div class="diagbox"><div class="diagtitle">📋 本月诊断</div>`;
+      diag.forEach(line => { html += `<div class="diagline">${line}</div>`; });
+      html += '</div>';
+    }
+  }
+
+  // ═══ v3.0.1 引导：生存预警 ═══
+  if (typeof survivalCheck === 'function') {
+    const sv = survivalCheck();
+    if (sv && !sv.healthy) {
+      const cls = sv.level === 'critical' ? 'crit' : sv.level === 'danger' ? 'dang' : 'warn';
+      html += `<div class="survivalbox ${cls}">${sv.text}</div>`;
+    }
+  }
+
+  // ═══ v3.0.1 引导：开局前三月教程 ═══
+  if (typeof tutorialFor === 'function') {
+    const tut = tutorialFor(log.month);
+    if (tut) {
+      html += `<div class="tutbox"><div class="tuttitle">${tut.title}</div>`;
+      tut.lines.forEach(l => { html += `<div class="tutline">${l}</div>`; });
+      html += '</div>';
+    }
+  }
+
+  // ═══ v3.0.1 引导：决策提示 ═══
+  if (typeof decisionHints === 'function') {
+    const hints = decisionHints();
+    if (hints.length) {
+      html += `<div class="hintbox"><div class="hinttitle">💭 提示</div>`;
+      hints.forEach(h => { html += `<div class="hintline ${h.type}">${h.text}</div>`; });
+      html += '</div>';
+    }
+  }
+
   // 随机事件（真实频率：约 35% 的月份会遇到事，不是月月出事）
   const EVENT_CHANCE = 0.35;
   const ev = (Math.random() < EVENT_CHANCE) ? pickEvent(G, new Set(G.usedEvents)) : null;
@@ -202,6 +244,189 @@ function doSettle() {
   $('log').innerHTML = html;
   render();
   if (G.pendingAftermath || G.pendingOfficialDemand) $('btnNext').disabled = true;
+
+  // ═══ v3.0.2 月报弹窗（老爹 01:36「弽窗就不用往下滑了」）═══
+  //  把这个月的结果直接弹到眼前，不用滚到底部找
+  showMonthModal(log, html);
+}
+
+/* 弹出月报卡片 */
+function showMonthModal(log, html) {
+  const mask = document.getElementById('monthModal');
+  const body = document.getElementById('modalBody');
+  const title = document.getElementById('modalTitle');
+  if (!mask || !body) return;
+
+  title.textContent = '第 ' + log.month + ' 个月';
+
+  // 顶部三格概览：营收 / 净利 / 剩现金
+  const cashCls = G.cash >= 0 ? '' : 'bad';
+  const profitCls = log.netProfit >= 0 ? 'good' : 'bad';
+  let sum = '<div class="modal-sum">' +
+    '<div class="ms"><div class="k">营收</div><div class="v">' + money(log.revenue || 0) + '</div></div>' +
+    '<div class="ms"><div class="k">净利</div><div class="v ' + profitCls + '">' + money(log.netProfit || 0) + '</div></div>' +
+    '<div class="ms"><div class="k">现金</div><div class="v ' + cashCls + '">' + money(G.cash) + '</div></div>' +
+    '</div>';
+
+  // 默认收起明细表，只展示重点（诊断/预警/教程/事件）
+  // 但表格部分是最原始的 html，这里在它上面加个折叠按钮
+  const detailToggle = '<div style="text-align:right;margin-bottom:8px">' +
+    '<button class="tiny" onclick="toggleModalDetail()" id="detailToggleBtn">展开明细</button></div>' +
+    '<div id="modalDetail" style="display:none">';
+
+  // html 开头是第一张明细表，把它包进折叠区
+  const tableEnd = html.indexOf('</table>');
+  let bodyContent;
+  if (tableEnd > 0) {
+    const tablePart = html.slice(0, tableEnd + 8);
+    const rest = html.slice(tableEnd + 8);
+    bodyContent = sum + detailToggle + tablePart + '</div>' + rest;
+  } else {
+    bodyContent = sum + html;
+  }
+
+  body.innerHTML = bodyContent;
+  mask.classList.add('show');
+  // v3.0.2：把弹窗里的选择按钮接上
+  //  之前问题：事件选项渲染在 #log 里（底下），弹窗里看不到，玩家不知道怎么操作
+  const footBtn = mask.querySelector('.modal-btn');
+  if (footBtn) {
+    const needChoice = !!(choiceCtx || G.pendingAftermath || G.pendingOfficialDemand ||
+                         G.pendingPeopleEvent || G.pendingLandlord);
+    if (needChoice) {
+      footBtn.disabled = true;
+      footBtn.textContent = '⬆ 请先在上面做出选择';
+    } else {
+      footBtn.disabled = false;
+      footBtn.textContent = G.status !== 'running' ? '查看结果' : '知道了，继续';
+    }
+  }
+  // 若弹窗里有选择按钮，把底部按钮的状态同步一下
+  body.querySelectorAll('.choice').forEach(btn => {
+    btn.addEventListener('click', () => { setTimeout(syncModalFoot, 50); });
+  });
+  setTimeout(syncModalFoot, 50);
+}
+
+/* 同步弹窗底部按钮状态 */
+function syncModalFoot() {
+  const mask = document.getElementById('monthModal');
+  if (!mask) return;
+  const footBtn = mask.querySelector('.modal-btn');
+  if (!footBtn) return;
+  const needChoice = !!(choiceCtx || G.pendingAftermath || G.pendingOfficialDemand ||
+                       G.pendingPeopleEvent || G.pendingLandlord);
+  if (needChoice) {
+    footBtn.disabled = true;
+    footBtn.textContent = '⬆ 请先在上面做出选择';
+  } else {
+    footBtn.disabled = false;
+    footBtn.textContent = G.status !== 'running' ? '查看结果' : '知道了，继续';
+  }
+}
+
+function toggleModalDetail() {
+  const d = document.getElementById('modalDetail');
+  const b = document.getElementById('detailToggleBtn');
+  if (!d) return;
+  const open = d.style.display !== 'none';
+  d.style.display = open ? 'none' : 'block';
+  if (b) b.textContent = open ? '展开明细' : '收起明细';
+}
+
+function closeMonthModal() {
+  const mask = document.getElementById('monthModal');
+  if (mask) mask.classList.remove('show');
+}
+
+/* ═══ v3.0.5 面板互斥：点一个关掉别的，避免叠成一团 ═══ */
+function closeAllPanels() {
+  ['loanPanel','mortgagePanel','termsPanel','ipoPanel','reportPanel',
+   'orgPanel','illegalPanel','switchPanel'].forEach(id => {
+    const e = document.getElementById(id);
+    if (e) e.style.display = 'none';
+  });
+}
+
+/* ═══ v3.0.3 按钮按条件显示（老爹 01:39）═══
+ * 原则：钱够/条件满足才出现，不够就折叠，不弹空面板
+ * 玩家不该看到一堆点了没用的按钮
+ */
+function renderActions() {
+  const p = P();
+  const row1 = $('actRow1'), row2 = $('actRow2'), more = $('actMore');
+  if (!row1 || !row2 || !more) return;
+
+  const r1 = [], r2 = [], rm = [];
+
+  // ── 开新店：现金够 80% 开店成本才显示 ──
+  const openCost = p.setupCost * 0.8;
+  if (G.cash >= openCost) {
+    const maxPending = G.hasHQ ? 2 : 1;
+    const busy = (G.pendingStores || []).length >= maxPending;
+    r1.push('<button class="tbtn" id="btnOpen" onclick="doOpen()"' +
+      (busy ? ' disabled style="opacity:.45"' : '') + '>' +
+      (busy ? '🏗 筹备中…' : '🏗 开新店') + '</button>');
+  }
+
+  // ── 贷款：有可贷额度才显示 ──
+  const avail = creditLimit() - totalDebt();
+  if (avail > 10000) {
+    r1.push('<button class="tbtn" onclick="showLoan()">💰 贷款 ' +
+      (avail / 1e4).toFixed(0) + '万额度</button>');
+  }
+
+  // ── 换赛道：现金够转换成本才显示 ──
+  const switchCost = G.stores * p.setupCost * 0.3;
+  if (G.cash >= switchCost && G.stores >= 1) {
+    r1.push('<button class="tbtn" onclick="showSwitch()">🔄 换赛道</button>');
+  }
+
+  // ── 组织：现金够建总部/公司化才显示 ──
+  if (!G.hasHQ && G.cash >= 3000000) {
+    r2.push('<button class="tbtn" onclick="showOrg()">🏢 建总部</button>');
+  } else if (G.hasHQ && !G.hasCompany && G.cash >= 8000000) {
+    r2.push('<button class="tbtn" onclick="showOrg()">🏛️ 公司化</button>');
+  }
+
+  // ── 抵押：有待抵押资产才显示 ──
+  const hasCollateral = (G.stores >= 1) && (G.mortgages || []).length < 2;
+  if (hasCollateral) {
+    r2.push('<button class="tbtn" onclick="showMortgage()">🏠 抵押</button>');
+  }
+
+  // ── 上市：满足条件才显示 ──
+  if (!G.listed && typeof ipoEligibility === 'function') {
+    const el = ipoEligibility();
+    if (el && el.ok) {
+      r2.push('<button class="tbtn" style="border-color:#3a6a3a;color:#80c080" onclick="showIPO()">📈 上市</button>');
+    }
+  }
+
+  // ── 更多（折叠区）：账期/违法这些不常用或敏感的 ──
+  rm.push('<button class="tbtn" onclick="showTerms()">📦 账期</button>');
+  if (G.stores >= 5) {
+    rm.push('<button class="tbtn" style="border-color:#5a2a2a;color:#c08080" onclick="showIllegal()">⚠️ 违规操作</button>');
+  }
+
+  row1.innerHTML = r1.join('');
+  row2.innerHTML = r2.join('');
+
+  // 更多：默认折叠
+  if (rm.length) {
+    more.innerHTML = '<div class="actions" style="margin-top:2px">' +
+      '<button class="tbtn" style="opacity:.7;font-size:10px" onclick="toggleMore()">' +
+      (G.moreOpen ? '收起 ▲' : '更多选项 ▼') + '</button>' +
+      (G.moreOpen ? rm.join('') : '') +
+      '</div>';
+  } else {
+    more.innerHTML = '';
+  }
+}
+
+function toggleMore() {
+  G.moreOpen = !G.moreOpen;
+  renderActions();
 }
 
 function applyEffect(eff) {
@@ -308,9 +533,17 @@ function doRepay(idx) {
 }
 
 function showSwitch() {
-  $('switchPanel').style.display = 'block';
+  // ═══ v3.0.5 修复（老爹 01:42「换赛道点了没反应」）═══
+  //  根因：HTML 里 switchPanel 是空容器，没有 switchList 子元素
+  //        showSwitch 找不到 switchList 就直接 return，点了什么都不发生
+  //  改法：直接用 switchPanel 作为容器，同时「点一个关掉别的面板」
+  closeAllPanels();
+  const panel = $('switchPanel');
+  if (!panel) return;
+  panel.style.display = 'block';
+  panel.innerHTML = '<div class="loanhead">换赛道 · 转换成本与成功率</div>' +
+    '<div id="switchList"></div>';
   const list = $('switchList');
-  if (!list) return;
   list.innerHTML = Object.entries(SEGMENTS).map(([k, v]) => {
     if (k === G.seg) return '';
     const prev = switchSegment(k);
@@ -670,26 +903,46 @@ function renderBrands() {
   if (startMode !== 'join') return;
   const seg = document.querySelector('input[name=seg]:checked').value;
   const list = brandsFor(seg);
+  // ═══ v3.0.6 修复（老爹 01:43「色标把老底全说了，傻子都知道选哪个」）═══
+  //  真实招商：好的一面摆在明面，坑藏在合同细则里
+  //  改法：① 去掉全部绿/红判定色，一律中性
+  //        ② 只给原始数字，不给「好/差」结论
+  //        ③ 供货加价这种关键信息收进「详细条款」，要点开才看
   $('brandBox').innerHTML =
-    `<div class="setup-title" style="margin:12px 0 8px">选牌子（信息全公开，自己判断）</div>` +
+    `<div class="setup-title" style="margin:12px 0 8px">选牌子（信息这里都有，自己算）</div>` +
     list.map(b => `
       <div class="brandcard${startBrand === b.id ? ' active' : ''}" onclick="pickBrand('${b.id}')">
         <div class="bname">${b.name}</div>
         <div class="bdesc">${b.desc}</div>
         <div class="bsign">
-          加盟费 ${(b.fee / 1e4).toFixed(0)} 万 + 保证金 ${(b.deposit / 1e4).toFixed(0)} 万｜
-          权利金 营收 ${(b.royalty * 100).toFixed(0)}%<br>
-          商务部备案：<span class="${b.sign.备案 ? '' : 'no'}">${b.sign.备案 ? '有' : '查不到'}</span>｜
-          直营店：<span class="${b.sign.直营店 >= 5 ? '' : 'no'}">${b.sign.直营店} 家</span>｜
-          加盟商评价：<span class="${b.sign.加盟商评价 >= 3.5 ? '' : 'no'}">${b.sign.加盟商评价} 分</span><br>
-          供货价：<span class="${b.supplyMarkup <= 1.08 ? '' : 'no'}">${b.sign.供货价}</span>
+          加盟费 ${(b.fee / 1e4).toFixed(0)} 万｜保证金 ${(b.deposit / 1e4).toFixed(0)} 万｜权利金 营收 ${(b.royalty * 100).toFixed(0)}%<br>
+          商务部备案：${b.sign.备案 ? '有' : '查不到'}｜直营店：${b.sign.直营店} 家｜加盟商评价：${b.sign.加盟商评价} 分
+        </div>
+        <div class="bdetail-toggle" onclick="event.stopPropagation();toggleBrandDetail('${b.id}')">
+          <span id="btog-${b.id}">查看详细条款 ▾</span>
+        </div>
+        <div class="bdetail" id="bdet-${b.id}" style="display:none">
+          供货价：${b.sign.供货价}<br>
+          合同期限：3 年｜续约：需总部同意｜提前解约：加盟费不退<br>
+          总部支持：培训 ${b.tier === 'good' ? '7' : b.tier === 'meh' ? '3' : '1'} 天｜督导巡店：${b.tier === 'good' ? '每月' : b.tier === 'meh' ? '季度' : '不固定'}
         </div>
       </div>`).join('');
+}
+
+function toggleBrandDetail(id) {
+  const el = document.getElementById('bdet-' + id);
+  const tog = document.getElementById('btog-' + id);
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  if (tog) tog.textContent = open ? '查看详细条款 ▾' : '收起条款 ▴';
 }
 
 function pickBrand(id) {
   startBrand = id;
   renderBrands();
+  // ═══ v3.0.7（老爹 01:45）：点牌子先弹合同，仔细看才不吃亏 ═══
+  if (typeof showContract === 'function') showContract(id);
 }
 
 /* ═══ 组织建设面板 ═══ */

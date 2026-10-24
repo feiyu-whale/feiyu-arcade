@@ -117,11 +117,31 @@ function settleMonth() {
     }
     return true;
   });
-  // 爬坡中的店：按进度折算有效门店数（50% 起步，6 个月爬满）
+  // ═══ v3.0.5 开业期曲线（老爹 01:41「第一个月正常不太可能亏钱」）═══
+  //  真实餐饮：开业第一个月是最热闹的 —— 开业酬宾、尝鲜客、朋友圈转发
+  //  然后热度回落，再靠口碑慢慢爬上去
+  //  所以曲线不是「50% 起步慢慢涨」，而是「高开 → 微降 → 稳步爬升」
+  //    第 1 月 1.30（开业高峰）
+  //    第 2 月 1.15（热度回落但仍高）
+  //    第 3 月 1.00（回到正常水平）
+  //    之后 6 个月内从 1.00 爬到 1.00（成熟期稳定）
+  //  首店额外 +10%（老板亲力亲为，第一批客人就是冲着他来的）
   let effectiveStores = G.stores;
   G.rampingStores.forEach(rs => {
     rs.months++;
-    const progress = Math.min(1, 0.5 + (rs.months / rs.rampMonths) * 0.5);
+    let progress;
+    const openingBonus = (G.month <= 2) ? 1.10 : 1.0;   // 开局前两月，老板亲自盯店
+    if (rs.months === 1) {
+      progress = 1.30 * openingBonus;
+    } else if (rs.months === 2) {
+      progress = 1.15 * openingBonus;
+    } else if (rs.months === 3) {
+      progress = 1.00 * openingBonus;
+    } else {
+      // 第 4 个月起：从 0.95 慢慢爬到 1.0（回归常态后仍需养客）
+      const t = (rs.months - 3) / Math.max(1, rs.rampMonths - 3);
+      progress = 0.95 + 0.05 * Math.min(1, t);
+    }
     effectiveStores -= (1 - progress);
   });
   G.rampingStores = G.rampingStores.filter(rs => rs.months < rs.rampMonths);
