@@ -305,6 +305,13 @@
   <strong>【重要声明】</strong>清朝官职数据依据《清史稿·职官志》整理；<strong>现代企业/行政职级对照纯属类比，无任何官方依据，仅供趣味参考</strong>，不可作为任何正式场合的依据。古今制度差异巨大，类比仅为帮助理解，不代表"等于"或"对应"。
 </div>
 
+<div class="disclaimer-banner" style="border-left-color:#c9a227;background:#fdf8e8;">
+  <strong>【数据核校状态 · 2026-10-24 更新】</strong><br>
+  已核对修正：<strong>翰林院编修</strong>（正七品 → 从七品）、<strong>六科给事中</strong>（正七品 → 正五品）、<strong>监察御史</strong>（正七品 → 从五品）、<strong>县丞</strong>（拆分：顺天府京县县丞正六品 / 各县县丞从八品）。<br>
+  <strong>尚待核校（下列官职的品级因时期、地域、京外差异较大，本工具暂按通行说法列出，请以《清史稿·职官志》原文为准）：</strong>
+  <span style="color:#8a6d1f;">同知、按察使、教谕、巡检、主簿、照磨、外府经历</span>。
+</div>
+
 <div class="container">
   <div class="tabs">
     <button class="tab active" data-tab="demo">工具演示</button>
@@ -370,7 +377,7 @@
   </div>
 </div>
 
-<div class="version">v2.0.0-完整版 20261021</div>
+<div class="version">v2.0.1-修品级数据 20261024</div>
 
 <script>
 /* ============================================================
@@ -478,7 +485,7 @@ const RANK_DATA = [
   {
     code: 5, name: "正五品", number: 5, hierarchy: "正",
     officials: {
-      wen: ["左右春坊左右庶子", "光禄寺少卿", "六部员外郎", "宗人府理事官", "治中"],
+      wen: ["左右春坊左右庶子", "光禄寺少卿", "六部员外郎", "宗人府理事官", "治中", "六科给事中"],
       wu: ["守备"]
     },
     duty: "六部员外郎为各司副职，掌具体事务。",
@@ -489,7 +496,7 @@ const RANK_DATA = [
   {
     code: 5.5, name: "从五品", number: 5, hierarchy: "从",
     officials: {
-      wen: ["翰林院侍读", "翰林院侍讲", "六部主事", "钦天监监副"],
+      wen: ["翰林院侍读", "翰林院侍讲", "六部主事", "钦天监监副", "监察御史"],
       wu: ["守御所千总"]
     },
     duty: "六部主事为各司基层官员，掌文书案牍。",
@@ -500,7 +507,7 @@ const RANK_DATA = [
   {
     code: 6, name: "正六品", number: 6, hierarchy: "正",
     officials: {
-      wen: ["国子监司业", "六部主事（部分）", "京县县丞", "兵马司指挥"],
+      wen: ["国子监司业", "六部主事（部分）", "顺天府京县县丞", "兵马司指挥"],
       wu: ["千总"]
     },
     duty: "国子监司业为祭酒副手，兵马司指挥掌京师治安。",
@@ -522,7 +529,7 @@ const RANK_DATA = [
   {
     code: 7, name: "正七品", number: 7, hierarchy: "正",
     officials: {
-      wen: ["翰林院编修", "六科给事中", "监察御史", "知县"],
+      wen: ["知县"],
       wu: ["把总"]
     },
     duty: "知县掌一县政务，给事中、御史掌谏诤监察。",
@@ -533,13 +540,13 @@ const RANK_DATA = [
   {
     code: 7.5, name: "从七品", number: 7, hierarchy: "从",
     officials: {
-      wen: ["翰林院检讨", "中书科中书", "国子监学正", "县丞"],
+      wen: ["翰林院检讨", "翰林院编修", "中书科中书", "国子监学正"],
       wu: ["外委千总"]
     },
-    duty: "翰林院检讨掌修史，县丞为知县副手。",
+    duty: "翰林院检讨、编修掌修史撰文，中书科中书掌书写。",
     modernCorp: ["助理", "见习", "初级职员"],
     modernAdmin: "办事员级（副）",
-    note: "县丞相当于今日副县长。"
+    note: "翰林院编修、检讨为翰林清要之职，多由进士出身者充任。"
   },
   {
     code: 8, name: "正八品", number: 8, hierarchy: "正",
@@ -555,7 +562,7 @@ const RANK_DATA = [
   {
     code: 8.5, name: "从八品", number: 8, hierarchy: "从",
     officials: {
-      wen: ["翰林院典簿", "国子监学录", "县学训导", "外府经历"],
+      wen: ["翰林院典簿", "国子监学录", "县学训导", "外府经历", "各县县丞"],
       wu: ["外委把总"]
     },
     duty: "县学训导佐教谕掌教育，外府经历为知府属官。",

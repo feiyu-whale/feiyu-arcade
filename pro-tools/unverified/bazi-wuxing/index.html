@@ -413,7 +413,7 @@
   <div class="doc-content" id="doc-content"></div>
 </section>
 
-<div class="version-tag">v2.0.0-完整版 20261021</div>
+<div class="version-tag">v2.0.1-修子丑月月柱 20261024</div>
 
 <script>
 /* ============================================================
@@ -687,7 +687,10 @@ function getMonthGanZhi(yearGan, monthZhi) {
   if (yearGanIdx < 0 || monthZhiIdx < 0) {
     throw new Error('年干或月支不在合法范围内');
   }
-  const monthGanIdx = ((yearGanIdx % 5) * 2 + monthZhiIdx) % 10;
+  // 修正（2026-10-24）：五虎遁以「寅」为起算点，原公式直接用 DI_ZHI 序号
+  // （从「子」起）导致子月/丑月系统性偏移 2 位。此处换算成「寅=0」的偏移。
+  const monthOffset = (monthZhiIdx - 2 + 12) % 12;   // 寅0 卯1 … 子10 丑11
+  const monthGanIdx = ((yearGanIdx % 5) * 2 + 2 + monthOffset) % 10;
   return { gan: TIAN_GAN[monthGanIdx], zhi: monthZhi };
 }
 

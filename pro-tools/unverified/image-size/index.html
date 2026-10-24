@@ -98,6 +98,14 @@
     border-radius: 4px;
     z-index: 999;
   }
+  .calc { padding:12px 4px; }
+  .calc h3 { font-size:15px; margin:0 0 10px; color:#333; }
+  .calc .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  .calc label { font-size:13px; color:#666; min-width:64px; }
+  .calc input { width:110px; padding:6px 8px; border:1px solid #ccc; border-radius:5px; font-size:14px; }
+  .calc .out { background:#f7f7f7; border:1px solid #e2e2e2; border-radius:6px; padding:10px 12px;
+    font-size:13px; line-height:1.9; color:#333; white-space:pre-wrap; }
+  .calc .out b { color:#1a6b4a; }
 </style>
 </head>
 <body>
@@ -106,9 +114,36 @@
   <div class="subtitle">像素 · DPI · 物理尺寸互算 / 打印尺寸估算 / 社交媒体尺寸参考</div>
 
   <div class="tabs">
-    <button class="tab active" data-tab="source">第一部分 · JS 源码</button>
+    <button class="tab active" data-tab="calc">🧮 计算器</button>
+    <button class="tab" data-tab="source">第一部分 · JS 源码</button>
     <button class="tab" data-tab="test">第二部分 · 单元测试</button>
     <button class="tab" data-tab="doc">第三部分 · 使用说明书</button>
+  </div>
+
+  <!-- 计算器（2026-10-24 补：此前只有源码/测试/说明书，无输入界面） -->
+  <div class="panel active" id="panel-calc">
+    <div class="calc">
+      <h3>像素 ↔ 物理尺寸</h3>
+      <div class="row">
+        <label>宽度(px)</label><input type="number" id="c-w" value="3000" min="0" step="1">
+        <label>高度(px)</label><input type="number" id="c-h" value="2000" min="0" step="1">
+      </div>
+      <div class="row">
+        <label>DPI</label><input type="number" id="c-dpi" value="300" min="1" step="1">
+        <label>目标 DPI</label><input type="number" id="c-target" value="300" min="1" step="1">
+      </div>
+      <div class="row"><button class="run-btn" id="c-run">计算</button></div>
+      <div id="c-out" class="out">输入像素与 DPI 后点「计算」</div>
+
+      <h3 style="margin-top:22px">反算：给定物理尺寸 → 需要多少像素</h3>
+      <div class="row">
+        <label>宽(cm)</label><input type="number" id="c-cm-w" value="10" min="0" step="0.1">
+        <label>高(cm)</label><input type="number" id="c-cm-h" value="6.67" min="0" step="0.1">
+        <label>DPI</label><input type="number" id="c-cm-dpi" value="300" min="1" step="1">
+      </div>
+      <div class="row"><button class="run-btn" id="c-run2">反算像素</button></div>
+      <div id="c-out2" class="out">输入厘米与 DPI 后点「反算像素」</div>
+    </div>
   </div>
 
   <!-- 第一部分：源码 -->
@@ -128,7 +163,7 @@
   </div>
 </div>
 
-<div class="version">v2.0.0-完整版 20261021</div>
+<div class="version">v2.1.0-补计算界面 20261024</div>
 
 <script>
 /* ============================================================
@@ -761,6 +796,77 @@ document.getElementById('run-test').addEventListener('click', runTests);
 
 // 把源码中的函数暴露到全局，以便测试使用
 eval(SOURCE_CODE);
+
+/* ==== 计算器逻辑（2026-10-24 新增）==== */
+function fmt(n, d) {
+  if (!isFinite(n)) return '—';
+  return Number(n.toFixed(d == null ? 2 : d)).toString();
+}
+function initCalc() {
+  var runBtn = document.getElementById('c-run');
+  var runBtn2 = document.getElementById('c-run2');
+  if (!runBtn) return;
+
+  runBtn.addEventListener('click', function () {
+    var out = document.getElementById('c-out');
+    try {
+      var w = parseFloat(document.getElementById('c-w').value);
+      var h = parseFloat(document.getElementById('c-h').value);
+      var dpi = parseFloat(document.getElementById('c-dpi').value);
+      var target = parseFloat(document.getElementById('c-target').value);
+      if (!isFinite(w) || !isFinite(h) || !isFinite(dpi) || !isFinite(target)) {
+        out.textContent = '请填写有效的数字';
+        return;
+      }
+      var lines = [];
+      lines.push('原始：' + w + ' × ' + h + ' px @ ' + dpi + ' DPI');
+      lines.push('物理尺寸：' + fmt(pixelsToCm(w, dpi)) + ' × ' + fmt(pixelsToCm(h, dpi)) + ' cm'
+        + '（' + fmt(pixelsToInches(w, dpi)) + ' × ' + fmt(pixelsToInches(h, dpi)) + ' in）');
+      lines.push('毫米：' + fmt(pixelsToMm(w, dpi), 1) + ' × ' + fmt(pixelsToMm(h, dpi), 1) + ' mm');
+      if (target !== dpi) {
+        lines.push('');
+        lines.push('若按 ' + target + ' DPI 打印：' + fmt(pixelsToCm(w, target)) + ' × ' + fmt(pixelsToCm(h, target)) + ' cm');
+        lines.push('  注：同一张图 DPI 越高，打印出来越小，像素总数不变。');
+      }
+      var est = estimatePrintSize(w, h, target);
+      if (est && est.widthCm != null) {
+        lines.push('');
+        lines.push('打印尺寸估算（' + target + ' DPI）：' + fmt(est.widthCm) + ' × ' + fmt(est.heightCm) + ' cm');
+        if (est.tolerance) lines.push('误差范围：' + est.tolerance);
+        if (est.note) lines.push(est.note);
+      }
+      out.textContent = lines.join('\n');
+    } catch (e) {
+      out.textContent = '计算出错：' + e.message;
+    }
+  });
+
+  runBtn2.addEventListener('click', function () {
+    var out = document.getElementById('c-out2');
+    try {
+      var cw = parseFloat(document.getElementById('c-cm-w').value);
+      var ch = parseFloat(document.getElementById('c-cm-h').value);
+      var dpi = parseFloat(document.getElementById('c-cm-dpi').value);
+      if (!isFinite(cw) || !isFinite(ch) || !isFinite(dpi)) {
+        out.textContent = '请填写有效的数字';
+        return;
+      }
+      var pw = Math.round(cmToPixels(cw, dpi));
+      var ph = Math.round(cmToPixels(ch, dpi));
+      out.textContent = '目标：' + cw + ' × ' + ch + ' cm @ ' + dpi + ' DPI\n'
+        + '需要像素：<b>' + pw + ' × ' + ph + ' px</b>\n'
+        + '合计约 ' + fmt(pw * ph / 1000000, 2) + ' 百万像素';
+    } catch (e) {
+      out.textContent = '计算出错：' + e.message;
+    }
+  });
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCalc);
+} else {
+  initCalc();
+}
+
 </script>
 </body>
 </html>
