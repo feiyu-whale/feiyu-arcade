@@ -134,11 +134,11 @@ header p{color:#64748b;font-size:13px;margin-top:4px}
 <li><strong>GB 50017-2017</strong>《钢结构设计标准》— 螺栓连接设计</li>
 <li><strong>濮良贵 等《机械设计》</strong>（第10版），高等教育出版社 — 螺栓连接设计理论与公式</li>
 </ol>
-<div class="note">⚠️ 本工具中螺纹小径 d₁ 按基本尺寸公式计算，应力截面积 As 按 ISO 898-1 经验公式 As = 0.7854(d − 0.9382P)² 计算。具体公差及详细表值需查标准原文。本工具仅供工程参考，正式设计请以现行有效标准文件为准。</div>
+<div class="note">⚠️ 本工具中螺纹小径 d₁ 按基本尺寸公式计算，应力截面积 As 按 ISO 898-1 经验公式 As = 0.7854(d − 0.9382P)² 计算。<strong>受拉应力按 As 校核（不是按小径圆面积 πd₁²/4），符合 GB/T 3098.1 与机械设计手册口径。</strong>具体公差及详细表值需查标准原文。本工具仅供工程参考，正式设计请以现行有效标准文件为准。</div>
 </div>
 </div>
 
-<div class="version">v1.0.0-螺栓强度校核 20261021</div>
+<div class="version">v1.1.0-σ口径统一As 20261025</div>
 
 <script>
 (function(){
@@ -200,7 +200,12 @@ function calculate(){
     var sigma_allow=sigma_s/n;
     var tau_allow=sigma_s/(Math.sqrt(3)*n);
 
-    var A_tension=Math.PI*d1*d1/4;
+    // v3.0.9 修复（社区 #210 反馈）：螺纹受拉应力应按「应力截面积 As」计算
+    //   原文用 πd₁²/4（小径圆面积 55.1 mm²），而 As=58.0 mm²，两者口径不一致
+    //   GB/T 3098.1 / 机械设计手册：σ = F / As（As 已扣除螺纹牙型影响）
+    //   保留 A_minor 供参考显示，但强度校核统一走 As
+    var A_minor=Math.PI*d1*d1/4;
+    var A_tension=As;
     var d_shear=shearInThread?d1:d;
     var A_shear=Math.PI*d_shear*d_shear/4;
 
@@ -221,7 +226,8 @@ function calculate(){
         '<div class="detail-item"><span>应力面积 As = </span><strong>'+fmt(As,1)+' mm²</strong></div>'+
         '<div class="detail-item"><span>抗拉强度 σb = </span><strong>'+sigma_b+' MPa</strong></div>'+
         '<div class="detail-item"><span>屈服强度 σs = </span><strong>'+sigma_s+' MPa</strong></div>'+
-        '<div class="detail-item"><span>受拉面积 πd₁²/4 = </span><strong>'+fmt(A_tension,2)+' mm²</strong></div>'+
+        '<div class="detail-item"><span>小径圆面积 πd₁²/4 = </span><strong>'+fmt(A_minor,2)+' mm²</strong></div>'+
+        '<div class="detail-item"><span>校核用面积 As（应力截面积）</span><strong>'+fmt(As,1)+' mm²</strong></div>'+
         '<div class="detail-item"><span>受剪面积 π'+(shearInThread?'d₁':'d')+'²/4 = </span><strong>'+fmt(A_shear,2)+' mm²</strong></div>'+
         '</div>';
 
@@ -234,8 +240,8 @@ function calculate(){
         if(!tension_pass&&sigma_allow>0){exceedStr='，超出 '+fmt((sigma-sigma_allow)/sigma_allow*100)+'%';}
         html+='<div class="result-block">'+
             '<h3>受拉校核</h3>'+
-            '<div class="formula">σ = F / (π·d₁²/4)</div>'+
-            '<div class="formula">&nbsp;&nbsp;= '+fmt(F,0)+' / (π × '+fmt(d1,3)+'² / 4)</div>'+
+            '<div class="formula">σ = F / As　（应力截面积，GB/T 3098.1）</div>'+
+            '<div class="formula">&nbsp;&nbsp;= '+fmt(F,0)+' / '+fmt(As,1)+'</div>'+
             '<div class="formula">&nbsp;&nbsp;= '+fmt(F,0)+' / '+fmt(A_tension,2)+' = <strong>'+fmt(sigma)+' MPa</strong></div>'+
             '<div class="formula">[σ] = σs / n = '+sigma_s+' / '+fmt(n,1)+' = <strong>'+fmt(sigma_allow)+' MPa</strong></div>'+
             '<div class="util-bar-wrap"><div class="util-bar" style="width:'+Math.min(sigma_util,100).toFixed(1)+'%;background:'+getUtilColor(sigma_util)+'"></div></div>'+

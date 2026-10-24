@@ -303,11 +303,7 @@
 </style>
 </head>
 <body>
-<div style="background:#4a1010;border:2px solid #ff4444;border-radius:8px;padding:12px;margin:10px;color:#ffcccc;font-size:13px;line-height:1.7;">
-🚫 <b>本工具不可用（未完成）</b><br>
-2026-10-21 校验发现问题：此页面缺少可用的输入界面 / 计算逻辑，打开后无法正常使用。<br>
-<b>请勿用于任何实际计算。</b>等待重做后才会恢复。
-</div>
+
 
 
 <header>
@@ -356,6 +352,10 @@
         <div class="form-group" id="upfrontFeeGroup" style="display:none;">
           <label>前置手续费（元）</label>
           <input type="number" id="upfrontFee" value="500" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>每期另收费用（元，可选）</label>
+          <input type="number" id="periodFee" value="0" min="0" step="0.01" placeholder="如服务费/管理费，每月另收">
         </div>
         <div class="form-group">
           <label>商家宣传月费率（%，可选）</label>
@@ -441,7 +441,7 @@
       <p>以月费率 0.6%、12 期、本金 12000 元为例：</p>
       <ul>
         <li>宣传年化：0.6% × 12 = <span class="highlight-orange">7.2%</span></li>
-        <li>真实 IRR 年化：约 <span class="highlight-red">13.76%</span></li>
+        <li>真实 IRR 年化：约 <span class="highlight-red">13.84%</span></li>
         <li>差距：真实成本是宣传的 <strong>1.91 倍</strong></li>
       </ul>
 
@@ -483,6 +483,7 @@
         <li><strong>等额本金</strong>：每月还相同本金，利息逐月递减。需要额外输入月利率</li>
         <li><strong>先息后本</strong>：每月只还利息，最后一期还本金+利息。需要额外输入月利率</li>
         <li><strong>砍头息</strong>：放款时先扣手续费。需要额外输入前置手续费金额</li>
+        <li><strong>每期另收费用</strong>：有些产品除月供外，每月还另收服务费/管理费，填在「每期另收费用」里，会一并计入真实年化</li>
       </ul>
 
       <h3>3.5 商家宣传月费率（%，可选）</h3>
@@ -508,8 +509,8 @@
       <p><strong>结果</strong>：</p>
       <ul>
         <li>宣传年化：7.2%</li>
-        <li>真实年化（IRR）：约 <span class="highlight-red">13.76%</span></li>
-        <li>结论：真实成本是宣传的 <strong>1.91 倍</strong></li>
+        <li>真实年化（IRR 口径）：约 <span class="highlight-red">13.84%</span></li>
+        <li>结论：真实成本是宣传（7.2%）的 <strong>1.92 倍</strong></li>
       </ul>
 
       <h3>场景 2：网贷平台"低月供"陷阱</h3>
@@ -524,8 +525,8 @@
       <ul>
         <li>总还款：10800 元</li>
         <li>总利息：800 元</li>
-        <li>真实年化（IRR）：约 <span class="highlight-red">14.45%</span></li>
-        <li>结论：看似总利息不多，但真实年化并不低</li>
+        <li>真实年化（IRR 口径，不是名义口径）：约 <span class="highlight-red">15.45%</span></li>
+        <li>结论：看似总利息不多（800 元），但真实年化 15.45%，远高于「利息÷本金」的直觉算法（8%）</li>
       </ul>
 
       <h3>场景 3：消费金融产品对比</h3>
@@ -534,9 +535,9 @@
       <p><strong>方案 B</strong>：本金 6000 元，24 期，月供 300 元</p>
       <p><strong>对比结果</strong>：</p>
       <ul>
-        <li>方案 A 真实年化：约 <span class="highlight-red">13.5%</span></li>
-        <li>方案 B 真实年化：约 <span class="highlight-red">16.8%</span></li>
-        <li>结论：虽然方案 B 月供更低，但真实成本更高</li>
+        <li>方案 A 真实年化：约 <span class="highlight-red">19.53%</span></li>
+        <li>方案 B 真实年化：约 <span class="highlight-red">19.75%</span></li>
+        <li>结论：虽然方案 B 月供更低，但真实成本更高（19.75% vs 19.53%）</li>
       </ul>
 
       <h3>场景 4：砍头息识别</h3>
@@ -551,8 +552,8 @@
       </ul>
       <p><strong>结果</strong>：</p>
       <ul>
-        <li>真实年化（IRR）：约 <span class="highlight-red">19.5%</span></li>
-        <li>结论：看似月息不高，但砍头息让真实成本飙升</li>
+        <li>真实年化（IRR）：约 <span class="highlight-red">27.28%</span></li>
+        <li>结论：看似月息不高，但砍头息让真实成本从 15.45% 飙到 27.28%</li>
       </ul>
 
       <h3>场景 5：长期限贷款的真实成本</h3>
@@ -567,7 +568,7 @@
       <ul>
         <li>总还款：64800 元</li>
         <li>总利息：14800 元</li>
-        <li>真实年化（IRR）：约 <span class="highlight-red">19.3%</span></li>
+        <li>真实年化（IRR）：约 <span class="highlight-red">19.20%</span></li>
         <li>结论：期限越长，真实年化越容易被"低月供"掩盖</li>
       </ul>
 
@@ -667,79 +668,370 @@
   </section>
 </div>
 
-<div class="version">v2.0.0-完整版 20261021</div>
-
+<div class="version">v3.0.9-示例口径+按期费用 20261025</div>
 <script>
 /* ========================================================================
- * 第一部分：JS 源码 - 真实年化利率计算器核心算法
+ * 真实年化利率计算器 · 核心算法（v3.0.0 重修 20261025）
+ * 修复：原文件写到 744 行中断，缺 5 个函数，工具不可用
  * ======================================================================== */
 
 /**
- * 计算净现值 NPV (Net Present Value)
- * NPV = Σ(t=0 to n) [ CF_t / (1+rate)^t ]
- *
- * @param {number} rate - 贴现率（每期），必须大于 -1
- * @param {number[]} cashflows - 现金流数组，索引 0 为期初，正数表示现金流入，负数表示现金流出
- * @returns {number} NPV 值
- * @throws {Error} 当 rate 不是有效数字、rate <= -1、cashflows 不是非空数组、或现金流含非数字时抛出错误
- * @example
- * // 借款 10000，分两期各还 5500，贴现率 1%
- * calcNPV(0.01, [10000, -5500, -5500]); // 返回约 -940.59
+ * 计算净现值 NPV
+ * @param {number} rate - 每期贴现率
+ * @param {number[]} cashflows - 现金流数组，索引0为放款（正），之后为还款（负）
  */
 function calcNPV(rate, cashflows) {
-  if (typeof rate !== 'number' || isNaN(rate)) {
-    throw new Error('rate 必须是有效数字');
-  }
-  if (!Array.isArray(cashflows) || cashflows.length === 0) {
-    throw new Error('cashflows 必须是非空数组');
-  }
-  if (rate <= -1) {
-    throw new Error('rate 必须大于 -1');
-  }
+  if (typeof rate !== 'number' || isNaN(rate)) throw new Error('rate 必须是有效数字');
+  if (!Array.isArray(cashflows) || cashflows.length === 0) throw new Error('cashflows 必须是非空数组');
+  if (rate <= -1) throw new Error('rate 必须大于 -1');
   let npv = 0;
   for (let t = 0; t < cashflows.length; t++) {
     const cf = cashflows[t];
-    if (typeof cf !== 'number' || isNaN(cf)) {
-      throw new Error('第 ' + t + ' 期现金流必须是有效数字');
-    }
+    if (typeof cf !== 'number' || isNaN(cf)) throw new Error('第 ' + t + ' 期现金流必须是有效数字');
     npv += cf / Math.pow(1 + rate, t);
   }
   return npv;
 }
 
-/**
- * 用二分法求 IRR（作为牛顿法的兜底）
- *
- * @param {number[]} cashflows - 现金流数组
- * @param {number} [tol=1e-10] - 收敛容差
- * @param {number} [maxIter=1000] - 最大迭代次数
- * @returns {number} IRR（每期利率，小数形式）
- * @throws {Error} 无法收敛时抛出错误
- * @example
- * bisectIRR([1000, -1100]); // 返回 0.1
- */
+/** 二分法求 IRR（兜底算法） */
 function bisectIRR(cashflows, tol, maxIter) {
   tol = tol === undefined ? 1e-10 : tol;
   maxIter = maxIter === undefined ? 1000 : maxIter;
-  let low = -0.9999;
-  let high = 100;
-  let npvLow = calcNPV(low, cashflows);
-  let npvHigh = calcNPV(high, cashflows);
+  let low = -0.9999, high = 100;
+  let npvLow = calcNPV(low, cashflows), npvHigh = calcNPV(high, cashflows);
   if (npvLow * npvHigh > 0) {
     const ranges = [[-0.5, 1], [-0.9, 5], [-0.99, 50], [-0.999, 200], [-0.9999, 1000]];
+    let found = false;
     for (let i = 0; i < ranges.length; i++) {
-      const n1 = calcNPV(ranges[i][0], cashflows);
-      const n2 = calcNPV(ranges[i][1], cashflows);
-      if (n1 * n2 < 0) {
-        low = ranges[i][0];
-        high = ranges[i][1];
-        npvLow = n1;
-        npvHigh = n2;
-        break;
-      }
+      const n1 = calcNPV(ranges[i][0], cashflows), n2 = calcNPV(ranges[i][1], cashflows);
+      if (n1 * n2 < 0) { low = ranges[i][0]; high = ranges[i][1]; npvLow = n1; npvHigh = n2; found = true; break; }
     }
+    // v3.0.1 修复：遍历完所有区间还没找到符号变化 → 判定无解
+    //   典型场景：还款总额 ≤ 本金（借钱不用付利息），IRR 无意义
+    //   原来这里直接往下走，会返回边界值 100，算出一个假数字
+    if (!found) throw new Error('IRR 无解：还款总额不大于本金，实际是零利率或负利率');
   }
   for (let i = 0; i < maxIter; i++) {
     const mid = (low + high) / 2;
     const npv = calcNPV(mid, cashflows);
-    if (Math
+    if (Math.abs(npv) < tol) return mid;
+    if (npvLow * npv < 0) { high = mid; npvHigh = npv; } else { low = mid; npvLow = npv; }
+    if (high - low < tol) break;
+  }
+  return (low + high) / 2;
+}
+
+/** 牛顿-拉弗森法求 IRR（先试，快） */
+function newtonIRR(cashflows, guess, tol, maxIter) {
+  guess = guess === undefined ? 0.01 : guess;
+  tol = tol === undefined ? 1e-10 : tol;
+  maxIter = maxIter === undefined ? 100 : maxIter;
+  let rate = guess;
+  for (let i = 0; i < maxIter; i++) {
+    const npv = calcNPV(rate, cashflows);
+    if (Math.abs(npv) < tol) return rate;
+    // 数值微分
+    const h = 1e-6;
+    const d = (calcNPV(rate + h, cashflows) - calcNPV(rate - h, cashflows)) / (2 * h);
+    if (Math.abs(d) < 1e-12) break;
+    const next = rate - npv / d;
+    if (!isFinite(next) || next <= -1) break;
+    if (Math.abs(next - rate) < tol) return next;
+    rate = next;
+  }
+  return null;
+}
+
+/** 统一入口：先牛顿，失败走二分；最后校验结果合理性 */
+function irr(cashflows) {
+  const n = newtonIRR(cashflows);
+  let r = (n !== null && isFinite(n)) ? n : bisectIRR(cashflows);
+  // v3.0.1 修复：负数 IRR 在借贷场景不成立
+  //   借钱付利息，IRR 必然 > 0；算出负数说明「还款总额 < 本金」
+  //   典型：填反了本金和月供、或还款额小于借款额（等于对方倒贴）
+  //   这种情况不该返回一个 -50% 让人困惑，应当明确报错
+  const totalRepay = -cashflows.slice(1).reduce((a, b) => a + b, 0);
+  const principal = cashflows[0];
+  if (r <= 0) {
+    throw new Error('输入有误：还款总额（' + totalRepay.toFixed(2) +
+      ' 元）不大于借款本金（' + principal.toFixed(2) +
+      ' 元），不存在正向年化。请检查本金与月供是否填反');
+  }
+  // v3.0.1 补：年化 > 1000%（月息 > 22%）在正常借贷里不存在
+  //   典型场景：本金和每期还款填反了 —— 本金 1072、每期还 12000
+  const annualR = Math.pow(1 + r, 12) - 1;
+  if (annualR > 10) {
+    throw new Error('输入疑似有误：算出年化 ' + (annualR * 100).toFixed(0) +
+      '%，超过 1000%。正常借贷不存在这个利率，请检查本金与月供是否填反');
+  }
+  return r;
+}
+
+/** 生成现金流：放款为正，每期还款为负 */
+function buildCashflows(principal, periods, payment, upfrontFee) {
+  const cf = [principal - (upfrontFee || 0)];
+  for (let i = 0; i < periods; i++) cf.push(-payment);
+  return cf;
+}
+
+/** 等额本金：已知月利率反推每期还款额序列 */
+function equalPrincipalCashflows(principal, periods, monthlyRate) {
+  const cf = [principal];
+  const principalPart = principal / periods;
+  for (let i = 0; i < periods; i++) {
+    const interest = (principal - principalPart * i) * monthlyRate;
+    cf.push(-(principalPart + interest));
+  }
+  return cf;
+}
+
+/** 先息后本 */
+function interestFirstCashflows(principal, periods, monthlyRate) {
+  const cf = [principal];
+  for (let i = 0; i < periods; i++) {
+    const pay = (i === periods - 1) ? (principal + principal * monthlyRate) : (principal * monthlyRate);
+    cf.push(-pay);
+  }
+  return cf;
+}
+
+/** 年化 = (1+月IRR)^12 - 1 */
+function toAnnual(monthlyRate) {
+  return Math.pow(1 + monthlyRate, 12) - 1;
+}
+
+/* ═══════════ 界面逻辑 ═══════════ */
+
+function fmtPct(v) { return (v * 100).toFixed(2) + '%'; }
+function fmtMoney(v) { return v.toFixed(2) + ' 元'; }
+
+function calculateSingle() {
+  const box = document.getElementById('singleResult');
+  try {
+    const principal = parseFloat(document.getElementById('principal').value);
+    const periods = parseInt(document.getElementById('periods').value, 10);
+    const payment = parseFloat(document.getElementById('monthlyPayment').value);
+    const type = document.getElementById('repaymentType').value;
+    const monthlyRate = parseFloat(document.getElementById('monthlyRate').value) / 100;
+    const upfrontFee = parseFloat(document.getElementById('upfrontFee').value) || 0;
+    const periodFee = parseFloat(document.getElementById('periodFee').value) || 0;
+    const advertised = parseFloat(document.getElementById('advertisedRate').value);
+
+    if (!(principal > 0)) throw new Error('借款本金必须大于 0');
+    if (!(periods >= 1 && periods <= 360)) throw new Error('分期期数必须在 1~360 之间');
+    if (type === 'equal_installment' || type === 'upfront_fee') {
+      if (!(payment > 0)) throw new Error('每期还款额必须大于 0');
+    }
+    if ((type === 'equal_principal' || type === 'interest_first') && !(monthlyRate > 0)) {
+      throw new Error('该还款方式需要输入月利率');
+    }
+
+    let cf, totalPay;
+    if (type === 'equal_installment') {
+      // v3.0.9：每期另收费用计入实际还款额（社区 #209 反馈缺此字段）
+      cf = buildCashflows(principal, periods, payment + periodFee, 0);
+      totalPay = (payment + periodFee) * periods;
+    } else if (type === 'upfront_fee') {
+      cf = buildCashflows(principal, periods, payment + periodFee, upfrontFee);
+      totalPay = (payment + periodFee) * periods + upfrontFee;
+    } else if (type === 'equal_principal') {
+      cf = equalPrincipalCashflows(principal, periods, monthlyRate);
+      totalPay = -cf.slice(1).reduce((s, x) => s + x, 0);
+    } else {
+      cf = interestFirstCashflows(principal, periods, monthlyRate);
+      totalPay = -cf.slice(1).reduce((s, x) => s + x, 0);
+    }
+
+    const monthlyIRR = irr(cf);
+    const annual = toAnnual(monthlyIRR);
+    const totalInterest = totalPay - principal;
+    const nominal = advertised > 0 ? (advertised / 100) * 12 : null;
+
+    let html = '<div class="result-box">';
+    html += '<div class="result-main">真实年化 ' + fmtPct(annual) + '</div>';
+    html += '<div class="result-sub">月利率 ' + fmtPct(monthlyIRR) + '</div>';
+    html += '<table class="result-table">';
+    html += '<tr><td>借款本金</td><td>' + fmtMoney(principal) + '</td></tr>';
+    html += '<tr><td>总还款额</td><td>' + fmtMoney(totalPay) + '</td></tr>';
+    if (periodFee > 0) {
+      html += '<tr><td>每期另收费用</td><td>' + fmtMoney(periodFee) + ' × ' + periods + ' 期 = ' + fmtMoney(periodFee * periods) + '</td></tr>';
+    }
+    html += '<tr><td>总利息成本</td><td style="color:#c00">' + fmtMoney(totalInterest) + '</td></tr>';
+    if (nominal !== null) {
+      html += '<tr><td>宣传"名义年化"</td><td>' + fmtPct(nominal) + '</td></tr>';
+      const diff = annual - nominal;
+      html += '<tr><td>真实比宣传高</td><td style="color:#c00;font-weight:600">' + fmtPct(diff) + '（' + (annual / nominal).toFixed(2) + ' 倍）</td></tr>';
+    }
+    html += '</table>';
+    if (annual > 0.24) {
+      html += '<div class="alert-red">⚠️ 年化超过 24%，已超出司法保护上限（LPR 4 倍）</div>';
+    } else if (annual > 0.154) {
+      html += '<div class="alert-yellow">⚠️ 年化超过 15.4%，请谨慎评估</div>';
+    }
+    html += '</div>';
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = '<div class="alert-red">计算失败：' + e.message + '</div>';
+  }
+}
+
+function resetSingle() {
+  document.getElementById('principal').value = 12000;
+  document.getElementById('periods').value = 12;
+  document.getElementById('monthlyPayment').value = 1072;
+  document.getElementById('repaymentType').value = 'equal_installment';
+  document.getElementById('monthlyRate').value = 1;
+  document.getElementById('upfrontFee').value = 500;
+  document.getElementById('periodFee').value = 0;
+  document.getElementById('advertisedRate').value = 0.6;
+  document.getElementById('singleResult').innerHTML = '';
+  document.getElementById('monthlyRateGroup').style.display = 'none';
+  document.getElementById('upfrontFeeGroup').style.display = 'none';
+}
+
+let schemeCount = 2;
+function addScheme() {
+  if (schemeCount >= 3) { alert('最多对比 3 个方案'); return; }
+  const names = ['A', 'B', 'C'];
+  const div = document.createElement('div');
+  div.className = 'loan-scheme';
+  div.dataset.index = schemeCount;
+  div.innerHTML = '<h3>方案 ' + names[schemeCount] + '</h3>' +
+    '<div class="form-grid">' +
+    '<div class="form-group"><label>本金（元）</label><input type="number" class="scheme-principal" value="10000" min="0.01" step="0.01"></div>' +
+    '<div class="form-group"><label>期数（月）</label><input type="number" class="scheme-periods" value="12" min="1" max="360" step="1"></div>' +
+    '<div class="form-group"><label>月供（元）</label><input type="number" class="scheme-payment" value="900" min="0.01" step="0.01"></div>' +
+    '</div>';
+  document.getElementById('loanSchemes').appendChild(div);
+  schemeCount++;
+}
+
+function compareSchemes() {
+  const box = document.getElementById('compareResult');
+  try {
+    const rows = [];
+    document.querySelectorAll('#loanSchemes .loan-scheme').forEach((el, i) => {
+      const p = parseFloat(el.querySelector('.scheme-principal').value);
+      const n = parseInt(el.querySelector('.scheme-periods').value, 10);
+      const pay = parseFloat(el.querySelector('.scheme-payment').value);
+      if (!(p > 0) || !(n >= 1) || !(pay > 0)) throw new Error('方案 ' + ['A','B','C'][i] + ' 输入不完整');
+      const cf = buildCashflows(p, n, pay, 0);
+      const annual = toAnnual(irr(cf));
+      rows.push({ name: '方案 ' + ['A','B','C'][i], p, n, pay,
+                  total: pay * n, interest: pay * n - p, annual });
+    });
+    rows.sort((a, b) => a.annual - b.annual);
+    let html = '<table class="result-table" style="width:100%"><tr><th>方案</th><th>本金</th><th>期数</th><th>总利息</th><th>真实年化</th></tr>';
+    rows.forEach((r, i) => {
+      html += '<tr' + (i === 0 ? ' style="background:#e8f5e9"' : '') + '>' +
+        '<td>' + r.name + (i === 0 ? ' ✅最便宜' : '') + '</td>' +
+        '<td>' + fmtMoney(r.p) + '</td><td>' + r.n + ' 期</td>' +
+        '<td>' + fmtMoney(r.interest) + '</td>' +
+        '<td style="color:#c00;font-weight:600">' + fmtPct(r.annual) + '</td></tr>';
+    });
+    html += '</table>';
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = '<div class="alert-red">对比失败：' + e.message + '</div>';
+  }
+}
+
+/* ═══════════ 单元测试 ═══════════ */
+function runAllTests() {
+  const out = document.getElementById('testResult');
+  const results = [];
+  function t(name, fn, expect) {
+    try {
+      const got = fn();
+      const ok = typeof expect === 'function' ? expect(got) : Math.abs(got - expect) < 1e-6;
+      results.push({ name, ok, got });
+    } catch (e) {
+      results.push({ name, ok: false, got: 'ERR: ' + e.message });
+    }
+  }
+  function tThrow(name, fn) {
+    try { fn(); results.push({ name, ok: false, got: '未抛错' }); }
+    catch (e) { results.push({ name, ok: true, got: '已抛错' }); }
+  }
+
+  // NPV 基础
+  t('NPV 单期', () => calcNPV(0.1, [1000, -1100]), -0.0);
+  t('NPV 零利率求和', () => calcNPV(0, [100, -50, -50]), 0);
+  tThrow('NPV rate 非数字', () => calcNPV(NaN, [1]));
+  tThrow('NPV 空数组', () => calcNPV(0.1, []));
+  tThrow('NPV rate <= -1', () => calcNPV(-1, [1]));
+
+  // IRR
+  t('IRR 简单两期', () => irr([1000, -1100]), 0.1);
+  t('IRR 12期等额', () => toAnnual(irr(buildCashflows(12000, 12, 1072, 0))), 0.1376, (v) => Math.abs(v - 0.1376) < 0.005);
+  t('IRR 无解检测', () => { try { irr([1000, -500]); return 'no-throw'; } catch (e) { return 'threw'; } }, 'threw');
+
+  // 砍头息
+  t('砍头息拉高年化', () => {
+    const a1 = toAnnual(irr(buildCashflows(12000, 12, 1072, 0)));
+    const a2 = toAnnual(irr(buildCashflows(12000, 12, 1072, 500)));
+    return a2 > a1 ? 1 : 0;
+  }, 1);
+
+  // 等额本金
+  t('等额本金现金流长度', () => equalPrincipalCashflows(12000, 12, 0.01).length, 13);
+  t('等额本金逐期递减', () => {
+    const cf = equalPrincipalCashflows(12000, 12, 0.01);
+    for (let i = 2; i < cf.length; i++) if (cf[i] < cf[i - 1]) return 'bad';
+    return 'ok';
+  }, 'ok');
+
+  // 先息后本
+  t('先息后本末期最大', () => {
+    const cf = interestFirstCashflows(12000, 12, 0.01);
+    const last = Math.abs(cf[cf.length - 1]);
+    for (let i = 1; i < cf.length - 1; i++) if (Math.abs(cf[i]) >= last) return 'bad';
+    return 'ok';
+  }, 'ok');
+
+  // 年化换算
+  t('月1% → 年化', () => toAnnual(0.01), 0.1268, (v) => Math.abs(v - 0.126825) < 0.001);
+  t('0 利率', () => toAnnual(0), 0);
+
+  // 边界
+  t('1期等于本金无息', () => irr([1000, -1000]), 0);
+  t('期数 1 且高息', () => toAnnual(irr([1000, -1200])), 0.2, (v) => Math.abs(v - 0.2) < 0.001);
+
+  const pass = results.filter(r => r.ok).length;
+  let html = '<div class="result-box"><div class="result-main" style="color:' +
+    (pass === results.length ? '#2e7d32' : '#c00') + '">' + pass + ' / ' + results.length + ' 通过</div>';
+  html += '<table class="result-table" style="width:100%">';
+  results.forEach(r => {
+    html += '<tr><td>' + (r.ok ? '✅' : '❌') + ' ' + r.name + '</td><td style="color:#666">' +
+      (typeof r.got === 'number' ? r.got.toFixed(6) : r.got) + '</td></tr>';
+  });
+  html += '</table></div>';
+  out.innerHTML = html;
+}
+
+/* ═══════════ 初始化 ═══════════ */
+document.addEventListener('DOMContentLoaded', function () {
+  // 标签页切换
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.tab).classList.add('active');
+    });
+  });
+  // 还款方式联动
+  const sel = document.getElementById('repaymentType');
+  if (sel) {
+    sel.addEventListener('change', () => {
+      const v = sel.value;
+      document.getElementById('monthlyRateGroup').style.display =
+        (v === 'equal_principal' || v === 'interest_first') ? 'block' : 'none';
+      document.getElementById('upfrontFeeGroup').style.display =
+        (v === 'upfront_fee') ? 'block' : 'none';
+    });
+  }
+});
+</script>
+</body>
+</html>

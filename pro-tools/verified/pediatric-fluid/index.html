@@ -250,6 +250,7 @@ h1 {
       </table>
       <p style="margin-top:14px;">每小时维持量：<span id="resHourly" class="highlight-val"></span> mL/h</p>
       <p>每日维持量：<span id="resDaily" class="highlight-val"></span> mL/d</p>
+      <div id="capNote" style="display:none;margin-top:14px;padding:10px 12px;border-radius:6px;font-size:13px;line-height:1.7;background:#fff4e5;color:#8a5a00;border-left:3px solid #f0a020"></div>
     </div>
 
     <div class="warning-box">
@@ -542,12 +543,25 @@ function calculateMaintenanceFluid(weightKg) {
     hourlyRate += remaining * 1;
   }
 
+  // ═══ v3.0.0 修复（20261025，社区 #212 反馈）：加 100 mL/h 封顶 ═══
+  //  临床通行做法：4-2-1 法则算出后，成人/大体重儿童一般不超过 100 mL/h
+  //  否则 100 kg 算出 140 mL/h，超出生理维持量的合理上限
+  //  封顶值可参考：Nelson Textbook of Pediatrics / 各院儿科补液常规
+  var rawHourlyRate = hourlyRate;
+  var capped = false;
+  if (rawHourlyRate > 100) {
+    hourlyRate = 100;
+    capped = true;
+  }
+
   var dailyVolume = hourlyRate * 24;
 
   return {
     valid: true,
     weight: weightKg,
     hourlyRate: hourlyRate,
+    rawHourlyRate: rawHourlyRate,
+    capped: capped,
     dailyVolume: dailyVolume,
     segments: segments
   };
@@ -581,6 +595,20 @@ function calculate() {
   document.getElementById('resWeight').textContent = result.weight;
   document.getElementById('resHourly').textContent = roundTo1(result.hourlyRate);
   document.getElementById('resDaily').textContent = roundTo1(result.dailyVolume);
+  // v3.0.0：封顶时给出明确提示（固定元素，不再动态插入）
+  var capNote = document.getElementById('capNote');
+  if (capNote) {
+    if (result.capped) {
+      capNote.style.display = 'block';
+      capNote.innerHTML = '⚠️ 已按 100 mL/h 封顶：4-2-1 公式原始值为 ' +
+        roundTo1(result.rawHourlyRate) + ' mL/h，超过常规维持量上限，' +
+        '已限制为 100 mL/h（2400 mL/d）。<br>' +
+        '<span style="font-size:12px;color:#a07840">依据：临床儿科补液常规，成人及大体重患儿维持量一般不超过 100 mL/h。</span>';
+    } else {
+      capNote.style.display = 'none';
+      capNote.innerHTML = '';
+    }
+  }
 
   var tbody = document.getElementById('detailBody');
   tbody.innerHTML = '';
@@ -685,11 +713,11 @@ function runAllTests() {
       expectSegments: 1
     },
     {
-      name: '测试 5：最高有效体重 100 kg（上边界）',
-      desc: '验证 100 kg：40+20+80=140 mL/h，3360 mL/d',
+      name: '测试 5：最高有效体重 100 kg（上边界，触发封顶）',
+      desc: '验证 100 kg：原始 40+20+80=140 mL/h，封顶后 100 mL/h，2400 mL/d',
       input: 100,
-      expectHourly: 140,
-      expectDaily: 3360,
+      expectHourly: 100,
+      expectDaily: 2400,
       expectValid: true,
       expectSegments: 3
     },

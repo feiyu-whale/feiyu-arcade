@@ -131,12 +131,70 @@
 </header>
 
 <div class="tabs">
-  <div class="tab active" data-tab="source">一、JS 源码</div>
-  <div class="tab" data-tab="test">二、单元测试</div>
-  <div class="tab" data-tab="doc">三、使用说明书</div>
+  <div class="tab active" data-tab="calc">🧮 计算器</div>
+  <div class="tab" data-tab="source">源码</div>
+  <div class="tab" data-tab="test">单元测试</div>
+  <div class="tab" data-tab="doc">使用说明</div>
 </div>
 
-<div class="panel active" id="panel-source">
+<div class="panel active" id="panel-calc">
+  <div class="warning">
+    <strong>⚠️ 提醒：</strong>卡路里为理论估算值。<strong>血液酒精浓度（BAC）绝不能用来判断能否开车</strong>，实际受空腹、肝功能、耐受度等影响极大，请以交警检测为准。
+  </div>
+  <div class="card">
+    <h2>酒类卡路里换算</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>酒类</label>
+        <select id="acCategory">
+          <option value="啤酒">啤酒</option>
+          <option value="白酒">白酒</option>
+          <option value="红酒">红酒</option>
+          <option value="黄酒">黄酒</option>
+          <option value="威士忌">威士忌</option>
+          <option value="伏特加">伏特加</option>
+          <option value="朗姆酒">朗姆酒</option>
+          <option value="白兰地">白兰地</option>
+          <option value="清酒">清酒</option>
+          <option value="米酒">米酒</option>
+          <option value="自定义">自定义</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>酒精度（%vol）</label>
+        <input type="number" id="acAbv" value="4.5" min="0" max="100" step="0.1">
+      </div>
+      <div class="form-group">
+        <label>饮用量（ml）</label>
+        <input type="number" id="acVolume" value="500" min="0" max="100000" step="1">
+      </div>
+      <div class="form-group">
+        <label>碳水化合物（g/100ml，可留空）</label>
+        <input type="number" id="acCarb" value="" min="0" max="100" step="0.1" placeholder="留空则用品类典型值">
+      </div>
+      <div class="form-group">
+        <label>体重（kg，用于 BAC 估算）</label>
+        <input type="number" id="acWeight" value="70" min="20" max="300" step="1">
+      </div>
+      <div class="form-group">
+        <label>性别</label>
+        <select id="acGender">
+          <option value="male">男</option>
+          <option value="female">女</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>已过时间（小时）</label>
+        <input type="number" id="acHours" value="0" min="0" max="200" step="0.5">
+      </div>
+    </div>
+    <button class="btn" onclick="acCalculate()">🔎 换算</button>
+    <button class="btn btn-secondary" onclick="acReset()">重置</button>
+    <div id="acResult"></div>
+  </div>
+</div>
+
+<div class="panel" id="panel-source">
   <div class="warning">
     <strong>⚠️ 重要提示：</strong>本工具所有计算结果均为理论估算值，<strong>血液酒精浓度（BAC）绝不能用来判断能否开车</strong>。实际 BAC 受空腹/饱腹、肝功能、个体耐受度、饮酒速度、是否混饮等多因素影响，差异极大。驾驶前请以交警呼气/血液检测为准。
   </div>
@@ -155,7 +213,7 @@
   <div id="doc-content"></div>
 </div>
 
-<div class="version">v2.0.0-完整版 20261021</div>
+<div class="version">v3.0.0-加交互界面 20261025</div>
 
 <script>
 /* ============================================================
@@ -1059,6 +1117,67 @@ const resultHtml = testResult.logs.map(line => {
   return line;
 }).join('\n');
 resultEl.innerHTML = resultHtml;
+
+// ═══ v3.0.0 新增：计算器交互 ═══
+function acCalculate() {
+  const box = document.getElementById('acResult');
+  try {
+    const category = document.getElementById('acCategory').value;
+    const abv = parseFloat(document.getElementById('acAbv').value);
+    const volume = parseFloat(document.getElementById('acVolume').value);
+    const carbRaw = document.getElementById('acCarb').value;
+    const carb = carbRaw === '' ? undefined : parseFloat(carbRaw);
+    const weight = parseFloat(document.getElementById('acWeight').value);
+    const gender = document.getElementById('acGender').value;
+    const hours = parseFloat(document.getElementById('acHours').value) || 0;
+
+    if (!(volume > 0)) throw new Error('饮用量必须大于 0');
+    if (!(abv > 0)) throw new Error('酒精度必须大于 0');
+    if (abv > 100) throw new Error('酒精度不能超过 100%vol');
+
+    const opts = { category, abvPercent: abv, volumeMl: volume, weightKg: weight, gender, hoursElapsed: hours };
+    if (carb !== undefined && !isNaN(carb)) opts.carbPer100ml = carb;
+    const r = analyzeDrink(opts);
+
+    let html = '<div class="result-box">';
+    html += '<div class="result-main">' + r.totalKcal.toFixed(1) + ' kcal</div>';
+    html += '<div class="result-sub">约 ' + r.standardDrinks.toFixed(2) + ' 个标准杯（1 标准杯 = 10g 纯酒精）</div>';
+    html += '<table class="result-table">';
+    html += '<tr><td>纯酒精量</td><td>' + r.alcoholGrams.toFixed(1) + ' g</td></tr>';
+    html += '<tr><td>酒精热量</td><td>' + r.alcoholKcal.toFixed(1) + ' kcal</td></tr>';
+    html += '<tr><td>碳水热量</td><td>' + r.carbKcal.toFixed(1) + ' kcal（' + r.carbPer100ml + ' g/100ml）</td></tr>';
+    html += '<tr><td>理论 BAC</td><td style="color:' + (r.bacPerMille >= 0.2 ? '#c00' : '#666') + ';font-weight:600">' + r.bacPerMille.toFixed(3) + ' ‰</td></tr>';
+    html += '</table>';
+    html += '<div style="margin-top:12px;padding:10px;border-radius:6px;background:' +
+      (r.bacPerMille >= 0.2 ? '#ffe6e6' : '#f5f5f7') + ';color:' +
+      (r.bacPerMille >= 0.2 ? '#c00' : '#666') + ';font-size:13px">' + r.bacWarning + '</div>';
+    html += '</div>';
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = '<div style="color:#c00;padding:12px">计算失败：' + e.message + '</div>';
+  }
+}
+
+function acReset() {
+  document.getElementById('acCategory').value = '啤酒';
+  document.getElementById('acAbv').value = 4.5;
+  document.getElementById('acVolume').value = 500;
+  document.getElementById('acCarb').value = '';
+  document.getElementById('acWeight').value = 70;
+  document.getElementById('acGender').value = 'male';
+  document.getElementById('acHours').value = 0;
+  document.getElementById('acResult').innerHTML = '';
+}
+
+// 品类切换 → 自动填典型酒精度
+document.getElementById('acCategory').addEventListener('change', function () {
+  const c = this.value;
+  const t = TYPICAL_ABV[c];
+  if (t && t.typical > 0) document.getElementById('acAbv').value = t.typical;
+  const carb = TYPICAL_CARB[c];
+  document.getElementById('acCarb').value = '';
+  document.getElementById('acCarb').placeholder = carb ? '典型值 ' + carb.typical : '留空则用品类典型值';
+});
 
 // 标签页切换
 document.querySelectorAll('.tab').forEach(tab => {
