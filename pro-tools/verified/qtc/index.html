@@ -350,7 +350,7 @@ header p { font-size: 0.92em; opacity: 0.88; margin-top: 6px; }
         <li><strong>Bazett 校正：</strong>计算 √RR，然后 QTc_Bazett = QT / √RR。例如 QT = 400 ms，RR = 0.833 s → √0.833 ≈ 0.913 → QTc = 400/0.913 ≈ 438 ms。</li>
         <li><strong>Fridericia 校正：</strong>计算 ∛RR，然后 QTc_Fridericia = QT / ∛RR。例如 QT = 400 ms，RR = 0.833 s → ∛0.833 ≈ 0.941 → QTc = 400/0.941 ≈ 425 ms。</li>
         <li><strong>Framingham 校正：</strong>QTc_Framingham = QT + 154 × (1 − RR)。例如 QT = 400 ms，RR = 0.833 s → QTc = 400 + 154 × 0.167 ≈ 426 ms。</li>
-        <li><strong>风险分层：</strong>根据性别判断 QTc 是否延长。男性阈值 450 ms，女性阈值 460 ms（部分文献采用 470 ms）。QTc > 500 ms 为高度心律失常风险。</li>
+        <li><strong>风险分层：</strong>根据性别判断 QTc 是否延长。男性阈值 450 ms，女性阈值 470 ms（AHA/ACCF/HRS 2009 建议值；部分旧文献用 460 ms）。QTc > 500 ms 为高度心律失常风险。</li>
       </ol>
     </div>
 
@@ -379,7 +379,7 @@ header p { font-size: 0.92em; opacity: 0.88; margin-top: 6px; }
       <p>QTc 间期反映心室复极化的时间长度，是预测恶性室性心律失常（尤其是尖端扭转型室速，TdP）的重要指标。</p>
       <p><strong>临床意义：</strong></p>
       <ul>
-        <li>QTc 450–500 ms（男性）或 460–500 ms（女性）：边界延长，需关注潜在可逆因素（药物、电解质）。</li>
+        <li>QTc 450–500 ms（男性）或 470–500 ms（女性）：边界延长，需关注潜在可逆因素（药物、电解质）。</li>
         <li>QTc > 500 ms：高度风险区间，TdP 发生率显著增加。需紧急评估并处理可逆因素，考虑心电监护。</li>
         <li>QTc 变化量（ΔQTc）：某些场景下，QTc 较基线延长 > 60 ms 比绝对值更有临床意义。</li>
       </ul>
@@ -477,7 +477,7 @@ header p { font-size: 0.92em; opacity: 0.88; margin-top: 6px; }
         <li>Fridericia LS. Die Systolendauer im Elektrokardiogramm bei normalen Menschen und bei Patienten mit Morbus Addison. <em>Acta Medica Scandinavica</em>. 1920;53:469-486. ✓ 已核实</li>
         <li>Sagie A, Larson MG, Goldberg RJ, Bengtson JR, Levy D. An improved method for adjusting the QT interval for heart rate (the Framingham Heart Study). <em>Am J Cardiol</em>. 1992;70(7):797-801. ✓ 已核实</li>
       </ol>
-      <p style="margin-top:10px;">QTc 延长阈值（男性 >450 ms，女性 >460 ms）参考自：Rautaharju PM, Surawicz B, Kligfield P, et al. AHA/ACCF/HRS recommendations for the standardization and interpretation of the electrocardiogram. <em>J Am Coll Cardiol</em>. 2009;53(11):997-1002. 及 Vandenberk B, Janssens E, Mortelmans L, et al. QTc interval correction in medical practice: which formula to use? <em>Acta Cardiol</em>. 2017;72(1):6-12.</p>
+      <p style="margin-top:10px;">QTc 延长阈值（男性 >450 ms，女性 >470 ms）参考自：Rautaharju PM, Surawicz B, Kligfield P, et al. AHA/ACCF/HRS recommendations for the standardization and interpretation of the electrocardiogram. <em>J Am Coll Cardiol</em>. 2009;53(11):997-1002. 及 Vandenberk B, Janssens E, Mortelmans L, et al. QTc interval correction in medical practice: which formula to use? <em>Acta Cardiol</em>. 2017;72(1):6-12.</p>
     </div>
 
     <div class="safety-section" style="background:#eafaf1; border-color:#a9dfbf;">
@@ -583,7 +583,7 @@ function assessRisk(qtc, gender) {
   if (qtc > 500) {
     return { level: 'high', label: '⚠ 高度风险 (QTc > 500 ms)', cssClass: 'risk-high' };
   }
-  var threshold = (gender === 'female') ? 460 : 450;
+  var threshold = (gender === 'female') ? 470 : 450;
   if (qtc > threshold) {
     return { level: 'prolonged', label: '延长 (>' + threshold + ' ms)', cssClass: 'risk-prolonged' };
   }

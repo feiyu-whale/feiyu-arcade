@@ -284,8 +284,8 @@ header p { opacity: 0.9; font-size: 0.95em; }
     <div class="form-grid">
       <div class="form-group">
         <label for="age">年龄（岁）</label>
-        <input type="number" id="age" min="1" max="120" step="1" placeholder="例：65">
-        <span class="hint">范围：1–120 岁</span>
+        <input type="number" id="age" min="18" max="120" step="1" placeholder="例：65">
+        <span class="hint">范围：18–120 岁（本工具仅适用成人，儿童剂量需按体重/体表面积另算）</span>
       </div>
       <div class="form-group">
         <label for="sex">性别</label>
@@ -395,7 +395,7 @@ header p { opacity: 0.9; font-size: 0.95em; }
     <div class="doc-section">
       <h3>三、计算步骤逐步解释</h3>
       <ol>
-        <li><strong>输入校验</strong>：检查年龄（1–120）、体重（>0）、Scr（>0）是否在合理范围内。若身高已填写，用于肥胖评估。</li>
+        <li><strong>输入校验</strong>：检查年龄（18–120，仅限成人）、体重（>0）、Scr（>0）是否在合理范围内。若身高已填写，用于肥胖评估。</li>
         <li><strong>CrCl 计算</strong>：代入 Cockcroft-Gault 公式。若为女性，结果乘以 0.85。若结果 < 0，标记为异常。</li>
         <li><strong>体重选择</strong>：若提供了身高且实际体重 > 120% IBW，使用调整体重（AdjBW）计算剂量；否则使用实际体重。</li>
         <li><strong>单次剂量计算</strong>：根据感染严重程度选择 15 或 20 mg/kg，乘以所选体重。</li>
@@ -544,7 +544,7 @@ header p { opacity: 0.9; font-size: 0.95em; }
  * Cockcroft DW, Gault MH. Prediction of creatinine clearance from serum creatinine.
  * Nephron. 1976;16(1):31-41. doi:10.1159/000180580
  *
- * @param {number} age - 患者年龄（岁），范围 1-120
+ * @param {number} age - 患者年龄（岁），范围 18-120（仅成人）
  * @param {number} weight - 体重（kg），> 0
  * @param {number} scr - 血清肌酐（mg/dL），> 0
  * @param {string} sex - 性别，'male' 或 'female'
