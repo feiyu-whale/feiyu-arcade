@@ -157,7 +157,7 @@ h2.section-title { color: #2c3e50; margin-bottom: 15px; font-size: 20px; }
     <div class="doc-content" id="docContent"></div>
   </section>
 </main>
-<div class="version-tag">v2.0.0-完整版 20261021</div>
+<div class="version-tag">v2.0.1-修-eval作用域 20261025</div>
 
 <script>
 /* ============================================================
@@ -491,7 +491,12 @@ function selectCable(params) {
 }`;
 
 // 执行核心代码（使函数在全局可用）
-eval(CORE_SOURCE);
+// 注意：CORE_SOURCE 头部带 'use strict'，直接 eval 会让函数声明锁在 eval 自身作用域里，
+// 外部（UI 按钮、测试）全都拿不到 selectCable 等函数。故剥掉指令序言后再求值。
+(function () {
+  var src = CORE_SOURCE.replace(/^s*'use strict';?/, '').replace(/^s*"use strict";?/, '');
+  (0, eval)(src);
+})();
 
 /* ============================================================
    第二部分：单元测试（纯 JS 实现，至少 30 个用例）

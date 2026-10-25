@@ -230,13 +230,13 @@
     </div>
 
     <h2>八、版本信息</h2>
-    <p>版本：v2.0.0-完整版 20261021</p>
+    <p>版本：v2.0.1-修-限值字段 20261025</p>
     <p>核心算法：纯 JavaScript 实现，无外部依赖，可在浏览器直接运行。</p>
     <p>测试覆盖：30+ 单元测试，覆盖正常值、边界值、异常输入、精度问题。</p>
   </div>
 </div>
 
-<div class="version">v2.0.0-完整版 20261021</div>
+<div class="version">v2.0.1-修-限值字段 20261025</div>
 
 <script>
 /* ============================================================
@@ -695,7 +695,7 @@ function calculate() {
     <p>电缆总截面积：<strong>${d.totalArea.toFixed(2)} mm²</strong></p>
     <p>理论所需最小宽度：<strong>${d.requiredWidth.toFixed(2)} mm</strong></p>
     <p>推荐标准桥架宽度：<strong>${d.recommendedWidth} mm</strong>（高度 ${trayHeight} mm）</p>
-    <p>实际填充率：<strong>${(d.fillRate * 100).toFixed(2)}%</strong>（限值 ${(d.limit * 100).toFixed(0)}%）</p>
+    <p>实际填充率：<strong>${(d.fillRate * 100).toFixed(2)}%</strong>（限值 ${(d.fillLimit * 100).toFixed(0)}%）</p>
     <p>裕量：<strong>${(d.margin * 100).toFixed(2)}%</strong></p>
     <p>校核结论：<strong style="color:${d.pass ? 'green' : 'red'}">${d.pass ? '✓ 满足要求' : '✗ 不满足要求'}</strong></p>`;
   if (d.warning) html += `<p style="color:#fa8c16;">⚠ ${d.warning}</p>`;

@@ -387,7 +387,7 @@
 <div class="panel manual" id="panel-manual">
   <div class="card">
     <h2>《网线光纤线序与传输距离查询工具》使用说明书</h2>
-    <p style="color:#666;font-size:12px;">版本 v2.0.0-完整版 · 2026-10-21</p>
+    <p style="color:#666;font-size:12px;">版本 v2.0.1-修-光纤速率表 20261025</p>
 
     <h3>一、工具简介</h3>
     <p>本工具面向网络工程师、弱电施工人员、IT 运维及计算机相关专业学生，提供结构化布线中常用的线序、线缆规格、光纤参数、PoE 供电等基础数据的快速查询。所有数据均来源于国际/国内公开标准，不依赖网络，可在离线环境下使用。</p>
@@ -522,7 +522,7 @@
   </div>
 </div>
 
-<div class="version">v2.0.0-完整版 20261021</div>
+<div class="version">v2.0.1-修-光纤速率表 20261025</div>
 
 <script>
 /* ============================================================
@@ -666,7 +666,9 @@ const FIBER_SPECS = {
     coreCladding: '9 / 125 μm',
     wavelength: '1310 / 1550 nm',
     distance: '2 km（1 Gbps，室内典型）',
-    distanceNote: '精确距离需查光模块与光纤衰减系数',
+    distanceBySpeed: { '100M': '2000 m', '1G': '2000 m', '10G': '2000 m' },
+    distanceNote: 'OS1 为室内单模，实际距离受光模块功率与衰减限制；精确值需查光模块与光纤衰减系数',
+    source: 'ISO/IEC 11801-1、IEC 60793-2-50（OS1 衰减等级）；距离为常用工程值，非标准硬性规定',
     application: '室内单模骨干、楼内长距',
     standard: 'ISO/IEC 11801 / TIA-568'
   },
@@ -675,7 +677,9 @@ const FIBER_SPECS = {
     coreCladding: '9 / 125 μm',
     wavelength: '1310 / 1550 nm',
     distance: '10 km+（1 Gbps，室外典型）',
-    distanceNote: '可达 40/80 km（需配合相应光模块）',
+    distanceBySpeed: { '1G': '10000 m+', '10G': '10000 m+', '40G': '10000 m+', '100G': '10000 m+' },
+    distanceNote: '可达 40/80 km（需配合相应光模块，如 1000BASE-ZX / 10GBASE-ZR）',
+    source: 'ISO/IEC 11801-1、IEC 60793-2-50（OS2 低水峰单模）；具体速率距离见 IEEE 802.3 各 PMD 条款',
     application: '室外骨干、园区、城域',
     standard: 'ISO/IEC 11801 / TIA-568'
   },
@@ -684,7 +688,9 @@ const FIBER_SPECS = {
     coreCladding: '62.5 / 125 μm',
     wavelength: '850 / 1300 nm',
     emb: '200 MHz·km @850nm',
-    distance: '33 m @1 Gbps；275 m @100 Mbps',
+    distance: '275 m @100 Mbps；33 m @1 Gbps',
+    distanceBySpeed: { '100M': '275 m', '1G': '33 m' },
+    source: 'ISO/IEC 11801-1（OM1）、TIA-492AAAB；速率距离见 IEEE 802.3 100BASE-FX / 1000BASE-SX',
     application: '旧有系统，不推荐新装',
     standard: 'ISO/IEC 11801 / TIA-492AAAB'
   },
@@ -693,7 +699,9 @@ const FIBER_SPECS = {
     coreCladding: '50 / 125 μm',
     wavelength: '850 / 1300 nm',
     emb: '500 MHz·km @850nm',
-    distance: '82 m @1 Gbps；550 m @100 Mbps',
+    distance: '550 m @100 Mbps；82 m @1 Gbps',
+    distanceBySpeed: { '100M': '550 m', '1G': '82 m' },
+    source: 'ISO/IEC 11801-1（OM2）、TIA-492AAAC；速率距离见 IEEE 802.3 100BASE-FX / 1000BASE-SX',
     application: '短距多模，逐步被 OM3/OM4 替代',
     standard: 'ISO/IEC 11801 / TIA-492AAAC'
   },
@@ -702,7 +710,9 @@ const FIBER_SPECS = {
     coreCladding: '50 / 125 μm',
     wavelength: '850 nm（VCSEL）',
     emb: '2000 MHz·km @850nm',
-    distance: '300 m @1 Gbps；100 m @10 Gbps',
+    distance: '1000 m @1 Gbps；300 m @10 Gbps；100 m @40/100 Gbps',
+    distanceBySpeed: { '1G': '1000 m', '10G': '300 m', '40G': '100 m', '100G': '100 m' },
+    source: 'ISO/IEC 11801-1（OM3）、TIA-492AAAD；速率距离见 IEEE 802.3 1000BASE-SX / 10GBASE-SR / 40GBASE-SR4 / 100GBASE-SR10',
     application: '数据中心 10G 短距',
     standard: 'ISO/IEC 11801 / TIA-492AAAD'
   },
@@ -711,7 +721,9 @@ const FIBER_SPECS = {
     coreCladding: '50 / 125 μm',
     wavelength: '850 nm（VCSEL）',
     emb: '4700 MHz·km @850nm',
-    distance: '550 m @1 Gbps；150 m @10 Gbps；100 m @40/100 G（需查标准原文）',
+    distance: '1000 m @1 Gbps；550 m @10 Gbps；150 m @40/100 Gbps',
+    distanceBySpeed: { '1G': '1000 m', '10G': '550 m', '40G': '150 m', '100G': '150 m' },
+    source: 'ISO/IEC 11801-1（OM4）、TIA-492AAAE；速率距离见 IEEE 802.3 1000BASE-SX / 10GBASE-SR / 40GBASE-SR4 / 100GBASE-SR10',
     application: '数据中心 10/40/100G 主流',
     standard: 'ISO/IEC 11801 / TIA-492AAAE'
   },
@@ -720,7 +732,10 @@ const FIBER_SPECS = {
     coreCladding: '50 / 125 μm',
     wavelength: '850 ~ 950 nm（SWDM）',
     emb: '与 OM4 相当 @850nm；支持短波分复用',
-    distance: '与 OM4 相当；SWDM4 可提升多波长容量',
+    distance: '1G/10G 与 OM4 相当；SWDM4 可达 100 G（100 m 级）',
+    distanceBySpeed: { '1G': '1000 m', '10G': '550 m' },
+    distanceNote: 'SWDM 多波长复用下的速率-距离须按厂商光模块规格确认',
+    source: 'ISO/IEC 11801-1（OM5）、TIA-492AAAF；SWDM 见 IEEE 802.3cd 相关讨论与厂商 PMD 规格',
     application: '40/100G SWDM 应用',
     standard: 'ISO/IEC 11801 / TIA-492AAAF'
   }

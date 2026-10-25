@@ -235,6 +235,13 @@
         <input type="number" id="inputCos" value="0.85" step="0.01" min="0" max="1">
       </div>
       <div class="form-item">
+        <label>供电方式</label>
+        <select id="inputPhase">
+          <option value="three">三相（线电压，如 380V）</option>
+          <option value="single">单相（相电压，如 220V）</option>
+        </select>
+      </div>
+      <div class="form-item">
         <label>敷设方式</label>
         <select id="inputMethod">
           <option value="air">空气中单根敷设（参考）</option>
@@ -280,7 +287,7 @@
 
 </main>
 
-<div class="version-tag">v2.0.0-完整版 20261021</div>
+<div class="version-tag">v2.0.1-修-单相与敷设校验 20261025</div>
 
 <script>
 /* ============================================================
@@ -399,6 +406,7 @@ function calculateThreePhaseCurrent(P, U, cosPhi) {
   return p / (Math.sqrt(3) * u * c);
 }
 
+
 /**
  * 根据计算电流推荐 IEC 标准系列的断路器额定电流。
  * 选择原则：In ≥ Ib（计算电流），取满足条件的最小标准值。
@@ -450,6 +458,10 @@ function recommendCable(In, method = 'air') {
   const inVal = validateNumber(In, 'In');
   if (inVal <= 0) throw new Error(`断路器额定电流 In 必须大于 0，当前值：${inVal}`);
 
+  // 敷设方式必须显式合法，非法值不再静默按空气敷设处理（防误判）
+  if (method !== 'air' && method !== 'conduit') {
+    throw new Error(\`未知的敷设方式：\${method}，只支持 'air'（空气中）或 'conduit'（穿管）\`);
+  }
   const table = method === 'conduit' ? CABLE_AMPACITY_CONDUIT : CABLE_AMPACITY_AIR;
 
   for (const row of table) {
@@ -1034,6 +1046,31 @@ function calculateThreePhaseCurrent(P, U, cosPhi) {
 }
 
 /**
+ * 计算单相负载的电流。
+ * 公式：I = P / (U × cosφ)
+ * @param {number} P - 有功功率（W），必须 > 0
+ * @param {number} U - 相电压（V），中国民用常见 220V，必须 > 0
+ * @param {number} cosPhi - 功率因数，取值范围 (0, 1]
+ * @returns {number} 计算电流 I（A）
+ * @throws {Error} 参数非法或超出合理范围时抛出
+ * @example
+ *   calculateSinglePhaseCurrent(3000, 220, 0.9); // ≈ 15.15 A
+ */
+function calculateSinglePhaseCurrent(P, U, cosPhi) {
+  const p = validateNumber(P, 'P');
+  const u = validateNumber(U, 'U');
+  const c = validateNumber(cosPhi, 'cosφ');
+
+  if (p <= 0) throw new Error(\`功率 P 必须大于 0，当前值：\${p}\`);
+  if (u <= 0) throw new Error(\`电压 U 必须大于 0，当前值：\${u}\`);
+  if (c <= 0 || c > 1) throw new Error(\`功率因数 cosφ 必须在 (0, 1] 范围内，当前值：\${c}\`);
+  if (p > 1e8) throw new Error(\`功率 P 超出合理范围（>100MW）：\${p}\`);
+  if (u > 1000000) throw new Error(\`电压 U 超出合理范围（>1000kV）：\${u}\`);
+
+  return p / (u * c);
+}
+
+/**
  * 根据计算电流推荐 IEC 标准系列的断路器额定电流。
  * 选择原则：In ≥ Ib，取满足条件的最小标准值。
  * @param {number} Ib - 计算电流（A），必须 > 0
@@ -1074,6 +1111,10 @@ function recommendCable(In, method = 'air') {
   const inVal = validateNumber(In, 'In');
   if (inVal <= 0) throw new Error(\`断路器额定电流 In 必须大于 0，当前值：\${inVal}\`);
 
+  // 敷设方式必须显式合法，非法值不再静默按空气敷设处理（防误判）
+  if (method !== 'air' && method !== 'conduit') {
+    throw new Error(\`未知的敷设方式：\${method}，只支持 'air'（空气中）或 'conduit'（穿管）\`);
+  }
   const table = method === 'conduit' ? CABLE_AMPACITY_CONDUIT : CABLE_AMPACITY_AIR;
   for (const row of table) {
     if (row.ampacity >= inVal) {
@@ -1099,11 +1140,17 @@ function calculate(params) {
   if (!params || typeof params !== 'object') {
     throw new Error('参数必须为对象');
   }
-  const { P, U, cosPhi, method = 'air' } = params;
-  const Ib = calculateThreePhaseCurrent(P, U, cosPhi);
+  const { P, U, cosPhi, method = 'air', phase = 'three' } = params;
+  if (phase !== 'three' && phase !== 'single') {
+    throw new Error(\`未知的供电方式：\${phase}，只支持 'three'（三相）或 'single'（单相）\`);
+  }
+  const Ib = phase === 'single'
+    ? calculateSinglePhaseCurrent(P, U, cosPhi)
+    : calculateThreePhaseCurrent(P, U, cosPhi);
   const breaker = recommendBreaker(Ib);
   const cable = recommendCable(breaker.In, method);
   return {
+    phase,
     Ib, In: breaker.In,
     section: cable.section, Iz: cable.Iz,
     breakerNote: breaker.note, cableNote: cable.note
@@ -1135,11 +1182,17 @@ function runCalc() {
     const U = document.getElementById('inputU').value;
     const cosPhi = document.getElementById('inputCos').value;
     const method = document.getElementById('inputMethod').value;
+    const phaseEl = document.getElementById('inputPhase');
+    const phase = phaseEl ? phaseEl.value : 'three';
 
-    const r = calculate({ P: Number(P), U: Number(U), cosPhi: Number(cosPhi), method });
+    const r = calculate({ P: Number(P), U: Number(U), cosPhi: Number(cosPhi), method, phase });
 
     area.innerHTML = `
       <div class="result-box">
+        <div class="result-item">
+          <span class="result-label">供电方式</span>
+          <span class="result-value">${r.phase === 'single' ? '单相 I = P/(U·cosφ)' : '三相 I = P/(√3·U·cosφ)'}</span>
+        </div>
         <div class="result-item">
           <span class="result-label">计算电流 Ib</span>
           <span class="result-value">${r.Ib.toFixed(2)} A</span>
@@ -1172,6 +1225,8 @@ function resetForm() {
   document.getElementById('inputU').value = 380;
   document.getElementById('inputCos').value = 0.85;
   document.getElementById('inputMethod').value = 'air';
+  const pe = document.getElementById('inputPhase');
+  if (pe) pe.value = 'three';
   document.getElementById('resultArea').innerHTML = '';
 }
 

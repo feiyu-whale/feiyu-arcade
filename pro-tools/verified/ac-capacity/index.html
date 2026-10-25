@@ -193,7 +193,7 @@
   <div class="doc" id="docContent"></div>
 </section>
 
-<div class="version">v2.0.0-完整版 20261021</div>
+<div class="version">v2.0.1-修-匹数档位 20261025</div>
 
 <script>
 /* ============================================================
@@ -380,22 +380,33 @@ function recommendHorsepower(coolingW) {
   if (!Number.isFinite(coolingW) || coolingW < 0) {
     throw new RangeError('制冷量必须为非负有限数字');
   }
-  // 常见匹数档位（制冷量上限）
+  // 常见匹数档位（制冷量上限），口径统一按 1 匹 ≈ 2500 W 递增
+  // 1/1.5/2/2.5/3/3.5/4/5/6/7/8/10/12/16/20 匹，超 20 匹按实际匹数显示
   const tiers = [
     { hp: 1,   max: 2500,  label: '1匹' },
-    { hp: 1.5, max: 3500,  label: '1.5匹' },
+    { hp: 1.5, max: 3750,  label: '1.5匹' },
     { hp: 2,   max: 5000,  label: '2匹' },
     { hp: 2.5, max: 6250,  label: '2.5匹' },
     { hp: 3,   max: 7500,  label: '3匹' },
+    { hp: 3.5, max: 8750,  label: '3.5匹' },
+    { hp: 4,   max: 10000, label: '4匹' },
     { hp: 5,   max: 12500, label: '5匹' },
-    { hp: 10,  max: Infinity, label: '10匹及以上' }
+    { hp: 6,   max: 15000, label: '6匹' },
+    { hp: 7,   max: 17500, label: '7匹' },
+    { hp: 8,   max: 20000, label: '8匹' },
+    { hp: 10,  max: 25000, label: '10匹' },
+    { hp: 12,  max: 30000, label: '12匹' },
+    { hp: 16,  max: 40000, label: '16匹' },
+    { hp: 20,  max: 50000, label: '20匹' }
   ];
   for (let i = 0; i < tiers.length; i++) {
     if (coolingW <= tiers[i].max) {
       return { hp: tiers[i].hp, hpLabel: tiers[i].label };
     }
   }
-  return { hp: 10, hpLabel: '10匹及以上' };
+  // 超出 20 匹档：按 2500 W/匹向上取整，给出实际匹数（不再一刀切“10匹及以上”）
+  const hp = Math.ceil(coolingW / 2500);
+  return { hp: hp, hpLabel: hp + '匹（超出常规机型，建议多台并联或中央空调）' };
 }
 
 /**
@@ -1041,7 +1052,7 @@ const USER_MANUAL = `
 </ul>
 
 <h2>八、版本信息</h2>
-<p><strong>版本号：</strong>v2.0.0-完整版 20261021</p>
+<p><strong>版本号：</strong>v2.0.1-修-匹数档位 20261025</p>
 <p><strong>更新内容：</strong></p>
 <ul>
   <li>完整 JSDoc 注释</li>
