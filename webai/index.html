@@ -49,9 +49,13 @@ label { font-size: 12px; color: #8ba8c4; display: block; margin: 8px 0 4px; }
 <div class="wrap">
   <h1>🐳 网页端本地 AI 推理 Demo</h1>
   <div class="sub">模型跑在你自己的浏览器里，不连服务器，不花 API 费用</div>
-  <div style="background:#3b1d1d;border:1px solid #7f1d1d;color:#fca5a5;font-size:12px;padding:8px 10px;border-radius:7px;margin-bottom:12px;line-height:1.5">
-    ⚠️ <b>实验功能 · 尚未测试完毕</b><br>
-    本地模型加载与英译中链路仍在调试，可能出现加载慢、失败或翻译生硬。仅供体验，勿当正经工具用。
+  <div style="background:#3b1d1d;border:1px solid #7f1d1d;color:#fca5a5;font-size:12px;padding:8px 10px;border-radius:7px;margin-bottom:12px;line-height:1.6">
+    ⚠️ <b>实验功能 · 未通过验收</b><br>
+    <b>已知问题：</b>模型文件（81MB / 51MB / 58MB）托管在 GitHub Pages 上，实测下载速度仅约 14 KB/s，
+    81MB 主模型需约 1.6 小时，实际使用会卡在「下载中 x/12」。这不是设备或代码问题，是 Pages
+    不适合分发大文件。<br>
+    <b>结论：</b>浏览器本地跑模型技术可行，瓶颈在分发。要真正可用，需换对象存储（R2 / OSS 等）托管模型。<br>
+    <b>现状：</b>代码与模型保留，供技术参考；暂不作为可用功能。
   </div>
 
   <div class="card">
@@ -92,7 +96,7 @@ label { font-size: 12px; color: #8ba8c4; display: block; margin: 8px 0 4px; }
 </div>
 <div id="status" class="status" style="display:none"></div>
 <div id="bar" style="display:none"></div>
-<div class="version">v2.2.1-加实验状态提示 20261026</div>
+<div class="version">v2.2.2-标注未通过验收 20261026</div>
 
 <script type="module">
 const $ = id => document.getElementById(id);
