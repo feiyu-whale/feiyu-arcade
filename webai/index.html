@@ -62,8 +62,7 @@ label { font-size: 12px; color: #8ba8c4; display: block; margin: 8px 0 4px; }
   <div class="card">
     <label>选择模型</label>
     <select id="model" style="width:100%;background:#0d2137;border:1px solid #1a3050;color:#d8e6f5;border-radius:7px;padding:9px;font-size:13px;">
-      <option value="onnx-community/Qwen2.5-0.5B-Instruct" data-size="460">Qwen2.5-0.5B-Instruct（中文，约 460MB）</option>
-      <option value="Xenova/distilgpt2" data-size="80">distilgpt2（英文，约 80MB，快但只会续写）</option>
+      <option value="local-en">distilgpt2 + 英译中（约 190MB，全程本地）</option>
     </select>
     <div style="margin-top:10px">
       <button id="run2" disabled>准备中…</button>
@@ -87,12 +86,12 @@ label { font-size: 12px; color: #8ba8c4; display: block; margin: 8px 0 4px; }
 </div>
 <div id="status" class="status" style="display:none"></div>
 <div id="bar" style="display:none"></div>
-<div class="version">v1.3.0-修WebGPU后端判断 20261026</div>
+<div class="version">v2.0.0-本地模型英译中 20261026</div>
 
 <script type="module">
 const $ = id => document.getElementById(id);
 
-let pipe = null, ready = false, booting = null, currentModel = null;
+let pipe = null, translator = null, ready = false, booting = null, currentModel = null;
 const LIB_CDNS = [
   'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1',
   'https://unpkg.com/@huggingface/transformers@4.3.1',
@@ -126,18 +125,21 @@ async function boot() {
       env.allowLocalModels = false;
       env.remoteHost = 'https://hf-mirror.com';
 
-      const modelId = $('model').value;
-      currentModel = modelId;
-      // 关键：必须用真实 adapter 探测结果，不能用 !!navigator.gpu
-      // 有 navigator.gpu 但没有 adapter（无显卡/驱动不支持）时，用 webgpu 会直接失败
+      currentModel = $('model').value;
+      // 必须用真实 adapter 探测结果，不能只看 navigator.gpu
       const device = _hasAdapter ? 'webgpu' : 'wasm';
       $('e-backend').textContent = device.toUpperCase();
 
-      pipe = await pipeline('text-generation', modelId, {
-        device,
-        dtype: device === 'webgpu' ? 'q4f16' : 'q8'
-        // 无 progress_callback：后台静默下载，不打扰用户
-      });
+      // 模型文件随仓库一起发布，同源加载，不依赖外部镜像
+      env.allowLocalModels = true;
+      env.localModelPath = 'models/';
+      env.useBrowserCache = true;
+
+      // 生成模型（英文）
+      pipe = await pipeline('text-generation', 'distilgpt2', { device, dtype: 'q8' });
+      // 翻译模型（英译中）
+      translator = await pipeline('translation', 'opus-en-zh', { device, dtype: 'q8' });
+
       ready = true;
       setBtn('生成', true);
     } catch (e) {
@@ -176,7 +178,7 @@ detectEnv().then(() => boot());
 // 换模型 = 重新静默预载
 $('model').onchange = () => {
   if (currentModel === $('model').value) return;
-  ready = false; pipe = null; booting = null;
+  ready = false; pipe = null; translator = null; booting = null;
   setBtn('准备中…', false);
   boot();
 };
@@ -194,22 +196,22 @@ async function generate() {
   let count = 0;
 
   try {
-    const { TextStreamer } = await getLib();
-    const streamer = new TextStreamer(pipe.tokenizer, {
-      skip_prompt: true,
-      callback_function: (txt) => {
-        $('out').textContent += txt;
-        count++;
-        const sec = (performance.now() - t0) / 1000;
-        if (sec > 0.3) $('m-speed').textContent = '速度: ' + (count / sec).toFixed(1) + ' token/s';
-        $('out').scrollTop = $('out').scrollHeight;
-      }
-    });
-    await pipe(prompt, { max_new_tokens: 120, do_sample: true, temperature: 0.7, streamer });
+    // 第一步：英文生成
+    const gen = await pipe(prompt, { max_new_tokens: 80, do_sample: true, temperature: 0.8 });
+    const fullText = gen[0].generated_text || '';
+    const english = fullText.slice(prompt.length).trim();
+    count = english.split(/\s+/).length;
+
+    $('out').textContent = '【英文原文】\n' + english + '\n\n【中文翻译】\n翻译中…';
+
+    // 第二步：英译中
+    const tr = await translator(english);
+    const chinese = (tr && tr[0] && tr[0].translation_text) || '(翻译失败)';
+
+    $('out').textContent = '【英文原文】\n' + english + '\n\n【中文翻译】\n' + chinese;
     const sec = (performance.now() - t0) / 1000;
     $('m-time').textContent = '耗时: ' + sec.toFixed(2) + ' s';
-    $('m-tokens').textContent = 'token: ' + count;
-    if (count > 0) $('m-speed').textContent = '速度: ' + (count / sec).toFixed(1) + ' token/s';
+    $('m-tokens').textContent = '词数: ' + count;
   } catch (e) {
     $('out').textContent = '生成失败：' + (e.message || e);
   } finally {
