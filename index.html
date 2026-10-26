@@ -106,6 +106,69 @@
     <a href="https://github.com/feiyu-whale/feiyu-calendar-toolkit" target="_blank" rel="noopener">GitHub 仓库</a>
   </div>
 
-  <div class="foot">🐳 大肥鱼出品 · 想加新东西就在这儿开个口<br><span style="font-size:10px;color:#22383c">v2.4.0-新增本地AI专区 20261026</span></div>
+  <div class="foot">🐳 大肥鱼出品 · 想加新东西就在这儿开个口<br><span style="font-size:10px;color:#22383c">v2.5.0-首页静默预载模型 20261026</span></div>
+
+<script>
+/* ============================================================
+   本地 AI 模型 · 首页静默预载（2026-10-26）
+   目的：进主界面就在后台把模型拉进浏览器缓存，
+        等用户点进「本地 AI」专区时直接命中缓存，无感。
+   原则：不打扰首页、不显示进度、失败静默、不影响任何交互。
+   ============================================================ */
+(function () {
+  var MODELS = [
+    'webai/models/distilgpt2/config.json',
+    'webai/models/distilgpt2/generation_config.json',
+    'webai/models/distilgpt2/tokenizer.json',
+    'webai/models/distilgpt2/tokenizer_config.json',
+    'webai/models/distilgpt2/onnx/model_quantized.onnx',
+    'webai/models/opus-en-zh/config.json',
+    'webai/models/opus-en-zh/generation_config.json',
+    'webai/models/opus-en-zh/quantize_config.json',
+    'webai/models/opus-en-zh/tokenizer.json',
+    'webai/models/opus-en-zh/tokenizer_config.json',
+    'webai/models/opus-en-zh/onnx/encoder_model_quantized.onnx',
+    'webai/models/opus-en-zh/onnx/decoder_model_merged_quantized.onnx'
+  ];
+
+  if (!('caches' in window)) return;
+
+  // 手机端不预载：流量与内存都吃不消
+  var ua = navigator.userAgent || '';
+  var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  var lowMem = navigator.deviceMemory && navigator.deviceMemory < 4;
+  if (isMobile || lowMem) return;
+
+  function idle(fn) {
+    if (window.requestIdleCallback) requestIdleCallback(fn, { timeout: 3000 });
+    else setTimeout(fn, 2000);
+  }
+
+  idle(function () {
+    caches.open('feiyu-webai-models-v1').then(function (cache) {
+      return cache.keys().then(function (existing) {
+        var have = {};
+        existing.forEach(function (r) { have[r.url] = true; });
+        var todo = MODELS.filter(function (m) {
+          return !have[new URL(m, location.href).href];
+        });
+        if (!todo.length) return;
+        // 串行下载：一次一个，别抢首页带宽
+        return todo.reduce(function (chain, m) {
+          return chain.then(function () {
+            var url = new URL(m, location.href).href;
+            return fetch(url)
+              .then(function (res) {
+                if (!res.ok) return;
+                return cache.put(url, res.clone());
+              })
+              .catch(function () { /* 静默：失败了下次再说 */ });
+          });
+        }, Promise.resolve());
+      });
+    }).catch(function () { /* 静默 */ });
+  });
+})();
+</script>
 </body>
 </html>
