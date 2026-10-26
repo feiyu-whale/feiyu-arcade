@@ -74,7 +74,7 @@
   <div id="doc-content"></div>
 </div>
 
-<div class="version">v2.0.0-完整版 20261021</div>
+<div class="version">v2.0.1-修螺纹手册尺寸 20261026</div>
 
 <script>
 /* ============================================================
@@ -328,7 +328,7 @@ const TEST_CODE = `
   // ---------- 6. calcExternalMinorDiameter ----------
   assert('M10 d3 ≈ 8.1597', approx(T.calcExternalMinorDiameter(10, 1.5), 8.1597));
   assert('M3 d3 ≈ 2.3866', approx(T.calcExternalMinorDiameter(3, 0.5), 2.3866));
-  assert('M24 d3 ≈ 20.6804', approx(T.calcExternalMinorDiameter(24, 3.0), 20.6804));
+  assert('M24 d3 ≈ 20.3194', approx(T.calcExternalMinorDiameter(24, 3.0), 20.3194));
 
   // ---------- 7. 异常输入 ----------
   assertThrow('calcPitchDiameter(NaN,1) 抛 TypeError', () => T.calcPitchDiameter(NaN, 1), TypeError);
@@ -401,7 +401,7 @@ const DOC_HTML = `
 
 <h4>场景 2：工艺人员确定 M20 攻丝底孔</h4>
 <p><b>输入：</b>d = 20 mm</p>
-<p><b>输出：</b>P = 2.5 mm，D1 = 17.1202 mm</p>
+<p><b>输出：</b>P = 2.5 mm，D1 = 17.2937 mm</p>
 <p><b>用途：</b>攻丝前钻孔直径一般取 D1 附近（常用 17.5 mm 左右，需结合材料、公差带 6H 等查表）。</p>
 
 <h4>场景 3：检验员校核 M16 外螺纹中径</h4>
@@ -411,12 +411,12 @@ const DOC_HTML = `
 
 <h4>场景 4：强度校核 M24 螺栓的应力截面积</h4>
 <p><b>输入：</b>d = 24 mm</p>
-<p><b>输出：</b>d3 = 20.6804 mm</p>
+<p><b>输出：</b>d3 = 20.3194 mm</p>
 <p><b>用途：</b>应力截面积 As = π/4 · ((d2 + d3)/2)²，用于计算螺栓抗拉承载力。</p>
 
 <h4>场景 5：采购 M30 地脚螺栓，核对图纸参数</h4>
 <p><b>输入：</b>d = 30 mm</p>
-<p><b>输出：</b>P = 3.5 mm，d2 = 27.7272 mm，D1 = 24.7061 mm，d3 = 23.6559 mm</p>
+<p><b>输出：</b>P = 3.5 mm，d2 = 27.7267 mm，D1 = 26.2111 mm，d3 = 25.7060 mm</p>
 <p><b>用途：</b>与供应商图纸逐项核对，避免粗牙/细牙混淆。</p>
 
 <h3>四、常见错误与排查</h3>
@@ -450,7 +450,7 @@ const DOC_HTML = `
 </ul>
 
 <h3>七、版本信息</h3>
-<p>版本号：v2.0.0-完整版 20261021</p>
+<p>版本号：v2.0.1-修螺纹手册尺寸 20261026</p>
 <p>作者角色：资深前端工程师 + 技术写作者</p>
 <p>交付物组成：JS 源码（含完整 JSDoc）+ 单元测试（≥30 用例）+ 使用说明书（≥2000 字）</p>
 `;

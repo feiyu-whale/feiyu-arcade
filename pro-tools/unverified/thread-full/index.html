@@ -373,7 +373,7 @@
   </div>
 </div>
 
-<div class="version">v2.0.0-完整版 20261021</div>
+<div class="version">v2.0.1-修英制底孔25.4倍与挤压丝锥 20261026</div>
 
 <script>
 /* ============================================================
@@ -720,7 +720,7 @@ function inchToMm(inch) {
  * @returns {{drillInch: number, drillMm: number}} 底孔直径（英寸和毫米）
  * @throws {Error} 参数无效时抛出
  * @example
- * calculateImperialDrill(0.25, 20); // 返回 {drillInch: 0.201, drillMm: 5.105}
+ * calculateImperialDrill(0.25, 20); // 返回 {drillInch: 0.2, drillMm: 5.08}
  */
 function calculateImperialDrill(majorDiameterInch, tpi, material = 'steel', engagement = 75) {
   const d = validatePositiveNumber(majorDiameterInch, '大径');
@@ -1003,8 +1003,8 @@ function runAllTests() {
 
   // === 9. calculateImperialDrill 测试 ===
   const imperialResult = calculateImperialDrill(0.25, 20);
-  assertApprox(imperialResult.drillInch, 0.2014, 0.001, 'calculateImperialDrill: 1/4-20 英寸');
-  assertApprox(imperialResult.drillMm, 5.114, 0.01, 'calculateImperialDrill: 1/4-20 毫米');
+  assertApprox(imperialResult.drillInch, 0.2000, 0.001, 'calculateImperialDrill: 1/4-20 英寸');
+  assertApprox(imperialResult.drillMm, 5.0800, 0.01, 'calculateImperialDrill: 1/4-20 毫米');
 
   // === 10. findUNCThread 测试 ===
   const unc1 = findUNCThread('1/4-20');
@@ -1092,8 +1092,11 @@ function renderImperialTable() {
     if (search && !t.size.includes(search)) return;
     const pitchMm = tpiToPitchMm(t.tpi);
     const majorMm = t.type === 'G' || t.type === 'NPT' ? t.majorDiameter : inchToMm(t.majorDiameter);
-    const drillResult = calculateImperialDrill(t.majorDiameter, t.tpi);
-    const drillDisplay = t.type === 'G' || t.type === 'NPT' ? formatNumber(drillResult.drillMm, 3) : `${formatNumber(drillResult.drillInch, 4)} (${formatNumber(drillResult.drillMm, 3)})`;
+    // G/NPT 的 majorDiameter 存的是毫米，calculateImperialDrill 按英寸入参 → 先换算，否则底孔整列放大 25.4 倍
+    const isMetricMajor = t.type === 'G' || t.type === 'NPT';
+    const majorInch = isMetricMajor ? t.majorDiameter / 25.4 : t.majorDiameter;
+    const drillResult = calculateImperialDrill(majorInch, t.tpi);
+    const drillDisplay = isMetricMajor ? formatNumber(drillResult.drillMm, 3) : `${formatNumber(drillResult.drillInch, 4)} (${formatNumber(drillResult.drillMm, 3)})`;
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><strong>${t.size}</strong></td>
@@ -1138,14 +1141,22 @@ function handleCalc() {
       `;
     } else {
       const drill = calculateImperialDrill(diameter, pitch, material, engagement);
+      // 挤压丝锥底孔按公制近似公式（D - 0.5P）换算，避免英制面板误标成挤压却用切削公式
+      let formingNote = '';
+      let formingDrillMm = null;
+      if (tapType === 'forming') {
+        formingDrillMm = diameter * 25.4 - tpiToPitchMm(pitch) * 0.5 * MATERIAL_FACTOR[material];
+        formingNote = `<div class="result-row"><span class="label">挤压丝锥底孔（近似）</span><span class="value">${formatNumber(formingDrillMm, 3)} mm / ${formatNumber(formingDrillMm / 25.4, 4)} inch</span></div>`;
+      }
       html = `
         <div class="result-row"><span class="label">螺纹制式</span><span class="value">英制</span></div>
         <div class="result-row"><span class="label">大径</span><span class="value">${diameter} inch (${formatNumber(inchToMm(diameter), 3)} mm)</span></div>
         <div class="result-row"><span class="label">每英寸牙数</span><span class="value">${pitch} TPI</span></div>
         <div class="result-row"><span class="label">螺距</span><span class="value">${formatNumber(tpiToPitchMm(pitch), 4)} mm</span></div>
-        <div class="result-row"><span class="label">丝锥类型</span><span class="value">${tapType === 'cutting' ? '切削丝锥' : '挤压丝锥'}</span></div>
+        <div class="result-row"><span class="label">丝锥类型</span><span class="value">${tapType === 'cutting' ? '切削丝锥' : '挤压丝锥（按近似公式）'}</span></div>
         <div class="result-row"><span class="label">材料</span><span class="value">${material} (系数 ${MATERIAL_FACTOR[material]})</span></div>
-        <div class="result-row"><span class="label">推荐底孔直径</span><span class="value">${formatNumber(drill.drillInch, 4)} inch / ${formatNumber(drill.drillMm, 3)} mm</span></div>
+        <div class="result-row"><span class="label">推荐底孔直径（切削）</span><span class="value">${formatNumber(drill.drillInch, 4)} inch / ${formatNumber(drill.drillMm, 3)} mm</span></div>
+        ${formingNote}
       `;
     }
     content.innerHTML = html;

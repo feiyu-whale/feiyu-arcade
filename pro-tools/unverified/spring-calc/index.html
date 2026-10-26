@@ -142,7 +142,7 @@ pre .function { color: #89b4fa; }
 </table>
 
 <div class="warn">
-<strong>关于曲度系数：</strong>公式中的 (1 + 0.5/c) 是曲度系数的简化近似形式。GB/T 23935 中给出的完整曲度系数（Wahl 修正系数）为 K = (4c-1)/(4c-4) + 0.615/c。当 c ≥ 4 时，简化公式与完整公式的偏差通常在工程可接受范围内（约 2%～5%）。对于 c < 4 的弹簧，建议使用完整 Wahl 公式另行校核。
+<strong>关于曲度系数：</strong>GB/T 23935 给出的完整曲度系数（Wahl 修正系数）为 K = (4c-1)/(4c-4) + 0.615/c，本工具<strong>主结果采用此式</strong>。简化式 (1 + 0.5/c) 仅作参考：c=10 时偏差约 9%，c=6 时约 13%，c=4 时约 20%——<strong>c 越小偏差越大，简化式系统性偏低</strong>，用它判定强度会误判为安全。</br>
 </div>
 
 <h2>三、实际使用场景</h2>
@@ -168,9 +168,11 @@ pre .function { color: #89b4fa; }
 <p>F = 200 N，D = 30 mm，d = 3 mm</p>
 <h4>计算结果</h4>
 <p>c = 30/3 = 10</p>
-<p>τ = 8 × 200 × 30 / (π × 3³) × (1 + 0.5/10) = 48000 / (π × 27) × 1.05 = 48000 / 84.823 × 1.05 ≈ 565.88 × 1.05 ≈ <strong>594.18 MPa</strong></p>
+<p>按 Wahl 完整曲度系数：K = (4×10−1)/(4×10−4) + 0.615/10 = 39/36 + 0.0615 ≈ 1.14483</p>
+<p>τ = 8 × 200 × 30 / (π × 3³) × 1.14483 = 48000 / 84.823 × 1.14483 ≈ 565.88 × 1.14483 ≈ <strong>647.84 MPa</strong></p>
+<p style="color:#888;font-size:13px;">（若用简化系数 1+0.5/10 = 1.05，则为 594.18 MPa——偏低约 9%，据此判定会误判为安全。）</p>
 <h4>结论</h4>
-<p>594.18 MPa < 600 MPa，强度满足要求，但裕量较小（仅约 1%），建议适当增大钢丝直径或减小载荷。</p>
+<p><strong>647.84 MPa &gt; 600 MPa，强度不满足要求</strong>（超载约 8%）。应增大钢丝直径或减小工作载荷后重新校核。</p>
 </div>
 
 <h3>场景 3：反求所需有效圈数</h3>
@@ -218,7 +220,7 @@ pre .function { color: #89b4fa; }
 <tr><td>计算结果报错"参数必须为正数"</td><td>输入了 0 或负数</td><td>检查所有参数是否 > 0。钢丝直径、中径、有效圈数、切变模量、载荷均须为正数。</td></tr>
 <tr><td>计算结果报错"参数不能为空"</td><td>输入框为空或传入了 null/undefined</td><td>确保所有输入框都已填写数值。</td></tr>
 <tr><td>刚度值异常偏大或偏小</td><td>单位搞错（如 G 用了 Pa 而非 MPa，或 d 用了 m 而非 mm）</td><td>本工具统一使用 mm-N-MPa 单位制。G 的单位是 MPa（即 N/mm²），d 和 D 的单位是 mm。</td></tr>
-<tr><td>切应力结果与手册不符</td><td>曲度系数取值差异</td><td>本工具使用简化公式 (1+0.5/c)。若 c < 4，偏差可能较大，建议用完整 Wahl 公式 K=(4c-1)/(4c-4)+0.615/c 复核。</td></tr>
+<tr><td>切应力结果与旧资料不符</td><td>曲度系数取值差异</td><td>旧资料多用简化式 (1+0.5/c)，系统性偏低。本工具主结果用完整 Wahl 公式 K=(4c-1)/(4c-4)+0.615/c，以本工具值为准。</td></tr>
 <tr><td>弹簧指数 c 不在推荐范围</td><td>c < 4 或 c > 16</td><td>c < 4 时卷绕困难、曲度修正量大；c > 16 时弹簧易失稳。建议调整 d 或 D 使 c 落在 4～16 之间。</td></tr>
 <tr><td>输入 NaN 或非数字</td><td>前端未做输入校验</td><td>本工具函数对非 number 类型或 NaN 会抛出异常。调用前请确保输入已转为有效数字。</td></tr>
 </table>
@@ -238,7 +240,7 @@ pre .function { color: #89b4fa; }
 <h2>六、局限性说明</h2>
 <p>本工具存在以下局限性，使用者应充分了解：</p>
 <p><strong>1. 仅适用于等截面圆丝圆柱螺旋弹簧。</strong>对于变截面（如锥形弹簧、中凸形弹簧）、变节距弹簧、矩形截面丝弹簧等，本工具的公式不适用。</p>
-<p><strong>2. 曲度系数采用简化公式。</strong>本工具使用 (1+0.5/c) 作为曲度修正系数，而非完整的 Wahl 公式 K=(4c-1)/(4c-4)+0.615/c。当弹簧指数 c < 4 时，两者偏差可达 5% 以上，此时应使用完整公式另行校核。</p>
+<p><strong>2. 曲度系数采用 Wahl 完整式。</strong>主结果使用 K=(4c-1)/(4c-4)+0.615/c（GB/T 23935）。简化式 (1+0.5/c) 仅作参考显示，其值系统性偏低——c=10 时约低 9%，c=4 时约低 20%，<strong>不可用于强度判定</strong>。</p>
 <p><strong>3. 不考虑疲劳寿命。</strong>本工具仅计算静态切应力，不涉及疲劳强度校核。对于承受交变载荷的弹簧，需按 GB/T 23935 中的疲劳验算方法另行计算。</p>
 <p><strong>4. 不考虑稳定性。</strong>对于高径比（自由高度/中径）较大的压缩弹簧，可能存在侧向失稳问题。本工具不进行稳定性校核。</p>
 <p><strong>5. 不考虑温度影响。</strong>切变模量 G 随温度变化。本工具假设用户输入的 G 值已考虑工作温度修正，工具本身不做温度补偿。</p>
@@ -248,7 +250,7 @@ pre .function { color: #89b4fa; }
 </div>
 </div>
 
-<div class="version-tag">v2.0.0-完整版 20261021</div>
+<div class="version-tag">v2.0.1-改用Wahl系数 20261026</div>
 
 <script>
 // ============================================================
@@ -485,13 +487,18 @@ function calcSpringAll(params) {
     }
     var k = calcStiffness(G, d, D, n);
     var tau = calcShearStress(F, D, d);
+    // 主结果用 Wahl 完整曲度系数（GB/T 23935）；简化式仅作参考
+    var tau_wahl = (K_wahl !== null && K_wahl !== undefined)
+        ? (8 * F * D) / (Math.PI * Math.pow(d, 3)) * K_wahl
+        : null;
 
     return {
         c: c,
         K_simplified: K_simplified,
         K_wahl: K_wahl,
         k: k,
-        tau: tau
+        tau: tau,
+        tau_wahl: tau_wahl
     };
 }
 
@@ -747,7 +754,12 @@ function doCalc() {
             html += '<div class="result-item"><span class="result-label">Wahl 曲度系数</span><span class="result-value">' + result.K_wahl.toFixed(6) + '</span></div>';
         }
         html += '<div class="result-item"><span class="result-label">弹簧刚度 k</span><span class="result-value">' + result.k.toFixed(4) + ' N/mm</span></div>';
-        html += '<div class="result-item"><span class="result-label">切应力 τ（简化曲度系数）</span><span class="result-value">' + result.tau.toFixed(4) + ' MPa</span></div>';
+        if (result.tau_wahl !== null) {
+            html += '<div class="result-item"><span class="result-label">切应力 τ（Wahl 完整式，主结果）</span><span class="result-value">' + result.tau_wahl.toFixed(4) + ' MPa</span></div>';
+            html += '<div class="result-item"><span class="result-label">切应力 τ（简化式，仅供参考）</span><span class="result-value" style="color:#888;">' + result.tau.toFixed(4) + ' MPa</span></div>';
+        } else {
+            html += '<div class="result-item"><span class="result-label">切应力 τ（简化曲度系数）</span><span class="result-value">' + result.tau.toFixed(4) + ' MPa</span></div>';
+        }
         html += '</div>';
         resultDiv.innerHTML = html;
     } catch (e) {

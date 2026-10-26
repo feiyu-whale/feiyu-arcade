@@ -251,7 +251,8 @@ function validateGearInput(m, z, alphaDeg, x) {
     if (df <= 0) {
       warnings.push('齿根圆直径 df=' + df.toFixed(3) + 'mm ≤ 0，几何上不合理，请检查参数组合');
     }
-    var zMin = Math.ceil(2 / (Math.sin(alphaRad) * Math.sin(alphaRad)));
+    // 标准齿轮不根切最小齿数 z_min = 2·ha*/sin²α，α=20°、ha*=1 时为 17.097 → 取实际可用最小整数 17
+    var zMin = Math.floor(2 / (Math.sin(alphaRad) * Math.sin(alphaRad)));
     if (x === 0 && z < zMin) {
       warnings.push('标准齿轮（x=0）不根切最小齿数为 ' + zMin + '（α=' + alphaDeg + '°），当前 z=' + z + ' 会发生根切');
     }
@@ -925,12 +926,12 @@ document.getElementById('manual-content').innerHTML = `
 
 <h3>场景 2：避免根切的变位齿轮</h3>
 <p><strong>输入：</strong>m = 3, z = 12, α = 20°, x = 0.5</p>
-<p><strong>关键结果：</strong>d = 36 mm, d<sub>a</sub> = 43 mm, d<sub>f</sub> = 30.5 mm, h<sub>a</sub> = 4.5 mm, h<sub>f</sub> = 2.25 mm</p>
+<p><strong>关键结果：</strong>d = 36 mm, d<sub>a</sub> = 45 mm, d<sub>f</sub> = 31.5 mm, h<sub>a</sub> = 4.5 mm, h<sub>f</sub> = 2.25 mm</p>
 <p><strong>用途：</strong>z = 12 < 17，标准齿轮会根切。采用正变位 x = 0.5 可避免根切并增强齿根强度。</p>
 
 <h3>场景 3：齿轮加工检验——公法线测量</h3>
 <p><strong>输入：</strong>m = 2.5, z = 30, α = 20°, x = 0</p>
-<p><strong>关键结果：</strong>k = 4（跨 4 齿测量），W = 26.298 mm</p>
+<p><strong>关键结果：</strong>k = 4（跨 4 齿测量），W = 26.8816 mm</p>
 <p><strong>用途：</strong>在车间用公法线千分尺测量 W 值，与计算值对比可判断齿厚加工是否合格。</p>
 
 <h3>场景 4：教学演示——渐开线齿廓图解</h3>
@@ -939,7 +940,7 @@ document.getElementById('manual-content').innerHTML = `
 
 <h3>场景 5：配凑中心距的变位齿轮副</h3>
 <p><strong>输入：</strong>m = 2, z = 30, α = 20°, x = 0.3（小齿轮）；m = 2, z = 60, α = 20°, x = −0.1（大齿轮，需另算）</p>
-<p><strong>关键结果（小齿轮）：</strong>d = 60 mm, d<sub>a</sub> = 65.2 mm, d<sub>f</sub> = 54.3 mm, s = 3.629 mm</p>
+<p><strong>关键结果（小齿轮）：</strong>d = 60 mm, d<sub>a</sub> = 65.2 mm, d<sub>f</sub> = 56.2 mm, s = 3.5784 mm</p>
 <p><strong>用途：</strong>当标准中心距不满足安装要求时，通过变位配凑实际中心距。本工具计算单个齿轮参数，齿轮副的啮合计算需额外处理（需查标准原文或专业手册）。</p>
 
 <h2>五、常见错误与排查</h2>
@@ -978,6 +979,6 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<div id="version-tag">v2.0.0-完整版 20261021</div>
+<div id="version-tag">v2.0.1-修手册算例与z_min 20261026</div>
 </body>
 </html>

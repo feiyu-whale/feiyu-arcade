@@ -137,7 +137,7 @@ pre{background:#1e293b;color:#e2e8f0;padding:16px;border-radius:8px;overflow-x:a
 <div class="card doc-content" id="docContent"></div>
 </section>
 </main>
-<div class="version-tag">v2.0.0-完整版 20261021</div>
+<div class="version-tag">v2.0.1-修手册算例数字 20261026</div>
 <script>
 /* ============================================================
  * 第一部分：核心算法（纯函数，完整 JSDoc）
@@ -970,11 +970,11 @@ const docContentStr = `
 <li>所需总长度：L = 167.41 + 2×8 = 183.41 mm</li>
 <li>取整：L = 200 mm（考虑构造要求和施工便利）</li>
 <li>验算：lw = 200 - 2×8 = 184 mm</li>
-<li>实际应力：σ = 150000 / (0.7×8×184) = 150000 / 1030.4 = 145.58 N/mm²</li>
+<li>实际应力：σ = 150000 / (0.7×8×184) = 150000 / 1030.4 = 145.57 N/mm²</li>
 <li>校核：145.58 &lt; 160，满足要求</li>
-<li>应力比：145.58 / 160 = 90.99%</li>
+<li>应力比：145.57 / 160 = 90.98%</li>
 </ol>
-<p><strong>结论</strong>：焊缝总长度取 200 mm 可满足要求，应力比 90.99%，经济合理。</p>
+<p><strong>结论</strong>：焊缝总长度取 200 mm 可满足要求，应力比 90.98%，经济合理。</p>
 </div>
 
 <div class="scenario">
@@ -1042,9 +1042,9 @@ const docContentStr = `
 </ol>
 <p><strong>改进方案</strong>：</p>
 <ul>
-<li>方案 A：增大焊脚至 hf = 6 mm，lw = 142 mm，σ = 100000 / (0.7×6×142) = 167.67 N/mm²，仍不满足</li>
-<li>方案 B：增大焊脚至 hf = 8 mm，lw = 134 mm，σ = 100000 / (0.7×8×134) = 133.58 N/mm²，满足</li>
-<li>方案 C：保持 hf = 4 mm，增加焊缝长度至 L = 250 mm，lw = 242 mm，σ = 100000 / (0.7×4×242) = 147.47 N/mm²，满足</li>
+<li>方案 A：增大焊脚至 hf = 6 mm，lw = 142 mm，σ = 100000 / (0.7×6×142) = 172.53 N/mm²，仍不满足</li>
+<li>方案 B：增大焊脚至 hf = 8 mm，lw = 134 mm，σ = 100000 / (0.7×8×134) = 133.26 N/mm²，满足</li>
+<li>方案 C：保持 hf = 4 mm，增加焊缝长度至 L = 250 mm，lw = 242 mm，σ = 100000 / (0.7×4×242) = 147.58 N/mm²，满足</li>
 </ul>
 <p><strong>结论</strong>：原设计不满足要求，需调整焊脚尺寸或焊缝长度。</p>
 </div>
