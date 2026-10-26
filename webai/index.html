@@ -87,25 +87,27 @@ label { font-size: 12px; color: #8ba8c4; display: block; margin: 8px 0 4px; }
 </div>
 <div id="status" class="status" style="display:none"></div>
 <div id="bar" style="display:none"></div>
-<div class="version">v1.1.0-静默预载 20261026</div>
+<div class="version">v1.2.0-修库版本与错误提示 20261026</div>
 
 <script type="module">
 const $ = id => document.getElementById(id);
 
 let pipe = null, ready = false, booting = null, currentModel = null;
 const LIB_CDNS = [
-  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2',
-  'https://unpkg.com/@huggingface/transformers@3.0.2',
-  'https://registry.npmmirror.com/@huggingface/transformers/3.0.2/files/dist/transformers.min.js'
+  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1',
+  'https://unpkg.com/@huggingface/transformers@4.3.1',
+  'https://fastly.jsdelivr.net/npm/@huggingface/transformers@4.3.1'
 ];
 let _lib = null;
 
 async function getLib() {
   if (_lib) return _lib;
+  const fails = [];
   for (const url of LIB_CDNS) {
-    try { _lib = await import(url); return _lib; } catch (e) {}
+    try { _lib = await import(url); return _lib; }
+    catch (e) { fails.push(url.split('/')[2] + ': ' + String(e.message || e).slice(0, 60)); }
   }
-  throw new Error('lib load failed');
+  throw new Error('运行库加载失败 || ' + fails.join(' | '));
 }
 
 function setBtn(txt, enabled) {
@@ -138,8 +140,10 @@ async function boot() {
       setBtn('生成', true);
     } catch (e) {
       console.error(e);
+      const msg = String((e && e.message) || e).slice(0, 200);
       setBtn('重试', true);
-      $('run2').onclick = () => { booting = null; ready = false; setBtn('准备中…', false); boot(); };
+      $('out').textContent = '模型加载失败：' + msg + '\n\n（点按钮重试；若反复失败，多半是网络拉不到模型文件）';
+      $('run2').onclick = () => { booting = null; ready = false; $('out').textContent = ''; setBtn('准备中…', false); boot(); };
     }
   })();
   return booting;
