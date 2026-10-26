@@ -169,7 +169,7 @@ function rateOrder(id) {
     </div>
   `, [
     { t: '提交评价', fn: () => {
-        const text = (document.getElementById('rateText') || {}).value || '';
+        const text = YCSec.clean((document.getElementById('rateText') || {}).value, 200);
         S.reviews[o.workerId] = S.reviews[o.workerId] || [];
         S.reviews[o.workerId].push({ stars, text: text.trim(), at: Date.now(), orderId: id });
         o.rated = true;

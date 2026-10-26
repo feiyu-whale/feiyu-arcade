@@ -98,7 +98,7 @@ function render() {
         <div class="row"><span>拟处罚</span><span style="color:#f87171">扣 ${r.penalty} 信用分</span></div>
         <div class="row"><span>老板补偿</span><span style="color:#4ade80">+${Math.round(r.penalty / 4)} 白饭</span></div>
         <div class="row"><span>举证</span><span>${r.proof ? '✅ 已上传录屏' : '❌ 无'}</span></div>
-        ${r.note ? `<div class="row"><span>说明</span><span style="max-width:62%;text-align:right">${r.note}</span></div>` : ''}
+        ${r.note ? `<div class="row"><span>说明</span><span style="max-width:62%;text-align:right">${YCSec.esc(r.note)}</span></div>` : ''}
       </div>`).join('');
 
     rBox.querySelectorAll('.pending-item').forEach(el => {

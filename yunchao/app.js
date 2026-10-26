@@ -2,6 +2,58 @@
    云巢电竞 · 公共逻辑 v2.0
    ============================================================ */
 
+/* ============================================================
+   安全工具（2026-10-26 加）
+   前端能做的防护都在这儿：输出转义、输入清洗、长度限制
+   ============================================================ */
+
+const YCSec = {
+  /* HTML 转义：把用户输入的 < > & " ' 全换成实体，
+     防止拼进 innerHTML 时被当成标签执行（XSS） */
+  esc(v) {
+    if (v === null || v === undefined) return '';
+    return String(v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  },
+
+  /* 属性值转义（放进 title=""、data-*="" 时用） */
+  escAttr(v) {
+    return this.esc(v).replace(/`/g, '&#96;');
+  },
+
+  /* 输入清洗：去控制字符、去首尾空白、限长 */
+  clean(v, maxLen) {
+    if (v === null || v === undefined) return '';
+    let s = String(v)
+      .replace(/[\u0000-\u001F\u007F]/g, '')   // 控制字符
+      .replace(/[\u200B-\u200D\uFEFF]/g, '');  // 零宽字符
+    s = s.trim();
+    if (maxLen && s.length > maxLen) s = s.slice(0, maxLen);
+    return s;
+  },
+
+  /* 手机号校验 */
+  isPhone(v) {
+    return /^1[3-9]\d{9}$/.test(String(v || '').trim());
+  },
+
+  /* 数字白名单校验（防止 NaN / Infinity / 负数混进金额） */
+  isAmount(v) {
+    return typeof v === 'number' && isFinite(v) && v >= 0;
+  },
+
+  /* 只允许安全协议的 URL */
+  safeUrl(u) {
+    const s = String(u || '').trim();
+    if (/^https?:\/\//i.test(s) || /^[\w.\-]+\.html/i.test(s)) return s;
+    return '#';
+  }
+};
+
 const YCApp = {
   state: null,
 
@@ -172,4 +224,5 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+window.YCSec = YCSec;
 window.YCApp = YCApp;

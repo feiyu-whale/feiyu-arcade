@@ -113,7 +113,7 @@ function render() {
       </div>
       <div class="row"><span>打手</span><span>${order.workerAvatar} ${order.workerName}</span></div>
       ${names.length ? `<div class="row"><span>增值服务</span><span>${names.join('、')}</span></div>` : ''}
-      ${order.note ? `<div class="row"><span>备注</span><span style="max-width:62%;text-align:right">${order.note}</span></div>` : ''}
+      ${order.note ? `<div class="row"><span>备注</span><span style="max-width:62%;text-align:right">${YCSec.esc(order.note)}</span></div>` : ''}
       <div class="row"><span>下单时间</span><span>${YCUtil.time(order.createdAt)}</span></div>
       <div class="row"><span>订单号</span><span style="font-family:ui-monospace,monospace">${order.id}</span></div>
     </div>
@@ -136,7 +136,7 @@ function render() {
         <div class="blk-t">我的评价</div>
         <div style="color:#fbbf24;font-size:15px">${'★'.repeat(order.ratedStars)}${'☆'.repeat(5 - order.ratedStars)}</div>
         <div style="font-size:12.5px;color:#b6c8dc;margin-top:6px">
-          ${(S.reviews[order.workerId] || []).filter(r => r.orderId === order.id).map(r => r.text || '（未填写）')[0] || ''}
+          ${YCSec.esc((S.reviews[order.workerId] || []).filter(r => r.orderId === order.id).map(r => r.text || '（未填写）')[0] || '')}
         </div>
       </div>` : ''}
   `;

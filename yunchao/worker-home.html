@@ -210,7 +210,7 @@ function init() {
           <span>${YCUtil.time(r.at)}</span>
         </div>
         <div class="rev-stars">${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)}</div>
-        <div class="rev-body" style="margin-top:4px">${r.text || '（未填写文字评价）'}</div>
+        <div class="rev-body" style="margin-top:4px">${YCSec.esc(r.text) || '（未填写文字评价）'}</div>
         ${r.stars >= 4 ? '<div class="rev-tags"><span>技术好</span><span>守时</span></div>' : ''}
       </div>`).join('');
   }

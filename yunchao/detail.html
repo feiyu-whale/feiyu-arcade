@@ -161,7 +161,7 @@ function renderWorker(id) {
           <div class="order">
             <div class="order-body">
               <div class="order-row"><span>评分</span><span style="color:#fbbf24">${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)}</span></div>
-              ${r.text ? `<div class="order-row"><span>评价</span><span style="max-width:65%;text-align:right">${r.text}</span></div>` : ''}
+              ${r.text ? `<div class="order-row"><span>评价</span><span style="max-width:65%;text-align:right">${YCSec.esc(r.text)}</span></div>` : ''}
               <div class="order-row"><span>时间</span><span>${YCUtil.time(r.at)}</span></div>
             </div>
           </div>`).join('')}

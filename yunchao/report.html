@@ -84,7 +84,7 @@ document.getElementById('rules').innerHTML = YC.RULES.map(r => `
   <div class="rule-item" data-r="${r.id}">
     <div>
       <div class="n">${r.name}</div>
-      <div class="p">${r.note}</div>
+      <div class="p">${YCSec.esc(r.note)}</div>
     </div>
     <div class="r">赔 ${r.penalty}</div>
   </div>`).join('');
@@ -143,7 +143,7 @@ document.getElementById('submit').onclick = () => {
     ruleName: rule.name,
     penalty: rule.penalty,
     reward: rule.reward,
-    note: document.getElementById('note').value.trim(),
+    note: YCSec.clean(document.getElementById('note').value, 200),
     proof: true,
     state: 'pending',
     reporter: 'boss',

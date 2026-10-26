@@ -236,7 +236,7 @@ document.getElementById('payBtn').onclick = () => {
     addons: addons.slice(),
     price: finalPrice, priceBase: base + (total - base) + firstOff,
     appoint: appoint,
-    note: (document.getElementById('note') || {}).value || '',
+    note: YCSec.clean((document.getElementById('note') || {}).value, 200),
     status: YCStatus.PENDING,
     createdAt: Date.now(),
     history: [{ to: YCStatus.PENDING, at: Date.now() }]
