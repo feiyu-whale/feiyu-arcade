@@ -87,7 +87,7 @@ label { font-size: 12px; color: #8ba8c4; display: block; margin: 8px 0 4px; }
 </div>
 <div id="status" class="status" style="display:none"></div>
 <div id="bar" style="display:none"></div>
-<div class="version">v1.2.0-修库版本与错误提示 20261026</div>
+<div class="version">v1.3.0-修WebGPU后端判断 20261026</div>
 
 <script type="module">
 const $ = id => document.getElementById(id);
@@ -99,6 +99,7 @@ const LIB_CDNS = [
   'https://fastly.jsdelivr.net/npm/@huggingface/transformers@4.3.1'
 ];
 let _lib = null;
+let _hasAdapter = false;   // 真实 WebGPU 适配器探测结果，别只看 navigator.gpu
 
 async function getLib() {
   if (_lib) return _lib;
@@ -127,8 +128,9 @@ async function boot() {
 
       const modelId = $('model').value;
       currentModel = modelId;
-      const hasGpu = !!navigator.gpu;
-      const device = hasGpu ? 'webgpu' : 'wasm';
+      // 关键：必须用真实 adapter 探测结果，不能用 !!navigator.gpu
+      // 有 navigator.gpu 但没有 adapter（无显卡/驱动不支持）时，用 webgpu 会直接失败
+      const device = _hasAdapter ? 'webgpu' : 'wasm';
       $('e-backend').textContent = device.toUpperCase();
 
       pipe = await pipeline('text-generation', modelId, {
@@ -150,24 +152,26 @@ async function boot() {
 }
 
 // 环境检测（保持可见，这几个格子有用）
-(async () => {
+async function detectEnv() {
   const gpuEl = $('e-gpu');
   if (navigator.gpu) {
     try {
       const a = await navigator.gpu.requestAdapter();
+      _hasAdapter = !!a;
       gpuEl.textContent = a ? '可用 ✓' : '无适配器';
       gpuEl.className = a ? 'ok' : 'warn';
-    } catch (e) { gpuEl.textContent = '异常'; gpuEl.className = 'bad'; }
+    } catch (e) { _hasAdapter = false; gpuEl.textContent = '异常'; gpuEl.className = 'bad'; }
   } else {
+    _hasAdapter = false;
     gpuEl.textContent = '不支持 ✗'; gpuEl.className = 'bad';
   }
   $('e-cpu').textContent = (navigator.hardwareConcurrency || '?') + ' 核';
   $('e-mem').textContent = navigator.deviceMemory ? navigator.deviceMemory + ' GB' : '未知';
-})();
+}
 
-// 页面加载即开跑，不等用户点
+// 页面加载即开跑，但先把 adapter 探测完，否则 boot 会误判后端
 setBtn('准备中…', false);
-boot();
+detectEnv().then(() => boot());
 
 // 换模型 = 重新静默预载
 $('model').onchange = () => {
