@@ -348,7 +348,7 @@ select {
   </div>
 </div>
 
-<div class="version">v1.0.0-标准直齿圆柱齿轮计算 20261021</div>
+<div class="version">v1.0.1-加齿数整数校验 20261026</div>
 
 <script>
 (function() {
@@ -403,9 +403,20 @@ select {
     hideError();
 
     var m = getModule();
-    var z1 = parseInt(z1Input.value, 10);
-    var z2Val = z2Input.value.trim();
-    var z2 = z2Val === '' ? NaN : parseInt(z2Val, 10);
+    var z1Raw = z1Input.value.trim();
+    var z2Raw = z2Input.value.trim();
+    // 2026-10-26 修：原本直接用 parseInt，输入 20.9 会被静默截断成 20，
+    // 20abc 也会变 20 且无任何提示。齿数必须是正整数，先查原文再转。
+    if (z1Raw !== '' && !/^\d+$/.test(z1Raw)) {
+      showError('齿轮1 齿数必须是正整数（不能带小数或其他字符）');
+      return;
+    }
+    if (z2Raw !== '' && !/^\d+$/.test(z2Raw)) {
+      showError('齿轮2 齿数必须是正整数（不能带小数或其他字符）');
+      return;
+    }
+    var z1 = z1Raw === '' ? NaN : parseInt(z1Raw, 10);
+    var z2 = z2Raw === '' ? NaN : parseInt(z2Raw, 10);
 
     if (isNaN(m) || m <= 0) {
       showError('请输入有效的模数（大于 0）');
