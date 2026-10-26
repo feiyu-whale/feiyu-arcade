@@ -66,7 +66,9 @@ label { font-size: 12px; color: #8ba8c4; display: block; margin: 8px 0 4px; }
     </select>
     <div style="margin-top:10px">
       <button id="run2" disabled>准备中…</button>
+      <button id="preload" style="background:#0f766e;margin-left:8px">预载模型（约 190MB，建议 WiFi）</button>
     </div>
+    <div id="preloadTip" style="font-size:11px;color:#6b8299;margin-top:6px;display:none"></div>
   </div>
 
   <div class="card">
@@ -86,7 +88,7 @@ label { font-size: 12px; color: #8ba8c4; display: block; margin: 8px 0 4px; }
 </div>
 <div id="status" class="status" style="display:none"></div>
 <div id="bar" style="display:none"></div>
-<div class="version">v2.1.0-读首页预载缓存 20261026</div>
+<div class="version">v2.2.0-加手动预载按钮 20261026</div>
 
 <script type="module">
 const $ = id => document.getElementById(id);
@@ -170,7 +172,8 @@ async function boot() {
       console.error(e);
       const msg = String((e && e.message) || e).slice(0, 200);
       setBtn('重试', true);
-      $('out').textContent = '模型加载失败：' + msg + '\n\n（点按钮重试；若反复失败，多半是网络拉不到模型文件）';
+      $('preload').style.display = '';
+      $('out').textContent = '模型加载失败：' + msg + '\n\n（点上面「预载模型」把文件拉到本地，或点「重试」）';
       $('run2').onclick = () => { booting = null; ready = false; $('out').textContent = ''; setBtn('准备中…', false); boot(); };
     }
   })();
@@ -242,6 +245,70 @@ async function generate() {
     $('run2').disabled = false;
   }
 }
+
+// ---------- 手动预载（手机端 / 首次使用） ----------
+const MODEL_FILES = [
+  'models/distilgpt2/config.json',
+  'models/distilgpt2/generation_config.json',
+  'models/distilgpt2/tokenizer.json',
+  'models/distilgpt2/tokenizer_config.json',
+  'models/distilgpt2/onnx/model_quantized.onnx',
+  'models/opus-en-zh/config.json',
+  'models/opus-en-zh/generation_config.json',
+  'models/opus-en-zh/quantize_config.json',
+  'models/opus-en-zh/tokenizer.json',
+  'models/opus-en-zh/tokenizer_config.json',
+  'models/opus-en-zh/onnx/encoder_model_quantized.onnx',
+  'models/opus-en-zh/onnx/decoder_model_merged_quantized.onnx'
+];
+
+$('preload').onclick = async () => {
+  const btn = $('preload');
+  const tip = $('preloadTip');
+  btn.disabled = true;
+  tip.style.display = '';
+
+  if (!('caches' in window)) {
+    tip.textContent = '当前浏览器不支持缓存，无法预载';
+    btn.disabled = false;
+    return;
+  }
+
+  try {
+    const cache = await caches.open('feiyu-webai-models-v1');
+    const existing = await cache.keys();
+    const have = new Set(existing.map(r => r.url));
+    const todo = MODEL_FILES
+      .map(f => new URL(f, location.href).href)
+      .filter(u => !have.has(u));
+
+    if (!todo.length) {
+      tip.textContent = '模型已在本地缓存，无需重复下载';
+      btn.disabled = false;
+      return;
+    }
+
+    let done = 0;
+    for (const url of todo) {
+      tip.textContent = `下载中 ${done}/${todo.length}  请在 WiFi 下耐心等待…`;
+      try {
+        const res = await fetch(url);
+        if (res.ok) await cache.put(url, res.clone());
+      } catch (e) { /* 单个失败继续下一个 */ }
+      done++;
+    }
+
+    tip.textContent = `预载完成（${done} 个文件），正在启动模型…`;
+    btn.style.display = 'none';
+    // 预载完了直接重启加载
+    ready = false; pipe = null; translator = null; booting = null;
+    setBtn('准备中…', false);
+    boot();
+  } catch (e) {
+    tip.textContent = '预载失败：' + (e.message || e);
+    btn.disabled = false;
+  }
+};
 
 $('run2').onclick = generate;
 </script>
