@@ -49,6 +49,10 @@ label { font-size: 12px; color: #8ba8c4; display: block; margin: 8px 0 4px; }
 <div class="wrap">
   <h1>🐳 网页端本地 AI 推理 Demo</h1>
   <div class="sub">模型跑在你自己的浏览器里，不连服务器，不花 API 费用</div>
+  <div style="background:#3b1d1d;border:1px solid #7f1d1d;color:#fca5a5;font-size:12px;padding:8px 10px;border-radius:7px;margin-bottom:12px;line-height:1.5">
+    ⚠️ <b>实验功能 · 尚未测试完毕</b><br>
+    本地模型加载与英译中链路仍在调试，可能出现加载慢、失败或翻译生硬。仅供体验，勿当正经工具用。
+  </div>
 
   <div class="card">
     <div class="env" id="env">
@@ -88,7 +92,7 @@ label { font-size: 12px; color: #8ba8c4; display: block; margin: 8px 0 4px; }
 </div>
 <div id="status" class="status" style="display:none"></div>
 <div id="bar" style="display:none"></div>
-<div class="version">v2.2.0-加手动预载按钮 20261026</div>
+<div class="version">v2.2.1-加实验状态提示 20261026</div>
 
 <script type="module">
 const $ = id => document.getElementById(id);
