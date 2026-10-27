@@ -64,11 +64,13 @@ function discArea() {
  * @param theta 姿态角 (rad) —— 盘面与水平面的夹角
  * @returns {fx, fy} 力 (N)
  */
-function hydroForce(vx, vy, theta) {
+function hydroForce(vx, vy, theta, immersion) {
   const { rhoWater, cdNormal, cdTangent } = PHYS;
-  const S = discArea();
+  // 只算浸入水中的部分：immersion 0..1（0=刚擦过，1=全浸）
+  const imm = Math.max(0, Math.min(1, immersion === undefined ? 1 : immersion));
+  const S = discArea() * imm;
   const v2 = vx * vx + vy * vy;
-  if (v2 < 1e-9) return { fx: 0, fy: 0, alpha: 0 };
+  if (v2 < 1e-9 || S < 1e-12) return { fx: 0, fy: 0, alpha: 0 };
 
   const v = Math.sqrt(v2);
   // 速度方向与盘面的夹角（攻角）
@@ -90,11 +92,17 @@ function hydroForce(vx, vy, theta) {
   // 攻角为负时升力反向
   const ls = Math.sign(cl);
 
-  return {
-    fx: lx * lift * ls - ux * drag,
-    fy: ly * lift * ls - uy * drag,
-    alpha
-  };
+  // 限幅：单次接触的最大力不超过 200 倍重力（防止数值发散）
+  const maxF = PHYS.stone.mass * PHYS.g * 200;
+  let fx = lx * lift * ls - ux * drag;
+  let fy = ly * lift * ls - uy * drag;
+  const fMag = Math.hypot(fx, fy);
+  if (fMag > maxF && fMag > 0) {
+    fx = fx / fMag * maxF;
+    fy = fy / fMag * maxF;
+  }
+
+  return { fx, fy, alpha };
 }
 
 /**
@@ -116,7 +124,7 @@ function contact(vx, vy, theta, omega) {
   }
 
   // 自旋不足 → 姿态不稳，翻
-  const spinStability = Math.min(1, (omega * stone.r) / 1.2);  // 边缘线速度 / 参考值
+  const spinStability = Math.min(1, Math.abs(omega) * stone.r / 1.2);  // 边缘线速度 / 参考值（取绝对值：顺时针/逆时针都算）
   if (spinStability < 0.18) {
     return { bounce: false, vx, vy, omega, reason: 'spin' };
   }

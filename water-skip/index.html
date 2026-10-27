@@ -54,7 +54,7 @@
   <div class="rec" id="crec"></div>
 </div>
 
-<div class="ver">v2.3.1-柔化光带 20261027</div>
+<div class="ver">v2.4.3-影子贴近才画 20261027</div>
 
 <script src="physics.js"></script>
 <script src="waterfield.js"></script>
@@ -166,8 +166,8 @@ for (let i = 0; i < 40; i++) farWaves.push({ x: Math.random(), y: Math.random(),
 function resetStone() {
   // 物理量（米/秒/弧度），绘制时乘 PPM
   stone = {
-    mx: 1.6,                                  // 米：距左边界
-    my: 1.15,                                 // 米：离水面的高度（水面 y=0）
+    mx: 1.0,                                  // 米：距左边界
+    my: 0.12,                                 // 米：贴水面出手（12cm）
     vx: 0, vy: 0,                             // m/s
     theta: 0.12,                              // 姿态角 rad（盘面与水平夹角）
     omega: 0,                                 // 自旋 rad/s
@@ -179,7 +179,7 @@ function resetStone() {
   // 画面坐标（由物理量换算）
   stone.x = stone.mx * PPM;
   stone.y = waterTop - stone.my * PPM;
-  stone.r = PHYS.stone.r * PPM;               // 3cm 石子按比例
+  stone.r = Math.max(16, PHYS.stone.r * PPM);   // 视觉最小 16px，太小看不见
   stone.rot = 0;
   stone.spin = 0;
   skips = 0;
@@ -189,14 +189,14 @@ function resetStone() {
 
 function launch(powerRatio) {
   // 真实量级：人手甩石子 12~28 m/s，仰角 5°~25°，自旋 40~120 rad/s
-  const angleDeg = 5 + powerRatio * 20;
+  const angleDeg = 3 + powerRatio * 11;           // 3°~14°（打水漂要压得平）
   const speedMs = 12 + powerRatio * 16;           // m/s
   const a = angleDeg * Math.PI / 180;
 
   stone.vx = Math.cos(a) * speedMs;
   stone.vy = -Math.sin(a) * speedMs;              // 物理坐标 y 向下为正
   stone.theta = -a * 0.55;                        // 出手时盘面略抬头
-  stone.omega = -(45 + powerRatio * 75);          // 自旋（负=顺时针，与前进方向匹配）
+  stone.omega = -(18 + powerRatio * 26);         // 自旋 18~44 rad/s（约每秒 3~7 圈）
   stone.flying = true;
   stone.done = false;
   stone.inWater = false;
@@ -387,17 +387,29 @@ function update(dt) {
         }
       } else {
         // 空中/水下：用真实水动力（贴水面滑行时）
-        const hf = touching ? hydroForce(stone.vx, stone.vy, stone.theta) : null;
-        let ax = 0, ay = PHYS.g;         // 重力（向下为正）
+        // 浸入比例：石子中心越深，浸入越多（半径 0.03m）
+        let immersion = 0;
+        if (touching) {
+          immersion = Math.min(0.35, (Math.abs(stone.my) / PHYS.stone.r) * 0.35);
+        }
+        const hf = touching ? hydroForce(stone.vx, stone.vy, stone.theta, immersion) : null;
+        let ax = 0, ay = -PHYS.g;        // 重力：物理坐标向上为正，重力取负
         if (hf) {
           ax += hf.fx / PHYS.stone.mass;
           ay += hf.fy / PHYS.stone.mass;
         }
         stone.vx += ax * sdt;
         stone.vy += ay * sdt;
-        stone.my -= stone.vy * sdt;      // 向上飞 = my 增大
+        stone.my += stone.vy * sdt;      // vy<0 表示向上 → my 减小 = 往下落
         stone.mx += stone.vx * sdt;
-        stone.theta += stone.omega * sdt;
+        // 姿态角跟着速度方向走（气流水流作用），不由自旋直接推
+        // 飞行中盘面趋于跟随速度方向，但陀螺稳定让它保持较平
+        const velAng = Math.atan2(stone.vy, Math.abs(stone.vx));
+        const targetTheta = velAng * 0.35;          // 只跟一部分，保持盘面较平
+        const spinStab = Math.min(1, Math.abs(stone.omega) / 40);  // 自旋越稳越不易偏
+        const follow = 2.2 * (1 - spinStab * 0.65);  // 自旋快 → 姿态更稳
+        stone.theta += (targetTheta - stone.theta) * follow * sdt;
+        // 自旋本身只转不翻，不改变姿态角
         stone.omega *= Math.pow(0.997, sdt * 1000);
       }
 
@@ -412,7 +424,7 @@ function update(dt) {
       stone.x = stone.mx * PPM;
       stone.y = waterTop - stone.my * PPM;
       stone.rot += stone.omega * sdt;
-      stone.r = PHYS.stone.r * PPM;
+      stone.r = Math.max(16, PHYS.stone.r * PPM);
 
       // 出界
       if (stone.x > W + 100) { if (!stone.done) { stone.done = true; stone.flying = false; endRound(); } return; }
@@ -564,13 +576,20 @@ function drawWater() {
   for (let y = horizon; y <= H; y += 8) {
     const tv = (y - horizon) / wH;
     const w = bandW * (0.25 + Math.pow(tv, 1.3) * 1.5);
-    const wob = Math.sin(y * 0.028 + t * 1.1) * w * 0.10;
+    // 用真实波高扰动边缘
+    const colF = Math.max(0, Math.min(WATER.cols - 1, Math.round((moonX / W) * (WATER.cols - 1))));
+    const rowF = Math.max(0, Math.min(WATER.rows - 1, Math.round(tv * (WATER.rows - 1))));
+    const hgt = WATER.total(colF, rowF, t);
+    const wob = Math.sin(y * 0.028 + t * 1.1) * w * 0.16 + hgt * w * 0.45;
     ctx.lineTo(moonX + w + wob, y);
   }
   for (let y = H; y >= horizon; y -= 8) {
     const tv = (y - horizon) / wH;
     const w = bandW * (0.25 + Math.pow(tv, 1.3) * 1.5);
-    const wob = Math.sin(y * 0.028 - t * 1.1) * w * 0.10;
+    const colF2 = Math.max(0, Math.min(WATER.cols - 1, Math.round((moonX / W) * (WATER.cols - 1))));
+    const rowF2 = Math.max(0, Math.min(WATER.rows - 1, Math.round(tv * (WATER.rows - 1))));
+    const hgt2 = WATER.total(colF2, rowF2, t);
+    const wob = Math.sin(y * 0.028 - t * 1.1) * w * 0.16 + hgt2 * w * 0.45;
     ctx.lineTo(moonX - w + wob, y);
   }
   ctx.closePath();
@@ -590,6 +609,20 @@ function drawWater() {
   fogDown.addColorStop(1, 'rgba(90,140,180,0)');
   ctx.fillStyle = fogDown;
   ctx.fillRect(0, horizon, W, 100);
+}
+
+function drawRipples() {
+  if (!ripples.length) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const rp of ripples) {
+    ctx.strokeStyle = 'rgba(170,220,255,' + (rp.a * rp.life * 0.75) + ')';
+    ctx.lineWidth = 1.6 * Math.max(0.3, rp.life);
+    ctx.beginPath();
+    ctx.ellipse(rp.x, rp.y, rp.r, rp.r * 0.34, 0, 0, 7);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawSplashes() {
@@ -624,7 +657,7 @@ function drawStone() {
   ctx.rotate(s.rot);
 
   // 影子投在水面
-  if (s.y < waterY(s.x) - 6) {
+  if (s.y < waterY(s.x) - 2 && s.y > waterY(s.x) - 16) {   // 只在离水面 16px 以内画影子
     ctx.save();
     ctx.rotate(-s.rot);
     const wy = waterY(s.x) - s.y;
@@ -644,9 +677,13 @@ function drawStone() {
   g.addColorStop(1, '#4e5a68');
   ctx.fillStyle = g;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(220,240,255,.5)';
-  ctx.lineWidth = 1;
+  // 外发光，让石子在海面上看得见
+  ctx.shadowColor = 'rgba(160,215,255,.9)';
+  ctx.shadowBlur = 12;
+  ctx.strokeStyle = 'rgba(230,245,255,.85)';
+  ctx.lineWidth = 1.6;
   ctx.stroke();
+  ctx.shadowBlur = 0;
 
   // 高光
   ctx.beginPath();
@@ -659,23 +696,30 @@ function drawStone() {
 
 function drawAim() {
   if (!charging || stone.flying || stone.done) return;
-  const a = (8 + power * 26) * Math.PI / 180;
-  const speed = 620 + power * 780;
-  // 抛物线预览
+  // 用真实物理参数预览：角度 3~14°，速度 12~28 m/s
+  const aDeg = 3 + power * 11;
+  const a = aDeg * Math.PI / 180;
+  const speedMs = 12 + power * 16;
+
+  // 物理坐标（米）里模拟，再换算到屏幕
+  let mx = stone.mx, my = stone.my;
+  let vx = Math.cos(a) * speedMs;
+  let vy = -Math.sin(a) * speedMs;
+  const ddt = 0.006;
+
   ctx.save();
   ctx.setLineDash([3, 6]);
-  ctx.strokeStyle = 'rgba(127,212,255,' + (0.25 + power * 0.45) + ')';
+  ctx.strokeStyle = 'rgba(127,212,255,' + (0.28 + power * 0.45) + ')';
   ctx.lineWidth = 1.6;
   ctx.beginPath();
-  let px = stone.x, py = stone.y;
-  let vx = Math.cos(a) * speed, vy = -Math.sin(a) * speed;
-  const steps = 34, ddt = 0.022;
-  ctx.moveTo(px, py);
-  for (let i = 0; i < steps; i++) {
-    vy += G * ddt;
-    px += vx * ddt; py += vy * ddt;
-    if (py > waterY(px)) break;
-    ctx.lineTo(px, py);
+  ctx.moveTo(mx * PPM, waterTop - my * PPM);
+  for (let i = 0; i < 200; i++) {
+    vy += PHYS.g * ddt;
+    mx += vx * ddt;
+    my -= vy * ddt;
+    if (my <= 0) break;                       // 到水面就停
+    if (mx * PPM > W) break;
+    ctx.lineTo(mx * PPM, waterTop - my * PPM);
   }
   ctx.stroke();
   ctx.restore();
