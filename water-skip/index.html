@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🐳 打水漂</title>
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; overflow:hidden; background:#0a1626;
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; color:#dcecff; user-select:none; }
+  #cv { display:block; width:100%; height:100%; touch-action:none; cursor:crosshair; }
+  .hud { position:fixed; top:10px; left:12px; font-size:13px; line-height:1.7; pointer-events:none;
+    text-shadow:0 2px 8px rgba(0,0,0,.8); }
+  .hud b { color:#7fd4ff; font-size:20px; }
+  .hud .sub { font-size:11px; color:#8fa8c4; }
+  .right { position:fixed; top:10px; right:12px; text-align:right; font-size:11px; line-height:1.8;
+    color:#8fa8c4; pointer-events:none; text-shadow:0 2px 8px rgba(0,0,0,.8); }
+  .right b { color:#ffd479; }
+  .pow { position:fixed; left:12px; bottom:14px; width:140px; pointer-events:none; }
+  .pow .bar { height:7px; background:rgba(110,160,210,.28); border:1px solid rgba(127,212,255,.35); border-radius:4px; overflow:hidden; }
+  .pow .fill { height:100%; width:0%; background:linear-gradient(90deg,#3fa9f5,#7fd4ff,#ffd479); transition:width .05s; }
+  .pow .lab { font-size:10px; color:#8fa8c4; margin-bottom:4px; }
+  .tip { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); font-size:11px;
+    color:#8fa8c4; pointer-events:none; text-align:center; line-height:1.8; }
+  .ver { position:fixed; right:10px; bottom:8px; font-size:10px; color:#4a6a90; pointer-events:none; }
+  .center { position:fixed; left:50%; top:42%; transform:translate(-50%,-50%); text-align:center;
+    pointer-events:none; opacity:0; transition:opacity .25s; }
+  .center.show { opacity:1; }
+  .center .big { font-size:56px; font-weight:800; color:#ffd479; text-shadow:0 4px 24px rgba(255,180,60,.6); }
+  .center .txt { font-size:15px; color:#dcecff; margin-top:6px; }
+  .center .rec { font-size:12px; color:#7fd4ff; margin-top:10px; letter-spacing:1px; }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div class="hud">
+  本局 <b id="score">0</b> 跳<br>
+  <span class="sub">最高 <span id="best">0</span> · 本回合 <span id="round">1</span>/5</span>
+</div>
+<div class="right">
+  抛射角度 <b id="ang">20°</b><br>
+  出手速度 <b id="spd">0</b>
+</div>
+<div class="pow">
+  <div class="lab">力度（按住蓄力，松手飞出）</div>
+  <div class="bar"><div class="fill" id="fill"></div></div>
+</div>
+<div class="tip" id="tip">按住蓄力 → 松手甩出 · 石子贴着水面才跳得远</div>
+
+<div class="center" id="center">
+  <div class="big" id="cbig">0 跳</div>
+  <div class="txt" id="ctxt"></div>
+  <div class="rec" id="crec"></div>
+</div>
+
+<div class="ver">v1.0.2-提可见度 20261027</div>
+
+<script>
+(() => {
+'use strict';
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  computeWater();
+}
+addEventListener('resize', resize);
+
+// ===== 场景参数 =====
+let horizon = 0, waterTop = 0;
+function computeWater() {
+  horizon = H * 0.30;
+  waterTop = horizon;
+}
+computeWater();
+
+// ===== 状态 =====
+const G = 1500;              // 重力 px/s^2
+const ROUNDS = 5;
+let stone = null;
+let ripples = [];
+let splashes = [];
+let skips = 0;
+let best = +(localStorage.getItem('skipping_best') || 0);
+let round = 1;
+let charging = false, chargeStart = 0, power = 0;
+let lastAngle = 20, lastSpeed = 0;
+let camShake = 0;
+let trail = [];
+let gameOver = false;
+let waitingTap = false;
+
+const el = {
+  score: document.getElementById('score'),
+  best: document.getElementById('best'),
+  round: document.getElementById('round'),
+  ang: document.getElementById('ang'),
+  spd: document.getElementById('spd'),
+  fill: document.getElementById('fill'),
+  center: document.getElementById('center'),
+  cbig: document.getElementById('cbig'),
+  ctxt: document.getElementById('ctxt'),
+  crec: document.getElementById('crec'),
+  tip: document.getElementById('tip'),
+};
+el.best.textContent = best;
+
+// ===== 音效（WebAudio 现算，零文件） =====
+let AC = null;
+function ac() {
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = false; } }
+  if (AC && AC.state === 'suspended') AC.resume();
+  return AC || null;
+}
+function blip(freq, dur, vol, type) {
+  const a = ac(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'sine';
+  o.frequency.setValueAtTime(freq, a.currentTime);
+  o.frequency.exponentialRampToValueAtTime(freq * 0.55, a.currentTime + dur);
+  g.gain.setValueAtTime(vol, a.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
+  o.connect(g); g.connect(a.destination);
+  o.start(); o.stop(a.currentTime + dur);
+}
+function noise(dur, vol) {
+  const a = ac(); if (!a) return;
+  const len = Math.floor(a.sampleRate * dur);
+  const buf = a.createBuffer(1, len, a.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = a.createBufferSource(); src.buffer = buf;
+  const g = a.createGain(); g.gain.value = vol;
+  const f = a.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 0.8;
+  src.connect(f); f.connect(g); g.connect(a.destination);
+  src.start();
+}
+
+// ===== 水面渲染数据 =====
+const farWaves = [];
+for (let i = 0; i < 40; i++) farWaves.push({ x: Math.random(), y: Math.random(), s: 0.3 + Math.random() * 0.8 });
+
+// ===== 石子 =====
+function resetStone() {
+  stone = {
+    x: W * 0.12,
+    y: horizon + (H - horizon) * 0.62,
+    vx: 0, vy: 0,
+    r: Math.max(4, Math.min(7, W * 0.008)),
+    rot: 0, spin: 0,
+    flying: false, done: false,
+    bounces: 0,
+    alive: 0
+  };
+  skips = 0;
+  trail = [];
+}
+
+function launch(powerRatio) {
+  const angleDeg = 8 + powerRatio * 26;           // 8° ~ 34°
+  const speed = 620 + powerRatio * 780;           // px/s
+  const a = angleDeg * Math.PI / 180;
+  stone.vx = Math.cos(a) * speed;
+  stone.vy = -Math.sin(a) * speed;
+  stone.flying = true;
+  stone.spin = 14 + powerRatio * 20;
+  stone.alive = 0;
+  lastAngle = angleDeg;
+  lastSpeed = Math.round(speed);
+  el.ang.textContent = angleDeg.toFixed(0) + '°';
+  el.spd.textContent = lastSpeed;
+  noise(0.12, 0.10);
+  noise(0.08, 0.06);
+}
+
+// ===== 水面碰撞 =====
+function waterY(x) {
+  // 轻微起伏，让水面有生命
+  return waterTop + Math.sin(x * 0.008 + performance.now() * 0.0009) * 2.2;
+}
+
+function doBounce() {
+  stone.bounces++;
+  skips++;
+  el.score.textContent = skips;
+
+  const y = waterY(stone.x);
+  stone.y = y - stone.r - 1;
+
+  // 每次弹跳损失速度
+  const lossV = 0.72 - Math.min(0.12, stone.bounces * 0.012);
+  stone.vx *= 0.90;
+  stone.vy = -Math.abs(stone.vy) * lossV;
+
+  // 涟漪
+  ripples.push({ x: stone.x, y: y, r: 2, maxR: 26 + stone.vx * 0.02, a: 0.55, life: 1 });
+  ripples.push({ x: stone.x, y: y, r: 1, maxR: 14 + stone.vx * 0.012, a: 0.35, life: 1 });
+
+  // 水花
+  for (let i = 0; i < 7; i++) {
+    splashes.push({
+      x: stone.x, y: y,
+      vx: (Math.random() - 0.35) * 90 + stone.vx * 0.08,
+      vy: -(60 + Math.random() * 170),
+      r: 1 + Math.random() * 2.2,
+      life: 1
+    });
+  }
+
+  blip(520 + stone.bounces * 46, 0.09, 0.09, 'sine');
+  noise(0.06, 0.05);
+  camShake = Math.min(6, 1.6 + stone.bounces * 0.25);
+
+  // 沉没判定
+  if (stone.vy > -70 || stone.bounces > 60) {
+    sink();
+  }
+}
+
+function sink() {
+  if (stone.done) return;
+  stone.done = true;
+  stone.flying = false;
+  const y = waterY(stone.x);
+  ripples.push({ x: stone.x, y: y, r: 2, maxR: 46, a: 0.6, life: 1 });
+  for (let i = 0; i < 14; i++) {
+    splashes.push({
+      x: stone.x, y: y,
+      vx: (Math.random() - 0.5) * 130,
+      vy: -(90 + Math.random() * 230),
+      r: 1 + Math.random() * 2.6,
+      life: 1
+    });
+  }
+  blip(220, 0.28, 0.12, 'sine');
+  noise(0.22, 0.09);
+  camShake = 5;
+  endRound();
+}
+
+// ===== 回合 =====
+function endRound() {
+  const newBest = skips > best;
+  if (newBest) { best = skips; localStorage.setItem('skipping_best', best); el.best.textContent = best; }
+
+  el.cbig.textContent = skips + ' 跳';
+  let msg;
+  if (skips === 0) msg = '直接沉了……再来一次';
+  else if (skips < 3) msg = '石头没吃住水，角度再压低些';
+  else if (skips < 6) msg = '有点样子了';
+  else if (skips < 10) msg = '漂亮！这块石头认水';
+  else if (skips < 16) msg = '厉害，鱼都服了';
+  else msg = '大师级！水面都被你打穿了';
+  el.ctxt.textContent = msg;
+  el.crec.textContent = newBest ? '★ 新纪录 ★' : '最高 ' + best;
+  el.center.classList.add('show');
+
+  if (round >= ROUNDS) {
+    gameOver = true;
+    waitingTap = true;
+    el.ctxt.textContent = msg + ' · 点一下重开';
+  } else {
+    round++;
+    el.round.textContent = round;
+    setTimeout(() => {
+      el.center.classList.remove('show');
+      resetStone();
+    }, 1250);
+  }
+}
+
+function restart() {
+  round = 1; el.round.textContent = 1;
+  gameOver = false; waitingTap = false;
+  el.score.textContent = 0;
+  el.center.classList.remove('show');
+  resetStone();
+}
+
+// ===== 输入 =====
+function pointerDown(e) {
+  e.preventDefault();
+  ac();
+  if (waitingTap) { restart(); return; }
+  if (stone.done || stone.flying) return;
+  charging = true;
+  chargeStart = performance.now();
+}
+function pointerUp(e) {
+  e.preventDefault();
+  if (!charging) return;
+  charging = false;
+  const p = Math.min(1, power);
+  el.fill.style.width = '0%';
+  power = 0;
+  launch(p);
+}
+cv.addEventListener('pointerdown', pointerDown);
+cv.addEventListener('pointerup', pointerUp);
+cv.addEventListener('pointercancel', () => { charging = false; power = 0; el.fill.style.width = '0%'; });
+
+// 键盘：空格蓄力
+let keyCharge = false;
+addEventListener('keydown', e => {
+  if (e.code !== 'Space') return;
+  e.preventDefault();
+  if (keyCharge) return;
+  if (waitingTap) { restart(); return; }
+  if (stone.done || stone.flying) return;
+  keyCharge = true; charging = true; chargeStart = performance.now(); ac();
+});
+addEventListener('keyup', e => {
+  if (e.code !== 'Space') return;
+  e.preventDefault();
+  if (!keyCharge) return;
+  keyCharge = false;
+  pointerUp(e);
+});
+
+// ===== 更新 =====
+function update(dt) {
+  // 蓄力
+  if (charging) {
+    const t = (performance.now() - chargeStart) / 1000;
+    power = Math.min(1, t / 1.15);
+    el.fill.style.width = (power * 100).toFixed(0) + '%';
+    const a = 8 + power * 26;
+    el.ang.textContent = a.toFixed(0) + '°';
+    el.spd.textContent = Math.round(620 + power * 780);
+  }
+
+  // 石子飞行
+  if (stone.flying && !stone.done) {
+    stone.alive += dt;
+    stone.vy += G * dt;
+    stone.x += stone.vx * dt;
+    stone.y += stone.vy * dt;
+    stone.rot += stone.spin * dt;
+
+    trail.push({ x: stone.x, y: stone.y, a: 1 });
+    if (trail.length > 26) trail.shift();
+
+    const wy = waterY(stone.x);
+    if (stone.y + stone.r >= wy && stone.vy > 0) {
+      doBounce();
+    }
+    // 出界
+    if (stone.x > W + 80 || stone.y > H + 100) {
+      if (!stone.done) { stone.done = true; stone.flying = false; endRound(); }
+    }
+  }
+
+  // 尾迹衰减
+  for (let i = trail.length - 1; i >= 0; i--) {
+    trail[i].a -= dt * 2.2;
+    if (trail[i].a <= 0) trail.splice(i, 1);
+  }
+
+  // 涟漪
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const rp = ripples[i];
+    rp.life -= dt * 0.85;
+    rp.r += (rp.maxR - rp.r) * dt * 4.5;
+    if (rp.life <= 0) ripples.splice(i, 1);
+  }
+
+  // 水花
+  for (let i = splashes.length - 1; i >= 0; i--) {
+    const s = splashes[i];
+    s.life -= dt * 1.5;
+    s.vy += 900 * dt;
+    s.x += s.vx * dt;
+    s.y += s.vy * dt;
+    if (s.life <= 0 || s.y > waterY(s.x) + 6) splashes.splice(i, 1);
+  }
+
+  camShake *= Math.pow(0.001, dt);
+  if (camShake < 0.1) camShake = 0;
+}
+
+// ===== 绘制 =====
+function drawSky() {
+  const g = ctx.createLinearGradient(0, 0, 0, horizon);
+  g.addColorStop(0, '#0d2038');
+  g.addColorStop(0.55, '#1b3a5c');
+  g.addColorStop(1, '#3d6a8f');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, horizon + 2);
+
+  // 月亮
+  const mx = W * 0.78, my = horizon * 0.32, mr = Math.min(34, W * 0.055);
+  const mg = ctx.createRadialGradient(mx, my, 0, mx, my, mr * 3.4);
+  mg.addColorStop(0, 'rgba(220,240,255,.35)');
+  mg.addColorStop(1, 'rgba(220,240,255,0)');
+  ctx.fillStyle = mg;
+  ctx.beginPath(); ctx.arc(mx, my, mr * 3.4, 0, 7); ctx.fill();
+  ctx.fillStyle = '#eef6ff';
+  ctx.beginPath(); ctx.arc(mx, my, mr, 0, 7); ctx.fill();
+
+  // 星
+  ctx.fillStyle = 'rgba(220,240,255,.55)';
+  for (let i = 0; i < 60; i++) {
+    const sx = (i * 197.3) % W;
+    const sy = (i * 83.7) % (horizon * 0.85);
+    const tw = 0.4 + 0.6 * Math.abs(Math.sin(performance.now() * 0.001 + i));
+    ctx.globalAlpha = tw * 0.6;
+    ctx.fillRect(sx, sy, 1.4, 1.4);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawWater() {
+  const g = ctx.createLinearGradient(0, horizon, 0, H);
+  g.addColorStop(0, '#2f5e85');
+  g.addColorStop(0.35, '#1c3f60');
+  g.addColorStop(1, '#0b1d30');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, horizon, W, H - horizon);
+
+  // 月光倒影
+  const mx = W * 0.78;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const rw = Math.min(W * 0.13, 90);
+  const rg = ctx.createLinearGradient(0, horizon, 0, H);
+  rg.addColorStop(0, 'rgba(150,200,255,.20)');
+  rg.addColorStop(0.4, 'rgba(140,190,250,.10)');
+  rg.addColorStop(1, 'rgba(120,170,230,0)');
+  ctx.fillStyle = rg;
+  ctx.beginPath();
+  const cx = mx;
+  ctx.moveTo(cx - 6, horizon);
+  for (let y = horizon; y <= H; y += 6) {
+    const t = (y - horizon) / (H - horizon);
+    const w = rw * Math.pow(t, 0.9) * (1 + Math.sin(y * 0.05 + performance.now() * 0.0016) * 0.10);
+    ctx.lineTo(cx + w, y);
+  }
+  for (let y = H; y >= horizon; y -= 6) {
+    const t = (y - horizon) / (H - horizon);
+    const w = rw * Math.pow(t, 0.9) * (1 + Math.sin(y * 0.05 - performance.now() * 0.0016) * 0.10);
+    ctx.lineTo(cx - w, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(200,230,255,.16)';
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 9; i++) {
+    const y = horizon + (i / 9) * (H - horizon) * 0.85 + 6;
+    const tw = (y - horizon) / (H - horizon);
+    const w = rw * Math.pow(tw, 0.9) * (1 + Math.sin(performance.now() * 0.0016 + i) * 0.12);
+    const off = Math.sin(performance.now() * 0.0011 + i * 1.9) * 6;
+    ctx.beginPath();
+    ctx.ellipse(cx + off, y, w, 1.6, 0, 0, 7);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 远处水波线
+  ctx.strokeStyle = 'rgba(140,200,255,.055)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 14; i++) {
+    const t = i / 14;
+    const y = horizon + Math.pow(t, 1.6) * (H - horizon);
+    const off = Math.sin(performance.now() * 0.0006 + i) * 22;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    for (let x = 0; x <= W; x += 26) {
+      ctx.lineTo(x, y + Math.sin(x * 0.012 + i + performance.now() * 0.0008) * (1 + t * 2.6));
+    }
+    ctx.stroke();
+  }
+}
+
+function drawRipples() {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const rp of ripples) {
+    ctx.strokeStyle = 'rgba(170,220,255,' + (rp.a * rp.life * 0.75) + ')';
+    ctx.lineWidth = 1.6 * Math.max(0.3, rp.life);
+    ctx.beginPath();
+    ctx.ellipse(rp.x, rp.y, rp.r, rp.r * 0.34, 0, 0, 7);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawSplashes() {
+  ctx.save();
+  ctx.fillStyle = 'rgba(200,235,255,.9)';
+  for (const s of splashes) {
+    ctx.globalAlpha = Math.max(0, s.life) * 0.9;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawTrail() {
+  if (!trail.length) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  for (let i = 1; i < trail.length; i++) {
+    const p0 = trail[i - 1], p1 = trail[i];
+    ctx.strokeStyle = 'rgba(150,215,255,' + (p1.a * 0.45) + ')';
+    ctx.lineWidth = 1 + p1.a * 2.4;
+    ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawStone() {
+  if (!stone) return;
+  const s = stone;
+  ctx.save();
+  ctx.translate(s.x, s.y);
+  ctx.rotate(s.rot);
+
+  // 影子投在水面
+  if (s.y < waterY(s.x) - 6) {
+    ctx.save();
+    ctx.rotate(-s.rot);
+    const wy = waterY(s.x) - s.y;
+    ctx.globalAlpha = 0.20;
+    ctx.fillStyle = '#08131f';
+    ctx.beginPath();
+    ctx.ellipse(0, wy, s.r * 1.9, s.r * 0.7, 0, 0, 7);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s.r * 1.35, s.r * 0.78, 0, 0, 7);
+  const g = ctx.createLinearGradient(-s.r, -s.r, s.r, s.r);
+  g.addColorStop(0, '#cfd8e0');
+  g.addColorStop(0.5, '#8d9aa8');
+  g.addColorStop(1, '#4e5a68');
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(220,240,255,.5)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // 高光
+  ctx.beginPath();
+  ctx.ellipse(-s.r * 0.35, -s.r * 0.22, s.r * 0.42, s.r * 0.22, -0.4, 0, 7);
+  ctx.fillStyle = 'rgba(255,255,255,.55)';
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawAim() {
+  if (!charging || stone.flying || stone.done) return;
+  const a = (8 + power * 26) * Math.PI / 180;
+  const speed = 620 + power * 780;
+  // 抛物线预览
+  ctx.save();
+  ctx.setLineDash([3, 6]);
+  ctx.strokeStyle = 'rgba(127,212,255,' + (0.25 + power * 0.45) + ')';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  let px = stone.x, py = stone.y;
+  let vx = Math.cos(a) * speed, vy = -Math.sin(a) * speed;
+  const steps = 34, ddt = 0.022;
+  ctx.moveTo(px, py);
+  for (let i = 0; i < steps; i++) {
+    vy += G * ddt;
+    px += vx * ddt; py += vy * ddt;
+    if (py > waterY(px)) break;
+    ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawOverlay() {
+  if (!gameOver) return;
+  ctx.fillStyle = 'rgba(4,10,18,.35)';
+  ctx.fillRect(0, 0, W, H);
+}
+
+// ===== 主循环 =====
+let prev = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - prev) / 1000);
+  prev = now;
+  update(dt);
+
+  ctx.save();
+  if (camShake > 0) {
+    ctx.translate((Math.random() - 0.5) * camShake, (Math.random() - 0.5) * camShake);
+  }
+  drawSky();
+  drawWater();
+  drawRipples();
+  drawTrail();
+  drawSplashes();
+  drawStone();
+  drawAim();
+  ctx.restore();
+
+  drawOverlay();
+  requestAnimationFrame(loop);
+}
+
+resize();
+resetStone();
+requestAnimationFrame(loop);
+
+// 防止滚动/长按菜单
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('gesturestart', e => e.preventDefault());
+})();
+</script>
+</body>
+</html>
