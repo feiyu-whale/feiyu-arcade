@@ -54,8 +54,10 @@
   <div class="rec" id="crec"></div>
 </div>
 
-<div class="ver">v1.0.2-提可见度 20261027</div>
+<div class="ver">v2.3.1-柔化光带 20261027</div>
 
+<script src="physics.js"></script>
+<script src="waterfield.js"></script>
 <script>
 (() => {
 'use strict';
@@ -70,8 +72,16 @@ function resize() {
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   computeWater();
+  recalcScale();
 }
-addEventListener('resize', resize);
+
+function initWater() {
+  const cols = 200, rows = 100;
+  const c = 18;                       // 波速（格/秒）
+  WATER = new WaterField(cols, rows, c);
+  WATER.dtMax = 0.7071 / c;
+}
+addEventListener('resize', () => { resize(); initWater(); });
 
 // ===== 场景参数 =====
 let horizon = 0, waterTop = 0;
@@ -82,7 +92,10 @@ function computeWater() {
 computeWater();
 
 // ===== 状态 =====
-const G = 1500;              // 重力 px/s^2
+// ===== 单位换算：物理世界(米/秒) → 画面(像素) =====
+let PPM = 320;                // pixels per meter（每米多少像素），随屏高自适应
+function recalcScale() { PPM = Math.max(180, Math.min(520, H * 0.34)); }
+const G = PHYS.g * PPM;       // 重力 px/s^2（由真重力换算）
 const ROUNDS = 5;
 let stone = null;
 let ripples = [];
@@ -93,6 +106,8 @@ let round = 1;
 let charging = false, chargeStart = 0, power = 0;
 let lastAngle = 20, lastSpeed = 0;
 let camShake = 0;
+let WATER = null;          // 水面波动场
+let waveTime = 0;
 let trail = [];
 let gameOver = false;
 let waitingTap = false;
@@ -149,33 +164,49 @@ for (let i = 0; i < 40; i++) farWaves.push({ x: Math.random(), y: Math.random(),
 
 // ===== 石子 =====
 function resetStone() {
+  // 物理量（米/秒/弧度），绘制时乘 PPM
   stone = {
-    x: W * 0.12,
-    y: horizon + (H - horizon) * 0.62,
-    vx: 0, vy: 0,
-    r: Math.max(4, Math.min(7, W * 0.008)),
-    rot: 0, spin: 0,
+    mx: 1.6,                                  // 米：距左边界
+    my: 1.15,                                 // 米：离水面的高度（水面 y=0）
+    vx: 0, vy: 0,                             // m/s
+    theta: 0.12,                              // 姿态角 rad（盘面与水平夹角）
+    omega: 0,                                 // 自旋 rad/s
     flying: false, done: false,
     bounces: 0,
-    alive: 0
+    inWater: false,
+    contactCooldown: 0
   };
+  // 画面坐标（由物理量换算）
+  stone.x = stone.mx * PPM;
+  stone.y = waterTop - stone.my * PPM;
+  stone.r = PHYS.stone.r * PPM;               // 3cm 石子按比例
+  stone.rot = 0;
+  stone.spin = 0;
   skips = 0;
   trail = [];
+  if (WATER) WATER.clear();
 }
 
 function launch(powerRatio) {
-  const angleDeg = 8 + powerRatio * 26;           // 8° ~ 34°
-  const speed = 620 + powerRatio * 780;           // px/s
+  // 真实量级：人手甩石子 12~28 m/s，仰角 5°~25°，自旋 40~120 rad/s
+  const angleDeg = 5 + powerRatio * 20;
+  const speedMs = 12 + powerRatio * 16;           // m/s
   const a = angleDeg * Math.PI / 180;
-  stone.vx = Math.cos(a) * speed;
-  stone.vy = -Math.sin(a) * speed;
+
+  stone.vx = Math.cos(a) * speedMs;
+  stone.vy = -Math.sin(a) * speedMs;              // 物理坐标 y 向下为正
+  stone.theta = -a * 0.55;                        // 出手时盘面略抬头
+  stone.omega = -(45 + powerRatio * 75);          // 自旋（负=顺时针，与前进方向匹配）
   stone.flying = true;
-  stone.spin = 14 + powerRatio * 20;
-  stone.alive = 0;
+  stone.done = false;
+  stone.inWater = false;
+  stone.contactCooldown = 0;
+
   lastAngle = angleDeg;
-  lastSpeed = Math.round(speed);
+  lastSpeed = speedMs.toFixed(1);
   el.ang.textContent = angleDeg.toFixed(0) + '°';
-  el.spd.textContent = lastSpeed;
+  el.spd.textContent = lastSpeed + ' m/s';
+
   noise(0.12, 0.10);
   noise(0.08, 0.06);
 }
@@ -186,42 +217,21 @@ function waterY(x) {
   return waterTop + Math.sin(x * 0.008 + performance.now() * 0.0009) * 2.2;
 }
 
-function doBounce() {
-  stone.bounces++;
-  skips++;
-  el.score.textContent = skips;
-
-  const y = waterY(stone.x);
-  stone.y = y - stone.r - 1;
-
-  // 每次弹跳损失速度
-  const lossV = 0.72 - Math.min(0.12, stone.bounces * 0.012);
-  stone.vx *= 0.90;
-  stone.vy = -Math.abs(stone.vy) * lossV;
-
-  // 涟漪
-  ripples.push({ x: stone.x, y: y, r: 2, maxR: 26 + stone.vx * 0.02, a: 0.55, life: 1 });
-  ripples.push({ x: stone.x, y: y, r: 1, maxR: 14 + stone.vx * 0.012, a: 0.35, life: 1 });
-
-  // 水花
+function doBounceFX(x) {
+  const y = waterY(x);
+  // 水花（物理坐标速度 → 像素速度）
   for (let i = 0; i < 7; i++) {
     splashes.push({
-      x: stone.x, y: y,
-      vx: (Math.random() - 0.35) * 90 + stone.vx * 0.08,
+      x: x, y: y,
+      vx: (Math.random() - 0.35) * 90 + Math.abs(stone.vx) * PPM * 0.06,
       vy: -(60 + Math.random() * 170),
       r: 1 + Math.random() * 2.2,
       life: 1
     });
   }
-
   blip(520 + stone.bounces * 46, 0.09, 0.09, 'sine');
   noise(0.06, 0.05);
   camShake = Math.min(6, 1.6 + stone.bounces * 0.25);
-
-  // 沉没判定
-  if (stone.vy > -70 || stone.bounces > 60) {
-    sink();
-  }
 }
 
 function sink() {
@@ -229,6 +239,12 @@ function sink() {
   stone.done = true;
   stone.flying = false;
   const y = waterY(stone.x);
+  // 沉没时给水面一个较大冲量
+  if (WATER) {
+    const vImpact = Math.hypot(stone.vx, stone.vy) || 3;
+    const gcol = (stone.mx * PPM / W) * WATER.cols;
+    WATER.impulseSmooth(gcol, 2, Math.min(9, vImpact * 0.3), 4.0, 10);
+  }
   ripples.push({ x: stone.x, y: y, r: 2, maxR: 46, a: 0.6, life: 1 });
   for (let i = 0; i < 14; i++) {
     splashes.push({
@@ -336,25 +352,74 @@ function update(dt) {
     el.spd.textContent = Math.round(620 + power * 780);
   }
 
-  // 石子飞行
+  // 石子飞行（真实物理积分）
   if (stone.flying && !stone.done) {
-    stone.alive += dt;
-    stone.vy += G * dt;
-    stone.x += stone.vx * dt;
-    stone.y += stone.vy * dt;
-    stone.rot += stone.spin * dt;
+    // 物理子步：用小步长保证稳定
+    const SUB = 4;
+    const sdt = dt / SUB;
+    for (let k = 0; k < SUB; k++) {
+      const prevMy = stone.my;
+      // 是否接触水面（物理坐标：水面 y=0，向下为正）
+      const touching = stone.my <= 0;
+
+      if (touching && stone.contactCooldown <= 0) {
+        // 入水：把速度给水面，产生真实的波
+        const vImpact = Math.hypot(stone.vx, stone.vy);
+        const strength = Math.min(6, vImpact * 0.22);
+        const gcol = Math.min(WATER.cols - 3, Math.max(2, (stone.x / W) * WATER.cols));
+        const grow = 2;   // 入水点靠近地平线（水面顶部一行）
+        WATER.impulseSmooth(gcol, grow, strength, 3.2 + vImpact * 0.14, 6);
+
+        const res = contact(stone.vx, stone.vy, stone.theta, stone.omega);
+        if (res.bounce) {
+          stone.vx = res.vx;
+          stone.vy = res.vy;
+          stone.omega = res.omega;
+          stone.my = 0.004;              // 抬离水面一点
+          stone.bounces++;
+          skips++;
+          el.score.textContent = skips;
+          doBounceFX(stone.x);
+          stone.contactCooldown = PHYS.contactTime;
+        } else {
+          sink();
+          return;
+        }
+      } else {
+        // 空中/水下：用真实水动力（贴水面滑行时）
+        const hf = touching ? hydroForce(stone.vx, stone.vy, stone.theta) : null;
+        let ax = 0, ay = PHYS.g;         // 重力（向下为正）
+        if (hf) {
+          ax += hf.fx / PHYS.stone.mass;
+          ay += hf.fy / PHYS.stone.mass;
+        }
+        stone.vx += ax * sdt;
+        stone.vy += ay * sdt;
+        stone.my -= stone.vy * sdt;      // 向上飞 = my 增大
+        stone.mx += stone.vx * sdt;
+        stone.theta += stone.omega * sdt;
+        stone.omega *= Math.pow(0.997, sdt * 1000);
+      }
+
+      if (stone.contactCooldown > 0) stone.contactCooldown -= sdt;
+
+      // 姿态崩了 / 自旋不够 / 速度没了 → 沉
+      if (stone.my < -0.05 || Math.abs(stone.theta) > PHYS.criticalAngle) {
+        sink(); return;
+      }
+
+      // 画面坐标换算
+      stone.x = stone.mx * PPM;
+      stone.y = waterTop - stone.my * PPM;
+      stone.rot += stone.omega * sdt;
+      stone.r = PHYS.stone.r * PPM;
+
+      // 出界
+      if (stone.x > W + 100) { if (!stone.done) { stone.done = true; stone.flying = false; endRound(); } return; }
+    }
 
     trail.push({ x: stone.x, y: stone.y, a: 1 });
     if (trail.length > 26) trail.shift();
-
-    const wy = waterY(stone.x);
-    if (stone.y + stone.r >= wy && stone.vy > 0) {
-      doBounce();
-    }
-    // 出界
-    if (stone.x > W + 80 || stone.y > H + 100) {
-      if (!stone.done) { stone.done = true; stone.flying = false; endRound(); }
-    }
   }
 
   // 尾迹衰减
@@ -401,8 +466,24 @@ function drawSky() {
   mg.addColorStop(1, 'rgba(220,240,255,0)');
   ctx.fillStyle = mg;
   ctx.beginPath(); ctx.arc(mx, my, mr * 3.4, 0, 7); ctx.fill();
-  ctx.fillStyle = '#eef6ff';
+  // 月面
+  const moonG = ctx.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, mr * 0.1, mx, my, mr);
+  moonG.addColorStop(0, '#ffffff');
+  moonG.addColorStop(0.7, '#eef6ff');
+  moonG.addColorStop(1, '#dbe6f2');
+  ctx.fillStyle = moonG;
   ctx.beginPath(); ctx.arc(mx, my, mr, 0, 7); ctx.fill();
+  // 环形山（固定位置，不闪）
+  ctx.save();
+  ctx.globalAlpha = 0.13;
+  ctx.fillStyle = '#8090a8';
+  const craters = [[-0.30, -0.18, 0.26], [0.22, 0.10, 0.19], [-0.08, 0.34, 0.16], [0.34, -0.28, 0.12], [-0.40, 0.22, 0.10]];
+  for (const [dx, dy, dr] of craters) {
+    ctx.beginPath();
+    ctx.arc(mx + dx * mr, my + dy * mr, dr * mr, 0, 7);
+    ctx.fill();
+  }
+  ctx.restore();
 
   // 星
   ctx.fillStyle = 'rgba(220,240,255,.55)';
@@ -417,6 +498,7 @@ function drawSky() {
 }
 
 function drawWater() {
+  // 底色
   const g = ctx.createLinearGradient(0, horizon, 0, H);
   g.addColorStop(0, '#2f5e85');
   g.addColorStop(0.35, '#1c3f60');
@@ -424,72 +506,90 @@ function drawWater() {
   ctx.fillStyle = g;
   ctx.fillRect(0, horizon, W, H - horizon);
 
-  // 月光倒影
-  const mx = W * 0.78;
+  // ===== 水面渲染 v2.3.0：稳定版（正弦波 + 透视 + 波光明暗） =====
+  // 不用离屏画布、不用法线反射，只做能看懂的波形。
+  const wH = H - horizon;
+  const t = waveTime;
+
+  // --- 1) 横向波纹：按透视行距画正弦线，近处疏、远处密 ---
+  ctx.save();
+  const LINES = 46;                        // 水面横线数
+  for (let i = 0; i < LINES; i++) {
+    const tv = i / LINES;                  // 0=远 1=近
+    const y = horizon + Math.pow(tv, 1.75) * wH;
+    if (y > H) break;
+
+    // 近处的波更高、更明显
+    const amp = 0.6 + tv * 5.5;
+    const freq = 0.010 + tv * 0.006;
+    const speed = 0.9 + tv * 0.5;
+    const phase = tv * 9;
+
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 6) {
+      const wy = y + Math.sin(x * freq + t * speed + phase) * amp
+                   + Math.sin(x * freq * 2.3 - t * speed * 0.7 + phase * 1.7) * amp * 0.35;
+      if (x === 0) ctx.moveTo(x, wy);
+      else ctx.lineTo(x, wy);
+    }
+
+    // 近处线更亮、更粗
+    const lum = 0.30 + tv * 0.55;
+    const alpha = 0.055 + tv * 0.13;
+    ctx.strokeStyle = 'rgba(' + Math.round(120 + lum * 70) + ',' +
+                                 Math.round(170 + lum * 60) + ',' +
+                                 Math.round(215 + lum * 40) + ',' + alpha.toFixed(3) + ')';
+    ctx.lineWidth = 0.7 + tv * 1.6;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // --- 2) 月光带：月亮正下方一条柔和的竖带 ---
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const rw = Math.min(W * 0.13, 90);
-  const rg = ctx.createLinearGradient(0, horizon, 0, H);
-  rg.addColorStop(0, 'rgba(150,200,255,.20)');
-  rg.addColorStop(0.4, 'rgba(140,190,250,.10)');
-  rg.addColorStop(1, 'rgba(120,170,230,0)');
-  ctx.fillStyle = rg;
+  const moonX = W * 0.78;
+  const bandW = Math.min(W * 0.09, 68);
+  const mg = ctx.createLinearGradient(0, horizon, 0, H);
+  mg.addColorStop(0, 'rgba(200,232,255,.16)');
+  mg.addColorStop(0.35, 'rgba(195,228,255,.11)');
+  mg.addColorStop(1, 'rgba(185,220,255,.03)');
+  // 用径向渐变做柔边（中心亮、边缘淡）
+  const mgRad = ctx.createRadialGradient(moonX, horizon + wH * 0.4, 0, moonX, horizon + wH * 0.4, Math.max(W * 0.30, wH));
+  mgRad.addColorStop(0, 'rgba(200,232,255,.20)');
+  mgRad.addColorStop(0.35, 'rgba(195,228,255,.11)');
+  mgRad.addColorStop(1, 'rgba(180,218,255,0)');
+  ctx.fillStyle = mgRad;
   ctx.beginPath();
-  const cx = mx;
-  ctx.moveTo(cx - 6, horizon);
-  for (let y = horizon; y <= H; y += 6) {
-    const t = (y - horizon) / (H - horizon);
-    const w = rw * Math.pow(t, 0.9) * (1 + Math.sin(y * 0.05 + performance.now() * 0.0016) * 0.10);
-    ctx.lineTo(cx + w, y);
+  ctx.moveTo(moonX - bandW * 0.22, horizon);
+  for (let y = horizon; y <= H; y += 8) {
+    const tv = (y - horizon) / wH;
+    const w = bandW * (0.25 + Math.pow(tv, 1.3) * 1.5);
+    const wob = Math.sin(y * 0.028 + t * 1.1) * w * 0.10;
+    ctx.lineTo(moonX + w + wob, y);
   }
-  for (let y = H; y >= horizon; y -= 6) {
-    const t = (y - horizon) / (H - horizon);
-    const w = rw * Math.pow(t, 0.9) * (1 + Math.sin(y * 0.05 - performance.now() * 0.0016) * 0.10);
-    ctx.lineTo(cx - w, y);
+  for (let y = H; y >= horizon; y -= 8) {
+    const tv = (y - horizon) / wH;
+    const w = bandW * (0.25 + Math.pow(tv, 1.3) * 1.5);
+    const wob = Math.sin(y * 0.028 - t * 1.1) * w * 0.10;
+    ctx.lineTo(moonX - w + wob, y);
   }
   ctx.closePath();
   ctx.fill();
-
-  ctx.strokeStyle = 'rgba(200,230,255,.16)';
-  ctx.lineWidth = 1.2;
-  for (let i = 0; i < 9; i++) {
-    const y = horizon + (i / 9) * (H - horizon) * 0.85 + 6;
-    const tw = (y - horizon) / (H - horizon);
-    const w = rw * Math.pow(tw, 0.9) * (1 + Math.sin(performance.now() * 0.0016 + i) * 0.12);
-    const off = Math.sin(performance.now() * 0.0011 + i * 1.9) * 6;
-    ctx.beginPath();
-    ctx.ellipse(cx + off, y, w, 1.6, 0, 0, 7);
-    ctx.stroke();
-  }
   ctx.restore();
 
-  // 远处水波线
-  ctx.strokeStyle = 'rgba(140,200,255,.055)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 14; i++) {
-    const t = i / 14;
-    const y = horizon + Math.pow(t, 1.6) * (H - horizon);
-    const off = Math.sin(performance.now() * 0.0006 + i) * 22;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    for (let x = 0; x <= W; x += 26) {
-      ctx.lineTo(x, y + Math.sin(x * 0.012 + i + performance.now() * 0.0008) * (1 + t * 2.6));
-    }
-    ctx.stroke();
-  }
-}
+  // 地平线：上下双向渐变，消掉硬边
+  const fogUp = ctx.createLinearGradient(0, horizon - 26, 0, horizon + 2);
+  fogUp.addColorStop(0, 'rgba(110,155,195,0)');
+  fogUp.addColorStop(1, 'rgba(118,162,200,.78)');
+  ctx.fillStyle = fogUp;
+  ctx.fillRect(0, horizon - 34, W, 38);
 
-function drawRipples() {
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  for (const rp of ripples) {
-    ctx.strokeStyle = 'rgba(170,220,255,' + (rp.a * rp.life * 0.75) + ')';
-    ctx.lineWidth = 1.6 * Math.max(0.3, rp.life);
-    ctx.beginPath();
-    ctx.ellipse(rp.x, rp.y, rp.r, rp.r * 0.34, 0, 0, 7);
-    ctx.stroke();
-  }
-  ctx.restore();
+  const fogDown = ctx.createLinearGradient(0, horizon, 0, horizon + 100);
+  fogDown.addColorStop(0, 'rgba(118,162,200,.78)');
+  fogDown.addColorStop(0.3, 'rgba(105,150,190,.26)');
+  fogDown.addColorStop(1, 'rgba(90,140,180,0)');
+  ctx.fillStyle = fogDown;
+  ctx.fillRect(0, horizon, W, 100);
 }
 
 function drawSplashes() {
@@ -594,6 +694,14 @@ function loop(now) {
   prev = now;
   update(dt);
 
+  // 水面波动场演化（固定步长，保证稳定）
+  if (WATER) {
+    waveTime += dt;
+    const wdt = Math.min(WATER.dtMax, 1 / 90);
+    WATER.applyPending();
+    WATER.step(wdt);
+  }
+
   ctx.save();
   if (camShake > 0) {
     ctx.translate((Math.random() - 0.5) * camShake, (Math.random() - 0.5) * camShake);
@@ -612,6 +720,7 @@ function loop(now) {
 }
 
 resize();
+initWater();      // ← 必须初始化水面场，否则 drawWater 直接 return（水面永远是空壳）
 resetStone();
 requestAnimationFrame(loop);
 
