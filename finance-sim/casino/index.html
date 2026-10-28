@@ -33,7 +33,8 @@
   .wallet .lb { font-size:10px; color:#8a6a80; margin-bottom:3px; }
   .wallet .vv { font-size:15px; font-weight:700; color:#ffd860; }
   .wallet .vv.neg { color:#ff8080; }
-  .tabs { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; margin-bottom:10px; }
+  .tabs { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:10px; }
+  .tabs button { padding:8px 1px; font-size:10.5px; }
   .tabs button { padding:9px 2px; font-size:12.5px; font-weight:600; color:#a88a9c; background:#1a1018;
     border:1px solid #3a2436; border-radius:9px; cursor:pointer; font-family:inherit; }
   .tabs button.on { background:linear-gradient(160deg,#8a2a52,#5a1a36); color:#fff; border-color:#d05a8a; }
@@ -80,6 +81,47 @@
   @keyframes blur { 0%,100%{opacity:.5} 50%{opacity:1} }
   .reel.hit { border-color:#ffd860; box-shadow:0 0 14px rgba(255,216,96,.5); }
   /* 骰子 */
+  .zjh { display:flex; gap:6px; justify-content:center; margin:8px 0; flex-wrap:wrap; }
+  .zjh .pc { width:52px; height:74px; }
+  .dragon { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .dragon > div { background:#0e080c; border:1px solid #3a2436; border-radius:10px; padding:8px; text-align:center; }
+  .dragon .ttl { font-size:11px; color:#8a6a80; margin-bottom:6px; }
+  .dragon .pts { font-size:18px; font-weight:700; color:#ffd860; margin-top:4px; }
+  .drBall { width:38px; height:38px; border-radius:50%; display:inline-flex; align-items:center;
+    justify-content:center; font-weight:800; font-size:15px; margin:2px; border:2px solid #3a2436; background:#1a1018; color:#ffd860; }
+  .drBall.on { animation:pop .4s ease-out; }
+  .drBall.pick { border-color:#d05a8a; background:#3a1a2a; color:#ffc0d8; }
+  .drBall.big { width:44px; height:44px; font-size:17px; }
+  .lotGrid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .lotGrid button { min-width:0; padding:7px 0; font-size:11px; }
+  .lotGrid button.sel { background:linear-gradient(160deg,#8a2a52,#5a1a36); color:#fff; border-color:#d05a8a; }
+  .pkr { display:flex; gap:6px; justify-content:center; margin:8px 0; flex-wrap:wrap; }
+  .pkr .pc { width:44px; height:62px; font-size:13px; }
+  .pkr .pc.sel { border-color:#ffd860; box-shadow:0 0 0 2px rgba(255,216,96,.45); }
+  .pc.small { width:36px; height:52px; }
+  .pc.small .suit { font-size:13px; } .pc.small .rank { font-size:11px; }
+  .tower { text-align:center; padding:6px 0; }
+  .tower .lv { font-size:14px; font-weight:800; color:#ffd860; margin:6px 0; }
+  .tower .rungs { display:flex; flex-direction:column-reverse; gap:4px; align-items:center; margin:8px 0; }
+  .tower .rungs div { font-size:11px; color:#6a5060; }
+  .tower .rungs div.done { color:#7fe0a8; }
+  .tower .rungs div.cur { color:#ffd860; font-weight:700; }
+  .horses { margin:8px 0; }
+  .horse { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .horse .nm { font-size:11px; color:#a88a9c; width:52px; flex:none; }
+  .horse .track { flex:1; height:14px; background:#0e080c; border:1px solid #3a2436; border-radius:7px; overflow:hidden; }
+  .horse .track i { display:block; height:100%; width:0; transition:width .35s linear;
+    background:linear-gradient(90deg,#8a2a52,#d05a8a); }
+  .horse.mine .nm { color:#ffd860; font-weight:700; }
+  .horse.win .track i { background:linear-gradient(90deg,#1f6a4a,#3fb98a); }
+  .scratch { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:8px 0; }
+  .scratch button { min-width:0; height:64px; font-size:24px; background:linear-gradient(160deg,#3a2a10,#241808);
+    border-color:#6a4a2a; color:#6a4a2a; }
+  .scratch button.open { background:linear-gradient(160deg,#2a1a2a,#1a1018); border-color:#8a6a20; color:#ffd860; }
+  .scratch button.win { background:linear-gradient(160deg,#1f6a4a,#12503a); border-color:#3fb98a; color:#fff; }
+  .rouletteGun { text-align:center; padding:14px 0; }
+  .rouletteGun .gun { font-size:52px; }
+  .rouletteGun .ch { font-size:13px; color:#a88a9c; margin-top:6px; }
   .dices { display:flex; gap:10px; justify-content:center; margin:8px 0; }
   .die { width:56px; height:56px; border-radius:12px; background:#fdfaf2; color:#1a1018;
     display:flex; align-items:center; justify-content:center; font-size:30px; font-weight:700;
@@ -148,6 +190,14 @@
     <button data-g="sl">🎰 老虎机</button>
     <button data-g="dc">🎲 骰子</button>
     <button data-g="bc">🀄 百家乐</button>
+    <button data-g="zjh">🎴 炸金花</button>
+    <button data-g="dragon">🐉 龙虎斗</button>
+    <button data-g="lot">🎱 六合彩</button>
+    <button data-g="horse">🐎 赛马</button>
+    <button data-g="niu">🐂 牛牛</button>
+    <button data-g="gun">🔫 俄罗斯轮盘</button>
+    <button data-g="tower">🪜 翻倍梯</button>
+    <button data-g="scratch">🎫 刮刮乐</button>
   </div>
 
   <!-- ============ 21点 ============ -->
@@ -308,6 +358,179 @@
     </div>
   </div>
 
+  <!-- ============ 炸金花 ============ -->
+  <div id="pane-zjh" style="display:none">
+    <div class="card">
+      <div class="lbl">你的三张牌</div>
+      <div class="zjh" id="zjhMine"></div>
+      <div class="msg" id="zjhMsg">闷牌下注，看牌后可加注</div>
+    </div>
+    <div class="card">
+      <div class="lbl">下注</div>
+      <input type="number" id="zjhBet" value="50" min="1" step="10">
+      <div class="row">
+        <button id="zjhLook">看牌</button>
+        <button class="act" id="zjhFold">弃牌</button>
+        <button class="act" id="zjhCall">跟牌</button>
+        <button id="zjhRaise">加注</button>
+      </div>
+      <div class="info">
+        <b>牌型倍率</b>：豹子 <b>30倍</b> · 同花顺 <b>20倍</b> · 同花 <b>8倍</b> · 顺子 <b>6倍</b> · 对子 <b>3倍</b> · 高牌 <b>2倍</b>（赢才给）<br>
+        <b>规则</b>：你和庄家各三张，比牌型与点数；<b>跟牌</b>=追加当前注额，<b>加注</b>=翻倍。<b>看牌</b>后本把可比，但成本翻倍。
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 龙虎斗 ============ -->
+  <div id="pane-dragon" style="display:none">
+    <div class="card">
+      <div class="lbl">开牌</div>
+      <div class="dragon">
+        <div><div class="ttl">龙 DRAGON</div><div id="drD"></div><div class="pts" id="drDV">—</div></div>
+        <div><div class="ttl">虎 TIGER</div><div id="drT"></div><div class="pts" id="drTV">—</div></div>
+      </div>
+      <div class="msg" id="drMsg">押龙 / 押虎 / 押和</div>
+    </div>
+    <div class="card">
+      <div class="lbl">下注</div>
+      <input type="number" id="drBet" value="50" min="1" step="10">
+      <div class="row">
+        <button class="act" id="drDragon">押龙 · 2倍</button>
+        <button class="act" id="drTiger">押虎 · 2倍</button>
+        <button id="drTie">押和 · 9倍</button>
+      </div>
+      <div class="info">
+        <b>规则</b>：8 副牌，龙虎各发一张，比点数（A 最小，K 最大）。<br>
+        <b>和局通吃</b>：两家点数相同即和局，此时<b>押龙押虎全输</b>（庄家通吃），只有押和才赢。<br>
+        <b>赔率</b>：龙/虎 <b>2倍</b> · 押和 <b>9倍</b>。<b>庄家优势</b>：约 <b>3.7%</b>。
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 六合彩 ============ -->
+  <div id="pane-lot" style="display:none">
+    <div class="card">
+      <div class="lbl">开奖号码</div>
+      <div id="lotDraw" style="text-align:center;min-height:46px"></div>
+      <div class="msg" id="lotMsg">选 1-49 里的号，可多选（每选一个算一注）</div>
+    </div>
+    <div class="card">
+      <div class="lbl">选号（已选 <span id="lotCnt">0</span> 个）</div>
+      <div class="lotGrid" id="lotGrid"></div>
+      <div class="row" style="margin-top:8px">
+        <button id="lotClear">清空</button>
+        <button class="act" id="lotBuy">开奖</button>
+      </div>
+      <div class="info">
+        <b>玩法</b>：每期开 <b>6 个正码 + 1 个特码</b>（共 7 个号，从 1-49 抽出，互不重复）。每注单价 10 虚拟币。<br>
+        <b>奖金等级（真实结构）</b>：<br>
+        头奖 = 中 6 正码 · <b>800000倍</b><br>
+        二奖 = 中 5 正 + 特 · <b>200000倍</b>　三奖 = 中 5 正 · <b>3000倍</b><br>
+        四奖 = 中 4 正 + 特 · <b>1000倍</b>　　五奖 = 中 4 正 · <b>300倍</b><br>
+        六奖 = 中 3 正 + 特 · <b>100倍</b>　　七奖 = 中 3 正 · <b>40倍</b><br>
+        八奖 = 中 2 正 + 特 · <b>20倍</b>　　九奖 = 中 1 正 + 特 · <b>10倍</b><br>
+        <b>庄家优势</b>：极大——头奖概率约 1/1398 万。
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 赛马 ============ -->
+  <div id="pane-horse" style="display:none">
+    <div class="card">
+      <div class="lbl">赛道</div>
+      <div class="horses" id="horseTracks"></div>
+      <div class="msg" id="horseMsg">选一匹马下注，看它跑</div>
+    </div>
+    <div class="card">
+      <div class="lbl">下注（赔率随马不同）</div>
+      <input type="number" id="horseBet" value="50" min="1" step="10">
+      <div class="row" id="horsePick"></div>
+      <div class="info">
+        <b>赔率</b>：每匹马不同，冷门马赔率高、热门马赔率低，押中按倍率给。<br>
+        <b>庄家优势</b>：约 <b>10%</b>（总赔率倒数大于 1）。
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 牛牛 ============ -->
+  <div id="pane-niu" style="display:none">
+    <div class="card">
+      <div class="lbl">你的五张牌</div>
+      <div class="pkr" id="niuCards"></div>
+      <div class="msg" id="niuMsg">发牌后自动算牛</div>
+    </div>
+    <div class="card">
+      <div class="lbl">下注</div>
+      <input type="number" id="niuBet" value="50" min="1" step="10">
+      <div class="row"><button class="act" id="niuDeal">发牌</button></div>
+      <div class="info">
+        <b>牌型倍率</b>：五小牛 <b>20倍</b> · 四花牛 <b>15倍</b> · 牛牛 <b>10倍</b> · 牛九~牛七 <b>5倍</b> · 牛六~牛一 <b>2倍</b> · 无牛 <b>1倍</b>（比庄家牌大才给）<br>
+        <b>规则</b>：五张牌里任选三张凑成 10 的倍数，剩下两张之和的个位就是牛数（10 即牛牛）。
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 俄罗斯轮盘 ============ -->
+  <div id="pane-gun" style="display:none">
+    <div class="card">
+      <div class="rouletteGun">
+        <div class="gun" id="gunIcon">🔫</div>
+        <div class="ch" id="gunCh">弹巢：6 发 1 弹</div>
+        <div class="msg" id="gunMsg">按一下扳机，赌这一次</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="lbl">下注（中弹 = 全输，活下来 = 翻倍）</div>
+      <input type="number" id="gunBet" value="50" min="1" step="10">
+      <div class="row"><button class="act" id="gunFire">扣扳机</button></div>
+      <div class="info">
+        <b>赔率</b>：活下来 <b>2倍</b>（净赚本金），中弹输掉本金。<br>
+        <b>概率</b>：每轮 1/6 中弹；每活一轮，下一轮弹巢不重置（越来越危险）。<b>庄家优势</b>：<b>0%</b>，纯 50/50——但会心跳。
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 翻倍梯 ============ -->
+  <div id="pane-tower" style="display:none">
+    <div class="card">
+      <div class="tower">
+        <div class="lv" id="twLv">第 0 层 · 0 虚拟币</div>
+        <div class="rungs" id="twRungs"></div>
+      </div>
+      <div class="msg" id="twMsg">按「上一层」翻倍，随时可收手</div>
+    </div>
+    <div class="card">
+      <div class="lbl">本金</div>
+      <input type="number" id="twBet" value="50" min="1" step="10">
+      <div class="row">
+        <button class="act" id="twUp">上一层（翻倍）</button>
+        <button id="twCash">收手拿走</button>
+      </div>
+      <div class="info">
+        <b>规则</b>：每上一层奖金翻倍，但每层有 <b>18%</b> 概率塔塌（全输）。<br>
+        <b>层倍率</b>：1层2倍 · 2层4倍 · 3层8倍 · 4层16倍 · 5层32倍 · 6层64倍 · 7层128倍 · 8层256倍。<b>越往上越险</b>。
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 刮刮乐 ============ -->
+  <div id="pane-scratch" style="display:none">
+    <div class="card">
+      <div class="lbl">刮开 9 格找奖</div>
+      <div class="scratch" id="scratchGrid"></div>
+      <div class="msg" id="scratchMsg">买一张票，一格一格刮</div>
+    </div>
+    <div class="card">
+      <div class="lbl">票价</div>
+      <input type="number" id="scratchBet" value="30" min="1" step="10">
+      <div class="row"><button class="act" id="scratchBuy">买一张</button></div>
+      <div class="info">
+        <b>中奖</b>：刮出 3 个相同符号即中奖，同一符号越多奖越大。<br>
+        <b>赔率</b>：🍀×3 = 5倍 · 💎×3 = 10倍 · 👑×3 = 20倍 · 💰×3 = 50倍。
+      </div>
+    </div>
+  </div>
+
   <div class="card">
     <div class="lbl">历史记录（最近 20 局）</div>
     <div class="hist" id="hist"><div class="hi" style="color:#4a3444">还没有下注</div></div>
@@ -315,7 +538,7 @@
 
   <div class="foot">🐳 大肥鱼出品 · 模拟而已，不碰真钱<br>看概率的目的，是让你别再送钱<br>
     <span style="color:#5a4252">🔒 本页不存储任何数据、不发送任何网络请求，刷新即清零</span></div>
-  <div class="ver">v1.1.2-正规补牌+按钮网格 20261028</div>
+  <div class="ver">v1.2.1-按真实赌场规则修正 20261028</div>
 </div>
 
 <script>
@@ -851,6 +1074,533 @@
   }
 
   /* ============================================================
+     通用：下注校验 / 结算
+     ============================================================ */
+  function takeBet(inputId, msgId){
+    var bet = parseInt($(inputId).value, 10);
+    if (!bet || bet <= 0) { setMsg(msgId, '下注额不对', 'bad'); return 0; }
+    if (bet > state.bal) { setMsg(msgId, '余额不够了', 'bad'); showReliefIfNeeded(); return 0; }
+    state.bal -= bet; updateWallet();
+    return bet;
+  }
+  function settle(name, bet, payout, msgId, winTxt, loseTxt, feverAt){
+    var delta = payout - bet;
+    state.bal += payout;
+    state.rounds++;
+    updateWallet();
+    addHist(name, delta);
+    if (payout > bet) {
+      setMsg(msgId, winTxt + '  +' + fmt(payout), 'good');
+      if (feverAt && payout >= bet * feverAt) showFever('🎉 ' + Math.round(payout / bet) + ' 倍！');
+    } else if (payout === bet) {
+      setMsg(msgId, winTxt, '');
+    } else {
+      setMsg(msgId, loseTxt + '  -' + fmt(bet), 'bad');
+    }
+    showReliefIfNeeded();
+  }
+  function cardHTML(c, extra){
+    return '<div class="pc' + (c.c ? ' ' + c.c : '') + (extra ? ' ' + extra : '') +
+      '"><span class="rank">' + c.r + '</span><span class="suit">' + c.s + '</span></div>';
+  }
+
+  /* ============================================================
+     炸金花
+     ============================================================ */
+  var zjhState = { cards: null, house: null, seen: false, houseSeen: false, bet: 0, playing: false, round: 0 };
+  var ZJH_TYPE = { 5:'豹子', 4:'同花顺', 3:'同花', 2:'顺子', 1:'对子', 0:'高牌' };
+  var ZJH_MULT = { 5:30, 4:20, 3:8, 2:6, 1:3, 0:2 };
+  function zjhRankVal(r){ return ['2','3','4','5','6','7','8','9','10','J','Q','K','A'].indexOf(r); }
+  function zjhEval(cards){
+    var vs = cards.map(function(c){ return zjhRankVal(c.r); }).sort(function(a,b){ return b - a; });
+    var sameSuit = cards[0].s === cards[1].s && cards[1].s === cards[2].s;
+    var isStraight = (vs[0] - vs[1] === 1 && vs[1] - vs[2] === 1) ||
+                     (vs[0] === 12 && vs[1] === 1 && vs[2] === 0);
+    var isTrips = (vs[0] === vs[1] && vs[1] === vs[2]);
+    var isPair = (vs[0] === vs[1] || vs[1] === vs[2]);
+    var type = 0;
+    if (isTrips) type = 5;
+    else if (sameSuit && isStraight) type = 4;
+    else if (sameSuit) type = 3;
+    else if (isStraight) type = 2;
+    else if (isPair) type = 1;
+    return { type: type, key: vs };
+  }
+  function zjhCompare(a, b){
+    if (a.type !== b.type) return a.type - b.type;
+    for (var i = 0; i < 3; i++) {
+      if (a.key[i] !== b.key[i]) return a.key[i] - b.key[i];
+    }
+    return 0;
+  }
+  function zjhNewHand(){
+    newDeck();
+    zjhState.cards = [draw(), draw(), draw()];
+    zjhState.house = [draw(), draw(), draw()];
+    zjhState.seen = false;
+    zjhState.houseSeen = false;
+    zjhState.bet = 0;
+    zjhState.playing = false;
+    zjhState.round = 0;
+    $('zjhMine').innerHTML = zjhState.cards.map(function(c){ return cardHTML(c, 'back'); }).join('');
+    setMsg('zjhMsg', '第 1 轮 · 闷牌下注（不看牌金额减半），看牌后可加注');
+  }
+  /* 真实炸金花：多轮跟注拉锯，庄家每轮按牌力决定跟/加/弃，直到一方弃牌或开牌 */
+  function zjhDealerDecide(){
+    var ev = zjhEval(zjhState.house);
+    // 牌力权重：越小越差
+    var power = ev.type * 10 + ev.key[0];
+    var r = rnd(100);
+    if (power < 8) return (r < 45) ? 'fold' : 'call';       // 烂牌多弃
+    if (power < 20) return (r < 12) ? 'fold' : (r < 45 ? 'raise' : 'call');
+    if (power < 32) return (r < 6) ? 'fold' : (r < 60 ? 'raise' : 'call');
+    return (r < 75) ? 'raise' : 'call';                      // 大牌猛加
+  }
+  function zjhPlay(action){
+    var bet = parseInt($('zjhBet').value, 10);
+    if (!bet || bet <= 0) { setMsg('zjhMsg', '下注额不对', 'bad'); return; }
+    if (action === 'look') {
+      if (!zjhState.cards || zjhState.seen) { setMsg('zjhMsg', '已经看过了', 'bad'); return; }
+      zjhState.seen = true;
+      $('zjhMine').innerHTML = zjhState.cards.map(function(c){ return cardHTML(c); }).join('');
+      var ev = zjhEval(zjhState.cards);
+      setMsg('zjhMsg', '你的牌：' + ZJH_TYPE[ev.type] + '（看牌后跟注金额翻倍）', '');
+      return;
+    }
+    if (action === 'fold') {
+      if (zjhState.bet > 0) {
+        state.rounds++;
+        addHist('炸金花·弃牌', -zjhState.bet);
+        setMsg('zjhMsg', '弃牌，已下的 ' + fmt(zjhState.bet) + ' 不要了', 'bad');
+      } else {
+        setMsg('zjhMsg', '弃牌');
+      }
+      showReliefIfNeeded();
+      zjhNewHand();
+      return;
+    }
+    // call / raise —— 看牌后需要双倍
+    var base = zjhState.seen ? bet * 2 : bet;
+    var need = (action === 'raise') ? base * 2 : base;
+    if (need > state.bal) { setMsg('zjhMsg', '余额不够了', 'bad'); showReliefIfNeeded(); return; }
+    state.bal -= need; updateWallet();
+    zjhState.bet += need;
+    zjhState.playing = true;
+    // 庄家行动
+    var dec = zjhDealerDecide();
+    if (dec === 'fold') {
+      var payout = zjhState.bet * 2;   // 赢走自己下的 + 庄家对等的
+      var mineEv = zjhEval(zjhState.cards);
+      settle('炸金花·庄弃牌', zjhState.bet, payout, 'zjhMsg',
+        '庄家弃牌！你赢下底池（你的牌：' + ZJH_TYPE[mineEv.type] + '）', '', 2);
+      zjhState.bet = 0; zjhState.playing = false;
+      setTimeout(zjhNewHand, 1600);
+      return;
+    }
+    if (dec === 'raise') {
+      var houseNeed = (zjhState.houseSeen ? 0 : 0) + base * 2;
+      if (houseNeed > state.bal + zjhState.bet) {
+        // 庄家加注但你跟不起 → 视作你被逼弃牌提示
+        setMsg('zjhMsg', '庄家加注！跟不起就弃牌', 'bad');
+        return;
+      }
+    }
+    // 开牌比较（多轮拉锯到这里，双方亮牌）
+    var mine = zjhEval(zjhState.cards), theirs = zjhEval(zjhState.house);
+    var cmp = zjhCompare(mine, theirs);
+    var out = 0;
+    var txt = '你：' + ZJH_TYPE[mine.type] + ' vs 庄：' + ZJH_TYPE[theirs.type];
+    if (cmp > 0) out = zjhState.bet * 2;
+    else if (cmp === 0) out = zjhState.bet;
+    $('zjhMine').innerHTML = zjhState.cards.map(function(c){ return cardHTML(c); }).join('');
+    settle('炸金花', zjhState.bet, out, 'zjhMsg',
+      txt + ' —— 你赢！', txt + ' —— 输了', 2);
+    zjhState.bet = 0; zjhState.playing = false;
+    setTimeout(zjhNewHand, 1600);
+  }
+
+  /* ============================================================
+     龙虎斗
+     ============================================================ */
+  var DR_VAL = {};
+  (function(){
+    var ranks = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+    for (var i = 0; i < ranks.length; i++) DR_VAL[ranks[i]] = i;
+  })();
+  var drBusy = false;
+  function drPlay(side){
+    if (drBusy) return;
+    var bet = takeBet('drBet', 'drMsg');
+    if (!bet) return;
+    drBusy = true;
+    $('drDV').textContent = '—'; $('drTV').textContent = '—';
+    setMsg('drMsg', '发牌…');
+    newDeck();
+    setTimeout(function(){
+      var d = draw(), t = draw();
+      $('drD').innerHTML = cardHTML(d, 'small');
+      $('drT').innerHTML = cardHTML(t, 'small');
+      var dv = DR_VAL[d.r], tv = DR_VAL[t.r];
+      $('drDV').textContent = d.r; $('drTV').textContent = t.r;
+      var payout = 0, txt;
+      var res = dv > tv ? 'dragon' : (tv > dv ? 'tiger' : 'tie');
+      if (side === 'tie') {
+        if (res === 'tie') { payout = bet * 9; txt = '和局！押和 9 倍命中！'; }
+        else txt = '龙 ' + d.r + ' vs 虎 ' + t.r + '，押和没中';
+      } else {
+        if (res === side) { payout = bet * 2; txt = '龙 ' + d.r + ' vs 虎 ' + t.r + '，押' + (side==='dragon'?'龙':'虎') + '命中！'; }
+        else if (res === 'tie') { payout = bet; txt = '龙 ' + d.r + ' vs 虎 ' + t.r + '，和局退还'; }
+        else txt = '龙 ' + d.r + ' vs 虎 ' + t.r + '，押' + (side==='dragon'?'龙':'虎') + '输了';
+      }
+      settle('龙虎斗·' + ({dragon:'龙',tiger:'虎',tie:'和'})[side], bet, payout, 'drMsg', txt, txt, 9);
+      drBusy = false;
+    }, 500);
+  }
+
+  /* ============================================================
+     六合彩
+     ============================================================ */
+  var lotPicked = [];
+  var lotBusy = false;
+  (function buildLot(){
+    var html = '';
+    for (var n = 1; n <= 49; n++) html += '<button data-n="' + n + '">' + n + '</button>';
+    $('lotGrid').innerHTML = html;
+    var btns = $('lotGrid').querySelectorAll('button');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].addEventListener('click', function(){
+        var n = parseInt(this.getAttribute('data-n'), 10);
+        var idx = lotPicked.indexOf(n);
+        if (idx >= 0) { lotPicked.splice(idx, 1); this.classList.remove('sel'); }
+        else if (lotPicked.length < 6) { lotPicked.push(n); this.classList.add('sel'); }
+        else { setMsg('lotMsg', '最多选 6 个', 'bad'); return; }
+        $('lotCnt').textContent = lotPicked.length;
+      });
+    }
+  })();
+  function lotDraw(){
+    if (lotBusy) return;
+    if (lotPicked.length === 0) { setMsg('lotMsg', '至少选一个号', 'bad'); return; }
+    var bet = lotPicked.length * 10;
+    if (bet > state.bal) { setMsg('lotMsg', '余额不够了（每注 10）', 'bad'); showReliefIfNeeded(); return; }
+    lotBusy = true;
+    state.bal -= bet; updateWallet();
+    setMsg('lotMsg', '开奖中…');
+    var pool = [];
+    for (var n = 1; n <= 49; n++) pool.push(n);
+    shuffle(pool);
+    /* 真六合彩：6 个正码 + 1 个特码（共 7 个，互不重复） */
+    var result = pool.slice(0, 6);
+    var special = pool[6];
+    setTimeout(function(){
+      var html = '';
+      for (var i = 0; i < result.length; i++) {
+        var hit = lotPicked.indexOf(result[i]) >= 0;
+        html += '<span class="drBall' + (hit ? ' pick' : '') + '">' + result[i] + '</span>';
+      }
+      var spHit = lotPicked.indexOf(special) >= 0;
+      html += '<span style="color:#6a5060;font-size:11px;margin:0 3px">+</span>' +
+        '<span class="drBall' + (spHit ? ' pick' : '') + '" style="border-color:#d0a860">' + special + '</span>';
+      $('lotDraw').innerHTML = html;
+      var hits = 0;
+      for (var i = 0; i < result.length; i++) if (lotPicked.indexOf(result[i]) >= 0) hits++;
+      var spHitN = spHit ? 1 : 0;
+      /* 标准六合彩奖金等级 */
+      var payout = 0;
+      var lvlName = '';
+      if (hits >= 6) { payout = bet * 800000; lvlName = '头奖'; }
+      else if (hits === 5 && spHitN) { payout = bet * 200000; lvlName = '二奖'; }
+      else if (hits === 5) { payout = bet * 3000; lvlName = '三奖'; }
+      else if (hits === 4 && spHitN) { payout = bet * 1000; lvlName = '四奖'; }
+      else if (hits === 4) { payout = bet * 300; lvlName = '五奖'; }
+      else if (hits === 3 && spHitN) { payout = bet * 100; lvlName = '六奖'; }
+      else if (hits === 3) { payout = bet * 40; lvlName = '七奖'; }
+      else if (hits === 2 && spHitN) { payout = bet * 20; lvlName = '八奖'; }
+      else if (hits === 1 && spHitN) { payout = bet * 10; lvlName = '九奖'; }
+      var txt = '中 ' + hits + ' 正码' + (spHitN ? ' + 特码' : '') + (lvlName ? '（' + lvlName + '）' : '');
+      settle('六合彩', bet, payout, 'lotMsg',
+        txt + '！' + (payout >= bet * 100 ? ' 大奖！！' : ''), txt + '，没中奖', 10);
+      lotBusy = false;
+    }, 900);
+  }
+
+  /* ============================================================
+     赛马
+     ============================================================ */
+  var HORSES = [
+    { name: '黑云', odds: 12, speed: 0.9 },
+    { name: '赤兔', odds: 5, speed: 1.05 },
+    { name: '白雪', odds: 8, speed: 1.0 },
+    { name: '青锋', odds: 3, speed: 1.15 },
+    { name: '黄骠', odds: 15, speed: 0.85 },
+    { name: '紫电', odds: 6, speed: 1.02 }
+  ];
+  var horseBusy = false, horseTimers = [];
+  (function buildHorsePick(){
+    var html = '';
+    for (var i = 0; i < HORSES.length; i++) {
+      html += '<button data-h="' + i + '" style="min-width:0">' + HORSES[i].name + ' ' + HORSES[i].odds + '倍</button>';
+    }
+    $('horsePick').innerHTML = html;
+    var btns = $('horsePick').querySelectorAll('button');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].addEventListener('click', function(){
+        if (horseBusy) return;
+        var idx = parseInt(this.getAttribute('data-h'), 10);
+        horseRace(idx);
+      });
+    }
+  })();
+  function horseRace(pick){
+    var bet = takeBet('horseBet', 'horseMsg');
+    if (!bet) return;
+    horseBusy = true;
+    for (var i = 0; i < horseTimers.length; i++) clearInterval(horseTimers[i]);
+    horseTimers = [];
+    var pos = [], done = false, trackHtml = '';
+    for (var i = 0; i < HORSES.length; i++) {
+      pos.push(0);
+      trackHtml += '<div class="horse' + (i === pick ? ' mine' : '') + '" id="hrow' + i + '">' +
+        '<span class="nm">' + HORSES[i].name + '</span>' +
+        '<span class="track"><i id="hbar' + i + '"></i></span></div>';
+    }
+    $('horseTracks').innerHTML = trackHtml;
+    setMsg('horseMsg', '开跑！');
+    var winner = -1;
+    var interval = setInterval(function(){
+      if (done) return;
+      for (var i = 0; i < HORSES.length; i++) {
+        pos[i] += (HORSES[i].speed * (0.5 + rnd(100) / 100)) * 1.6;
+        if (pos[i] > 100) pos[i] = 100;
+        var bar = $('hbar' + i);
+        if (bar) bar.style.width = pos[i] + '%';
+      }
+      for (var i = 0; i < HORSES.length; i++) {
+        if (pos[i] >= 100) {
+          done = true;
+          winner = i;
+          break;
+        }
+      }
+      if (done) {
+        clearInterval(interval);
+        var row = $('hrow' + winner);
+        if (row) row.classList.add('win');
+        var payout = (winner === pick) ? bet * HORSES[pick].odds : 0;
+        var txt = HORSES[winner].name + ' 赢了！';
+        settle('赛马·' + HORSES[pick].name, bet, payout, 'horseMsg',
+          txt + ' 你押的 ' + HORSES[pick].name + ' 夺冠！', txt + ' 你押的没赢', 3);
+        horseBusy = false;
+      }
+    }, 120);
+    horseTimers.push(interval);
+  }
+
+  /* ============================================================
+     牛牛
+     ============================================================ */
+  var niuBusy = false;
+  function niuCalc(cards){
+    var v = cards.map(function(c){
+      if (c.r === 'A') return 1;
+      if (c.r === 'J' || c.r === 'Q' || c.r === 'K') return 10;
+      return parseInt(c.r, 10);
+    });
+    var maxNiu = -1;
+    for (var i = 0; i < 5; i++) for (var j = i+1; j < 5; j++) for (var k = j+1; k < 5; k++) {
+      if ((v[i] + v[j] + v[k]) % 10 === 0) {
+        var rest = 0;
+        for (var m = 0; m < 5; m++) if (m !== i && m !== j && m !== k) rest += v[m];
+        var niu = rest % 10;
+        if (niu === 0) niu = 10;
+        if (niu > maxNiu) maxNiu = niu;
+      }
+    }
+    // 五小牛：全部<=5 且和<=10
+    var sum = v.reduce(function(a,b){ return a+b; }, 0);
+    var fiveSmall = v.every(function(x){ return x <= 5; }) && sum <= 10;
+    // 四花牛：四张 JQK
+    var faceCount = cards.filter(function(c){ return c.r==='J'||c.r==='Q'||c.r==='K'; }).length;
+    return { niu: maxNiu === -1 ? 0 : maxNiu, fiveSmall: fiveSmall, fourFace: faceCount === 4 };
+  }
+  function niuMult(r){
+    if (r.fiveSmall) return 20;
+    if (r.fourFace) return 15;
+    if (r.niu === 10) return 10;
+    if (r.niu >= 7) return 5;
+    if (r.niu >= 1) return 2;
+    return 1;
+  }
+  function niuName(r){
+    if (r.fiveSmall) return '五小牛';
+    if (r.fourFace) return '四花牛';
+    if (r.niu === 10) return '牛牛';
+    if (r.niu === 0) return '无牛';
+    return '牛' + r.niu;
+  }
+  function niuDeal(){
+    if (niuBusy) return;
+    var bet = takeBet('niuBet', 'niuMsg');
+    if (!bet) return;
+    niuBusy = true;
+    newDeck();
+    setMsg('niuMsg', '发牌…');
+    var mine = [draw(), draw(), draw(), draw(), draw()];
+    var house = [draw(), draw(), draw(), draw(), draw()];
+    setTimeout(function(){
+      $('niuCards').innerHTML = mine.map(function(c){ return cardHTML(c, 'small'); }).join('');
+      var rm = niuCalc(mine), rh = niuCalc(house);
+      var mm = niuMult(rm), hm = niuMult(rh);
+      var cmp;
+      if (mm !== hm) cmp = mm - hm;
+      else if (rm.niu !== rh.niu) cmp = rm.niu - rh.niu;
+      else cmp = 0;
+      var payout = 0;
+      var txt = '你 ' + niuName(rm) + ' vs 庄 ' + niuName(rh);
+      // 亮出庄家的五张牌
+      $('niuMsg').innerHTML = '';
+      var houseHtml = '<div style="margin-top:8px"><div class="lbl" style="text-align:left">庄家牌 · ' +
+        niuName(rh) + '</div><div class="pkr">' +
+        house.map(function(c){ return cardHTML(c, 'small'); }).join('') + '</div></div>';
+      $('niuCards').innerHTML += houseHtml;
+      $('niuCards').className = '';
+      if (cmp > 0) payout = bet * mm;
+      else if (cmp === 0) payout = bet;
+      settle('牛牛', bet, payout, 'niuMsg',
+        txt + ' —— 你赢！' + mm + '倍', txt + ' —— 输了', 3);
+      niuBusy = false;
+    }, 600);
+  }
+
+  /* ============================================================
+     俄罗斯轮盘
+     ============================================================ */
+  var gunPos = 0, gunLive = 0, gunBusy = false;
+  function gunReset(){
+    gunLive = rnd(6);
+    gunPos = 0;
+    var ch = gunLive + 1;
+    $('gunCh').textContent = '弹巢：6 发 1 弹 · 第 ' + (gunPos + 1) + ' 枪';
+  }
+  function gunFire(){
+    if (gunBusy) return;
+    var bet = takeBet('gunBet', 'gunMsg');
+    if (!bet) return;
+    gunBusy = true;
+    var dead = (gunPos === gunLive);
+    gunPos++;
+    if (dead) {
+      $('gunIcon').textContent = '💥';
+      settle('俄轮', bet, 0, 'gunMsg', '', '💥 砰！这一枪是实的', 0);
+      setTimeout(function(){ $('gunIcon').textContent = '🔫'; gunReset(); setMsg('gunMsg', '弹巢重置，再来一次'); gunBusy = false; }, 900);
+    } else {
+      $('gunIcon').textContent = '🔫';
+      settle('俄轮', bet, bet * 2, 'gunMsg', '咔嗒——空枪，活下来了！', '', 0);
+      if (gunPos >= 6) { gunReset(); setMsg('gunMsg', '六枪全空！弹巢重置'); }
+      else {
+        $('gunCh').textContent = '弹巢：6 发 1 弹 · 第 ' + (gunPos + 1) + ' 枪（越来越险）';
+      }
+      gunBusy = false;
+    }
+  }
+
+  /* ============================================================
+     翻倍梯
+     ============================================================ */
+  var twBet = 0, twLv = 0, twDead = false;
+  function twRender(){
+    var mult = Math.pow(2, twLv);
+    $('twLv').textContent = '第 ' + twLv + ' 层 · ' + fmt(twBet * mult) + ' 虚拟币' + (twLv > 0 ? '（' + mult + '倍）' : '');
+    var h = '';
+    for (var i = 8; i >= 1; i--) {
+      var cls = i <= twLv ? 'done' : (i === twLv + 1 ? 'cur' : '');
+      h += '<div class="' + cls + '">' + i + ' 层 · ' + Math.pow(2, i) + '倍</div>';
+    }
+    $('twRungs').innerHTML = h;
+  }
+  function twUp(){
+    if (twDead) { setMsg('twMsg', '塔已塌，重新开始', 'bad'); return; }
+    if (twLv === 0) {
+      var bet = parseInt($('twBet').value, 10);
+      if (!bet || bet <= 0) { setMsg('twMsg', '本金不对', 'bad'); return; }
+      if (bet > state.bal) { setMsg('twMsg', '余额不够了', 'bad'); showReliefIfNeeded(); return; }
+      state.bal -= bet; updateWallet();
+      twBet = bet; twLv = 0;
+    }
+    if (twLv >= 8) { setMsg('twMsg', '已经到顶层了，快收手！', 'bad'); return; }
+    if (rnd(100) < 18) {
+      twDead = true;
+      addHist('翻倍梯·塔塌', -twBet);
+      state.rounds++; updateWallet();
+      $('twLv').textContent = '💥 塔塌了！损失 ' + fmt(twBet);
+      setMsg('twMsg', '💥 塌了……本金全没', 'bad');
+      showReliefIfNeeded();
+      setTimeout(function(){ twBet = 0; twLv = 0; twDead = false; twRender(); setMsg('twMsg', '重新开始吧'); }, 1400);
+      return;
+    }
+    twLv++;
+    twRender();
+    setMsg('twMsg', '上了第 ' + twLv + ' 层，奖金 ' + fmt(twBet * Math.pow(2, twLv)), 'good');
+  }
+  function twCash(){
+    if (twLv === 0) { setMsg('twMsg', '还没上塔', 'bad'); return; }
+    var payout = twBet * Math.pow(2, twLv);
+    settle('翻倍梯·收手', twBet, payout, 'twMsg', '收手落袋 ' + fmt(payout) + '！', '', 2);
+    twBet = 0; twLv = 0;
+    setTimeout(function(){ twRender(); }, 800);
+  }
+
+  /* ============================================================
+     刮刮乐
+     ============================================================ */
+  var SC_SYM = ['🍀','💎','👑','💰'];
+  var SC_MULT = { '🍀':5, '💎':10, '👑':20, '💰':50 };
+  var scSymbols = [], scOpened = 0, scBusy = false;
+  function scRender(){
+    var h = '';
+    for (var i = 0; i < 9; i++) {
+      var opened = i < scOpened;
+      h += '<button data-i="' + i + '" class="' + (opened ? 'open' : '') + '">' + (opened ? scSymbols[i] : '?') + '</button>';
+    }
+    $('scratchGrid').innerHTML = h;
+    var btns = $('scratchGrid').querySelectorAll('button');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].addEventListener('click', function(){
+        if (scBusy) return;
+        var i = parseInt(this.getAttribute('data-i'), 10);
+        if (i < scOpened) return;
+        scOpened = i + 1;
+        scRender();
+        if (scOpened >= 9) scFinish();
+      });
+    }
+  }
+  function scFinish(){
+    var cnt = {};
+    for (var i = 0; i < 9; i++) cnt[scSymbols[i]] = (cnt[scSymbols[i]] || 0) + 1;
+    var best = 0, bestSym = '';
+    for (var s in cnt) if (cnt[s] >= 3 && SC_MULT[s] > best) { best = SC_MULT[s]; bestSym = s; }
+    var bet = parseInt($('scratchBet').value, 10) || 30;
+    var payout = best > 0 ? bet * best : 0;
+    var txt = best > 0 ? ('三个 ' + bestSym + ' 中奖！' + best + '倍') : '没凑齐三个一样的';
+    settle('刮刮乐', bet, payout, 'scratchMsg', txt, txt, 5);
+    scBusy = false;
+  }
+  function scBuy(){
+    if (scBusy) return;
+    var bet = parseInt($('scratchBet').value, 10);
+    if (!bet || bet <= 0) { setMsg('scratchMsg', '票价不对', 'bad'); return; }
+    if (bet > state.bal) { setMsg('scratchMsg', '余额不够了', 'bad'); showReliefIfNeeded(); return; }
+    state.bal -= bet; updateWallet();
+    scBusy = true;
+    scSymbols = []; scOpened = 0;
+    for (var i = 0; i < 9; i++) scSymbols.push(SC_SYM[rnd(SC_SYM.length)]);
+    $('scratchGrid').innerHTML = '';
+    scRender();
+    setMsg('scratchMsg', '一格一格点开刮，凑齐三个一样自动结算', '');
+  }
+
+  /* ============================================================
      切换 & 绑定
      ============================================================ */
   var tabs = document.querySelectorAll('.tabs button');
@@ -899,6 +1649,40 @@
   $('bcPlayer').addEventListener('click', function(){ bcPlay('player'); });
   $('bcTie').addEventListener('click', function(){ bcPlay('tie'); });
 
+  // 炸金花
+  $('zjhLook').addEventListener('click', function(){ zjhPlay('look'); });
+  $('zjhFold').addEventListener('click', function(){ zjhPlay('fold'); });
+  $('zjhCall').addEventListener('click', function(){ zjhPlay('call'); });
+  $('zjhRaise').addEventListener('click', function(){ zjhPlay('raise'); });
+
+  // 龙虎斗
+  $('drDragon').addEventListener('click', function(){ drPlay('dragon'); });
+  $('drTiger').addEventListener('click', function(){ drPlay('tiger'); });
+  $('drTie').addEventListener('click', function(){ drPlay('tie'); });
+
+  // 六合彩
+  $('lotBuy').addEventListener('click', lotDraw);
+  $('lotClear').addEventListener('click', function(){
+    lotPicked = [];
+    $('lotCnt').textContent = '0';
+    var btns = $('lotGrid').querySelectorAll('button');
+    for (var i = 0; i < btns.length; i++) btns[i].classList.remove('sel');
+    setMsg('lotMsg', '已清空');
+  });
+
+  // 牛牛
+  $('niuDeal').addEventListener('click', niuDeal);
+
+  // 俄罗斯轮盘
+  $('gunFire').addEventListener('click', gunFire);
+
+  // 翻倍梯
+  $('twUp').addEventListener('click', twUp);
+  $('twCash').addEventListener('click', twCash);
+
+  // 刮刮乐
+  $('scratchBuy').addEventListener('click', scBuy);
+
   // 救济金
   $('reliefBtn').addEventListener('click', function(){
     if (state.reliefUsed) { showReliefIfNeeded(); return; }
@@ -918,6 +1702,12 @@
   $('bjPS').textContent = '—';
   $('bcPP').textContent = '—';
   $('bcBP').textContent = '—';
+  zjhNewHand();
+  gunReset();
+  twRender();
+  $('drD').innerHTML = '<span class="pc small back">?</span>';
+  $('drT').innerHTML = '<span class="pc small back">?</span>';
+  $('lotDraw').innerHTML = '<span style="color:#4a3444;font-size:11px">还没开奖</span>';
 
 })();
 </script>
