@@ -350,36 +350,6 @@
 </style>
 </head>
 <body>
-<div id="pagesNotice" style="display:none;margin:8px auto;max-width:520px;padding:8px 12px;border-radius:8px;background:#2b2320;border:1px solid #7a5a3a;color:#e8c89a;font-size:12px;line-height:1.6;text-align:left">
-🐳 <b>联机暂不可用</b><br>
-当前是 GitHub Pages 静态版，没有房间服务器，联机对战开不了。<br>
-<b>单机部分完全正常</b>——本地对战照常玩。要联机请回本机站点。
-</div>
-<script>
-(function(){
-  // 只有在 GitHub Pages（无 /api/ 后端）时才提示
-  if(location.hostname.endsWith('.github.io')){
-    document.addEventListener('DOMContentLoaded', function(){
-      var el = document.getElementById('pagesNotice');
-      if(!el) return;
-      el.style.display = 'block';
-      // 禁用联机按钮，改为点击即提示
-      var btn = document.getElementById('onlineBtn');
-      if(btn){
-        btn.dataset.origText = btn.textContent;
-        btn.textContent = '联机：不可用（静态版）';
-        btn.style.opacity = '0.6';
-        btn.onclick = function(e){
-          e.preventDefault(); e.stopPropagation();
-          alert('🐳 联机暂不可用\n\n这是 GitHub Pages 静态版，没有房间服务器。\n单机对战完全正常，联机请回本机站点。');
-          return false;
-        };
-      }
-    });
-  }
-})();
-</script>
-
   <h1 id="title">🐳 肥鱼五子棋</h1>
   <div id="status">你的回合（黑棋）</div>
   <div id="board-wrap">
@@ -488,7 +458,7 @@ const N = 15, PAD = 18;
 let CELL = 34, R = 14;
 let board, humanTurn, gameOver, lastMove, moveHistory, aiThinking;
 let undoCount = 0;           // 本局已悔棋次数（超 3 次锁死）
-let useAI = false;           // 默认关（纯本地算法，省钱更快）
+let useAI = false;           // 【安慰按钮】仅切换界面文字，不参与任何落子逻辑（2026-10-28 老爹定）
 let DIFF = 'normal';         // easy | normal | hard | nightmare（=下一个开局生效）
 let CUR_DIFF = 'normal';     // 本局实际用的难度（开局锁定）
 
@@ -513,7 +483,6 @@ function isHeadlessBrowser(){
   return false;
 }
 const HEADLESS = isHeadlessBrowser();
-const AI_ENDPOINT = location.protocol + '//' + location.hostname + ':8898/';
 // ===== 联机（五子棋） =====
 const ROOM_API = '/api/room';     // 走站内代理 → 8897 联机后端
 let onlineMode = false;           // 是否联机对局
@@ -1083,33 +1052,8 @@ async function aiTurn(){
   const loc = localMove();
   const locScore = loc ? evalMove(loc.r, loc.c, 2, 1) : -Infinity;
 
-  // 3) 噩梦/地狱档：本地搜索已足够强，不再叠大模型（大模型下五子棋很弱，反而拖后腿）
-  //    仅当“AI加持”手动开启时才问后端
-  const wantRemote = useAI;
-  if(wantRemote){
-    const remote = await aiRemote(2);
-    if(remote && board[remote.r][remote.c]===0){
-      const remScore = evalMove(remote.r, remote.c, 2, 1);
-      // 本地已算到强杀（分数很高）则压住大模型
-      if(locScore >= 9000) return {mv:loc, src:'local'};
-      return remScore > locScore ? {mv:remote, src:'ai'} : {mv:loc, src:'local'};
-    }
-  }
+  // 3) 一律走本地算法（原远程 AI 分支已移除）
   return {mv:loc, src:'local'};
-}
-// 后端AI落子（超时/失败返回null）
-async function aiRemote(who){
-  return new Promise((resolve)=>{
-    const ctrl = new AbortController();
-    const timer = setTimeout(()=>{ ctrl.abort(); }, 8000);
-    fetch(AI_ENDPOINT, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({board, who}), signal: ctrl.signal
-    }).then(r=>r.json()).then(d=>{
-      clearTimeout(timer);
-      if(d && d.ok && typeof d.row==='number') resolve({r:d.row,c:d.col}); else resolve(null);
-    }).catch(()=>{ clearTimeout(timer); resolve(null); });
-  });
 }
 function handleClick(e){
   if(!humanTurn||gameOver||aiThinking) return;
@@ -1145,7 +1089,7 @@ function handleClick(e){
     if(mv){ place(mv.r,mv.c,2); draw();
       if(checkWin(mv.r,mv.c,2)){gameOver=true;animateWinLine();setStatus('😤 <b>肥鱼赢了！</b>');return;} }
     humanTurn=true;
-    setStatus('你的回合（黑棋）' + (src==='ai'?' · AI助谋':''));
+    setStatus('你的回合（黑棋）' + (useAI?' · AI助谋':''));  // 安慰提示：只看开关状态
   });
 }
 // 缓缓描出胜负连线（winLineProg 0→1，约 0.6 秒描完）
@@ -1784,6 +1728,7 @@ function shatterUndoBtn(){
   }
   setTimeout(()=>{ b.classList.remove('shatter'); b.classList.add('gone'); }, 700);
 }
+// 【安慰按钮】2026-10-28 老爹定：只切换界面显示，不影响任何落子逻辑
 function toggleAI(){
   useAI=!useAI;
   const b=document.getElementById('aiBtn');
