@@ -207,6 +207,14 @@ function doIPO(raiseRatio) {
   G.ipoMonth = G.month;
   G.ownership = (G.ownership || 1) * (1 - dilution);  // 老股东持股比例
   G.monthlyDividend = true;                            // 上市后要分红
+  // v3.3.0 结局一：上市敲钟 —— 走到这一步就是一条完整结局
+  G.ipoInfo = {
+    raise: raise, cost: cost, netRaise: netRaise,
+    dilution: dilution, valuation: el.valuation,
+    month: G.month, stores: G.stores,
+    ownership: G.ownership
+  };
+  G.status = 'listed';
   return {
     ok: true,
     msg: '🎉 上市成功！募资 ' + (raise / 1e4).toFixed(0) + ' 万，扣发行费 ' +

@@ -129,7 +129,61 @@ function render() {
     if (ep) ep.innerHTML = debtHTML() + `<div style="text-align:center;margin:12px 0">
       <button class="tbtn" onclick="debtNextMonth()">再干一个月</button>
       <button class="tbtn" onclick="giveUpDebt()">放弃（重开）</button></div>`;
+  } else if (G.status === 'listed') {
+    $('status').innerHTML = '<div class="over" style="color:#ffd860">🔔 已上市</div>';
+    if ($('btnNext')) $('btnNext').disabled = true;
+    if ($('btnOpen')) $('btnOpen').disabled = true;
+    const ep = $('endingPanel');
+    if (ep && !G.listedShown) {
+      G.listedShown = true;
+      ep.innerHTML = (typeof listedEndingHTML === 'function') ? listedEndingHTML() : '';
+    }
+  } else if (G.status === 'sold') {
+    $('status').innerHTML = '<div class="over" style="color:#7fe0a8">🌿 已退出</div>';
+    if ($('btnNext')) $('btnNext').disabled = true;
+    if ($('btnOpen')) $('btnOpen').disabled = true;
+    const ep = $('endingPanel');
+    if (ep && !G.soldShown) {
+      G.soldShown = true;
+      ep.innerHTML = (typeof sellEndingHTML === 'function') ? sellEndingHTML() : '';
+    }
   }
+}
+
+/* ═══ v3.3.0 结局三·卖掉公司养老 ═══ */
+function showSellPanel() {
+  const panel = $('reportPanel');
+  if (!panel) return;
+  if (G.status !== 'running') return;
+  const v = sellValuation();
+  const debt = (typeof totalDebt === 'function') ? totalDebt() : 0;
+  const net = v.price - debt;
+  panel.style.display = 'block';
+  panel.innerHTML = `<div style="font-size:14px;font-weight:700;color:#7fe0a8;margin-bottom:10px">🌿 卖掉公司，收手养老</div>
+  <div style="font-size:12px;line-height:1.9;color:#a8b8a8">
+    收购方报价 <b style="color:#ffd860">${(v.price/1e4).toFixed(0)} 万</b>，
+    还完债到手 <b style="color:#ffd860">${(net/1e4).toFixed(0)} 万</b>。<br>
+    ${v.loss ? '（当前是亏损状态，按净资产打折清算）' : '（按最近一年利润的 ' + v.pe + ' 倍 PE 估值）'}<br>
+    <span style="color:#8a7a6a">卖掉之后，这家店就不再是你的了。没有回头路。</span>
+  </div>
+  <div style="margin-top:12px">
+    <button class="tbtn" style="border-color:#3a6a4a;color:#80c090" onclick="confirmSell()">确认卖掉</button>
+    <button class="tbtn" onclick="closeReport()">再想想</button>
+  </div>`;
+}
+
+function confirmSell() {
+  if (!confirm('真的要卖掉吗？卖掉之后游戏就结束了。')) return;
+  const v = sellValuation();
+  const debt = (typeof totalDebt === 'function') ? totalDebt() : 0;
+  G.cash += (v.price - debt);
+  G.debt = 0;
+  if (G.loans) G.loans.forEach(l => { l.remain = 0; });
+  G.sellInfo = { price: v.price, net: v.price - debt, month: G.month, stores: G.stores };
+  G.status = 'sold';
+  if ($('btnNext')) $('btnNext').disabled = true;
+  if ($('btnOpen')) $('btnOpen').disabled = true;
+  render();
 }
 
 /* ═══ v3.0.0 结算体验：打工还债流程 ═══ */
@@ -475,6 +529,12 @@ function closeAllPanels() {
     const e = document.getElementById(id);
     if (e) e.style.display = 'none';
   });
+}
+
+/* 关掉报表面板（卖掉公司面板复用了 reportPanel） */
+function closeReport() {
+  const e = $('reportPanel');
+  if (e) e.style.display = 'none';
 }
 
 /* ═══ v3.0.3 按钮按条件显示（老爹 01:39）═══

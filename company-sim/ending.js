@@ -342,6 +342,105 @@ function showFledEnding(paid) {
   </div>`;
 }
 
+/* ═══ v3.3.0 结局一·上市敲钟 ═══ */
+function listedEndingHTML() {
+  const i = G.ipoInfo || {};
+  const w = v => ((v || 0) / 1e4).toFixed(0);
+  const years = Math.max(1, Math.round((i.month || 0) / 12));
+  return `<div style="background:#0a0d14;border:1px solid #3a4a60;padding:26px 20px;color:#d8e0ea;line-height:2;max-width:560px;margin:0 auto;font-family:'Songti SC',serif">
+    <div style="text-align:center;font-size:21px;letter-spacing:10px;color:#ffd860;border-bottom:1px solid #3a4a60;padding-bottom:14px;margin-bottom:20px">
+      上 市 敲 钟
+    </div>
+    <div style="font-size:13px;color:#a8b8c8;text-align:center;margin-bottom:18px">
+      ${years} 年，${i.stores || 1} 家店，从一个 30 万的小店开始。
+    </div>
+    <table style="width:100%;font-size:13px;border-collapse:collapse">
+      <tr><td style="color:#8a9aa8">公司估值</td><td style="text-align:right;color:#ffd860">${w(i.valuation)} 万</td></tr>
+      <tr><td style="color:#8a9aa8">发行募资</td><td style="text-align:right">${w(i.raise)} 万</td></tr>
+      <tr><td style="color:#8a9aa8">发行费用</td><td style="text-align:right;color:#c08080">-${w(i.cost)} 万</td></tr>
+      <tr><td style="color:#8a9aa8">实到账</td><td style="text-align:right;color:#7fe0a8">${w(i.netRaise)} 万</td></tr>
+      <tr><td style="color:#8a9aa8">创始人持股</td><td style="text-align:right;color:#ffd860">${((i.ownership || 0) * 100).toFixed(1)}%</td></tr>
+    </table>
+    <div style="border-top:1px dashed #3a4a60;margin:18px 0;padding-top:16px;font-size:13px;color:#a8b8c8">
+      敲钟那天，你穿了西装，站在台上，手心里全是汗。<br>
+      大屏上的红字跳成绿色，底下一片掌声。<br><br>
+      你想起开业第一天，收银机里只有三百二十块钱。
+    </div>
+    <div style="font-size:12px;color:#6a7a88;margin-top:14px">
+      从这天起，你要对股东负责、要披露、要分红、要被人盯着看。<br>
+      自由少了一半，但你在牌桌上了。
+    </div>
+    <div style="text-align:center;margin-top:22px">
+      <button class="tbtn" onclick="location.reload()">重新开始</button>
+    </div>
+  </div>`;
+}
+
+/* ═══ v3.3.0 结局三·卖掉公司养老 ═══ */
+/* 计算卖盘报价：真实餐饮并购按年利润 3~6 倍（PE），口碑好溢价、口碑差折价 */
+function sellValuation() {
+  const last12 = (G.history || []).slice(-12).reduce((s, h) => s + (h.netProfit || 0), 0);
+  const p = (typeof P === 'function') ? P() : { revenue: 0, setupCost: 0 };
+  const annualRev = (G.revenueLast || 0) * 12;
+  if (last12 <= 0) {
+    // 亏损：按净资产打折清算
+    const assets = G.stores * (p.setupCost || 0) * 0.6;
+    const net = G.cash + assets - ((typeof totalDebt === 'function') ? totalDebt() : 0);
+    return { price: Math.max(0, net * 0.7), pe: 0, loss: true, annualRev: annualRev, last12: last12 };
+  }
+  let pe = 3.5;
+  if (G.reputation >= 75) pe = 5.5;
+  else if (G.reputation >= 65) pe = 4.5;
+  else if (G.reputation < 50) pe = 2.5;
+  if (G.credit >= 85) pe += 0.5;
+  if (G.overdue > 0) pe -= 0.5;
+  const price = Math.max(last12 * pe, annualRev * 1.0);
+  return { price, pe, loss: false, annualRev: annualRev, last12: last12 };
+}
+
+function sellEndingHTML() {
+  const v = sellValuation();
+  const net = v.price - ((typeof totalDebt === 'function') ? totalDebt() : 0);
+  const w = x => ((x || 0) / 1e4).toFixed(0);
+  const years = Math.max(1, Math.round((G.month || 0) / 12));
+  // 养老测算：按年化 3% 稳健理财
+  const yearly = Math.max(0, net) * 0.03;
+  const monthly = yearly / 12;
+  return `<div style="background:#0d1210;border:1px solid #3a5a4a;padding:26px 20px;color:#d8e8e0;line-height:2;max-width:560px;margin:0 auto;font-family:'Songti SC',serif">
+    <div style="text-align:center;font-size:21px;letter-spacing:10px;color:#7fe0a8;border-bottom:1px solid #3a5a4a;padding-bottom:14px;margin-bottom:20px">
+      卖 掉 了
+    </div>
+    <div style="font-size:13px;color:#a8c8b8;text-align:center;margin-bottom:18px">
+      ${years} 年，${G.stores} 家店，告一段落。
+    </div>
+    <table style="width:100%;font-size:13px;border-collapse:collapse">
+      <tr><td style="color:#8aa898">收购报价</td><td style="text-align:right;color:#7fe0a8">${w(v.price)} 万</td></tr>
+      <tr><td style="color:#8aa898">偿还全部债务</td><td style="text-align:right;color:#c08080">-${w((typeof totalDebt === 'function') ? totalDebt() : 0)} 万</td></tr>
+      <tr style="border-top:1px solid #3a5a4a"><td style="color:#a8c8b8;padding-top:8px">到手净额</td><td style="text-align:right;color:#ffd860;padding-top:8px;font-size:16px">${w(net)} 万</td></tr>
+      ${v.loss ? '' : `<tr><td style="color:#8aa898;font-size:12px">（按年利 ${v.last12 > 0 ? (w(v.last12)) : 0} 万的 ${v.pe} 倍 PE 估值）</td><td></td></tr>`}
+    </table>
+    <div style="border-top:1px dashed #3a5a4a;margin:18px 0;padding-top:16px;font-size:13px;color:#a8c8b8">
+      签字那天很简单。几个文件夹，一支笔，二十分钟。<br><br>
+      然后你从自己开了 ${years} 年的店里走出来，钥匙已经交出去了。<br>
+      街上车来车往，你忽然不知道自己该去哪儿。
+    </div>
+    <div style="border-top:1px dashed #3a5a4a;margin:16px 0;padding-top:14px;font-size:13px">
+      <div style="color:#8aa898;font-size:12px;margin-bottom:6px">往后三十年（按年化 3% 稳健理财测算）</div>
+      <div style="color:#ffd860;font-size:15px">每年约 ${w(yearly)} 万 · 每月约 ${w(monthly)} 万</div>
+    </div>
+    <div style="font-size:13px;color:#8a9a90;margin-top:14px">
+      ${net >= 30000000
+        ? '你什么也不用做了。想钓鱼就钓鱼，想睡觉就睡觉。<br>只是偶尔路过一条街，闻到那个味道，会停下来站一会儿。'
+        : net >= 10000000
+        ? '日子能过，不算大富。够你把想做的事慢慢做一遍了。'
+        : '钱不算多，但也不用再熬夜对账、再跟供应商吵价了。<br>这大概就是你想要的。'}
+    </div>
+    <div style="text-align:center;margin-top:22px">
+      <button class="tbtn" onclick="location.reload()">重新开始</button>
+    </div>
+  </div>`;
+}
+
 if (typeof module !== 'undefined') module.exports = {
   CRIME_LIBRARY, makeVerdict, verdictHTML,
   startDebtMode, debtMonthAdvance, debtYearsLeft, debtHTML
