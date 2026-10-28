@@ -660,6 +660,10 @@ function settleMonthDirect() {
     const off = officialMonthly();
     if (off) {
       if (off.type === 'busted') log.events.push({ type: 'bad', text: off.text });
+      else if (off.type === 'exposed') {
+        G.pendingFallout = true;
+        log.events.push({ type: 'bad', text: off.text });
+      }
       else if (off.type === 'escape') log.events.push({ type: 'warn', text: off.text });
       else if (off.type === 'demand') {
         G.pendingOfficialDemand = off.demand;

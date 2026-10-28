@@ -292,6 +292,56 @@ function debtHTML() {
 </div>`;
 }
 
+/* ═══ v3.2.0 等判决：跑与不跑之后，统一走到这里 ═══ */
+function showWaitingVerdict() {
+  const ep = document.getElementById('endingPanel');
+  if (!ep) return;
+  G.status = 'caught';
+  ep.innerHTML = `<div style="background:#141418;border:1px solid #3a3a40;padding:22px;text-align:center;color:#c0c0c0;line-height:2;max-width:560px;margin:12px auto">
+    <div style="font-size:15px;color:#e05050;letter-spacing:4px;margin-bottom:12px">等 待 判 决</div>
+    <div style="font-size:13px;color:#999">人已经控制住了。<br>接下来是笔录、取证、移送、起诉、开庭。<br>这一套走下来，要一年多。</div>
+    <div style="font-size:12px;color:#6a6a6a;margin-top:12px">这一年里，公司没了，店没了，员工散了，供应商的款也结不上了。</div>
+    <button class="tbtn" style="margin-top:18px" onclick="showFinalVerdict()">开庭 →</button>
+  </div>`;
+}
+
+function showFinalVerdict() {
+  const ep = document.getElementById('endingPanel');
+  if (!ep) return;
+  ep.innerHTML = (typeof verdictHTML === 'function') ? verdictHTML() : '';
+}
+
+/* ═══ v3.2.0 结局二·成功跑掉（1%）═══ */
+function showFledEnding(paid) {
+  const ep = document.getElementById('endingPanel');
+  if (!ep) return;
+  const paidWan = ((paid || 0) / 1e4).toFixed(0);
+  ep.innerHTML = `<div style="background:#0d0d0f;border:1px solid #3a3a40;padding:24px 20px;color:#d8d8d8;line-height:1.95;max-width:560px;margin:0 auto;font-family:'Songti SC',serif">
+    <div style="text-align:center;font-size:19px;letter-spacing:6px;color:#c9a050;border-bottom:1px solid #3a3a40;padding-bottom:12px;margin-bottom:18px">
+      跑 掉 了
+    </div>
+    <div style="font-size:13px;color:#b0b0b0">
+      飞机落地的那一刻是凌晨四点。你走出航站楼，风是陌生的，空气味道也不一样。<br><br>
+      你活下来了。这一百个人里，只有你一个。
+    </div>
+    <div style="border-top:1px dashed #3a3a40;margin:18px 0;padding-top:16px;font-size:13px;color:#999">
+      · 你在国内的行贿案已经立案，<b style="color:#c9a050">红色通报</b>发了出来<br>
+      · 打点进去的 ${paidWan} 万，一分没带出来<br>
+      · 公司在清算，员工在讨薪，名字挂在失信名单上<br>
+      · 你回不去了——**永 远**回不去了<br>
+      · 家里人还留在那边，你连电话都不敢打
+    </div>
+    <div style="font-size:13px;color:#8a8a8a;margin-top:16px">
+      你在异国的中餐馆后厨洗了第一天的盘子。<br>
+      那天晚上你想起自己当年开第一家店的样子——站在门口，笑得跟个傻子。<br><br>
+      <span style="color:#c9a050">跑掉了，不等于自由了。</span>
+    </div>
+    <div style="text-align:center;margin-top:22px">
+      <button class="tbtn" onclick="location.reload()">重新开始</button>
+    </div>
+  </div>`;
+}
+
 if (typeof module !== 'undefined') module.exports = {
   CRIME_LIBRARY, makeVerdict, verdictHTML,
   startDebtMode, debtMonthAdvance, debtYearsLeft, debtHTML

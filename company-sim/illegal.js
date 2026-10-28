@@ -372,11 +372,17 @@ function officialMonthly() {
     o.fallen = true;
     o.active = false;
     if (exposed) {
-      G.status = 'caught';
+      /* 躲过了？——账没消。进入「跑与不跑」抉择 */
+      G.fallout = {
+        active: true,
+        totalPaid: o.totalPaid,
+        month: G.month
+      };
       return {
-        type: 'busted',
-        text: '🚨 那位官员落马了，为了立功减刑，把你供了出来——行贿事实被查实，' +
-              '累计打点 ' + (o.totalPaid / 1e4).toFixed(0) + ' 万，公司关停。游戏结束。'
+        type: 'exposed',
+        text: '🚨 那位官员落马了。办案人员翻到他的账本——上面有你的名字，累计打点 ' +
+              (o.totalPaid / 1e4).toFixed(0) + ' 万。<br>' +
+              '专案组这两天就会上门。你还有最后一个选择：<b>跑，还是不跑。</b>'
       };
     }
     return {

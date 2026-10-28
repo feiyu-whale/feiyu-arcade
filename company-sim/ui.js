@@ -107,7 +107,23 @@ function render() {
     if ($('btnNext')) $('btnNext').disabled = true;
     if ($('btnOpen')) $('btnOpen').disabled = true;
     const ep = $('endingPanel');
-    if (ep) ep.innerHTML = (typeof verdictHTML === 'function') ? verdictHTML() : '';
+    // v3.2.0：跑与不跑之后先走「等判决」，再出判决书
+    if (ep && !G.verdictShown) {
+      if (G.waitingVerdict && typeof showWaitingVerdict === 'function') {
+        G.verdictShown = true;
+        showWaitingVerdict();
+      } else {
+        ep.innerHTML = (typeof verdictHTML === 'function') ? verdictHTML() : '';
+      }
+    }
+  } else if (G.status === 'fled') {
+    $('status').innerHTML = '<div class="over" style="color:#c9a050">✈️ 已出境</div>';
+    if ($('btnNext')) $('btnNext').disabled = true;
+    if ($('btnOpen')) $('btnOpen').disabled = true;
+    if (!G.fledShown) {
+      G.fledShown = true;
+      if (typeof showFledEnding === 'function') showFledEnding((G.fallout && G.fallout.totalPaid) || 0);
+    }
   } else if (G.status === 'debt') {
     const ep = $('endingPanel');
     if (ep) ep.innerHTML = debtHTML() + `<div style="text-align:center;margin:12px 0">
@@ -249,10 +265,13 @@ function doSettle() {
   if (G.pendingOfficialDemand) {
     html += renderOfficialDemand();
   }
+  if (G.pendingFallout) {
+    html += renderFallout();
+  }
 
   $('log').innerHTML = html;
   render();
-  if (G.pendingAftermath || G.pendingOfficialDemand) $('btnNext').disabled = true;
+  if (G.pendingAftermath || G.pendingOfficialDemand || G.pendingFallout) $('btnNext').disabled = true;
 
   // ═══ v3.0.2 月报弹窗（老爹 01:36「弽窗就不用往下滑了」）═══
   //  把这个月的结果直接弹到眼前，不用滚到底部找
@@ -355,7 +374,7 @@ function renderMonthLog(log) {
 
   $('log').innerHTML = html;
   render();
-  if (G.pendingAftermath || G.pendingOfficialDemand) $('btnNext').disabled = true;
+  if (G.pendingAftermath || G.pendingOfficialDemand || G.pendingFallout) $('btnNext').disabled = true;
 
   showMonthModal(log, html);
 }
@@ -401,7 +420,7 @@ function showMonthModal(log, html) {
   //  之前问题：事件选项渲染在 #log 里（底下），弹窗里看不到，玩家不知道怎么操作
   const footBtn = mask.querySelector('.modal-btn');
   if (footBtn) {
-    const needChoice = !!(choiceCtx || G.pendingAftermath || G.pendingOfficialDemand ||
+    const needChoice = !!(choiceCtx || G.pendingAftermath || G.pendingOfficialDemand || G.pendingFallout ||
                          G.pendingPeopleEvent || G.pendingLandlord);
     if (needChoice) {
       footBtn.disabled = true;
@@ -424,7 +443,7 @@ function syncModalFoot() {
   if (!mask) return;
   const footBtn = mask.querySelector('.modal-btn');
   if (!footBtn) return;
-  const needChoice = !!(choiceCtx || G.pendingAftermath || G.pendingOfficialDemand ||
+  const needChoice = !!(choiceCtx || G.pendingAftermath || G.pendingOfficialDemand || G.pendingFallout ||
                        G.pendingPeopleEvent || G.pendingLandlord);
   if (needChoice) {
     footBtn.disabled = true;
@@ -1236,4 +1255,78 @@ function answerOfficial(yes) {
   $('log').innerHTML = `<div class="evresult ${r.gameOver ? 'bad' : 'warn'}">${r.text}</div>`;
   $('btnNext').disabled = (G.status !== 'running');
   render();
+}
+
+/* ═══ v3.2.0 结局二：官员落马后的「跑与不跑」═══
+ * 真实概率（老爹定）：
+ *   成功跑掉 1% —— 不管有没有提前铺路，都是 1%
+ *   跑到半路被抓 50%
+ *   剩下 49% —— 还没跑出门就被盯上
+ */
+function renderFallout() {
+  if (!G.pendingFallout) return '';
+  return `<div class="bigEvent" style="border-color:#8a2a2a;background:#1e0a0a">
+    <div class="betitle" style="color:#e05050">🚨 专案组明天上门</div>
+    <div class="betext">
+      那位官员的账本上有你的名字，累计打点 <b>${money((G.fallout && G.fallout.totalPaid) || 0)}</b>。<br>
+      现在只剩两条路：<br>
+      <b>跑</b>——收拾东西，今晚就走。<br>
+      <b>不跑</b>——留下来，等他们把门敲开。<br>
+      <span style="color:#8a8a8a;font-size:11px">（跑的人，十个里有九个都提前铺好了路。没用。）</span>
+    </div>
+    <div class="choices">
+      <button class="choice" onclick="answerFallout(true)">跑（今晚就走）</button>
+      <button class="choice" onclick="answerFallout(false)">不跑（等他们上门）</button>
+    </div>
+  </div>`;
+}
+
+function answerFallout(run) {
+  G.pendingFallout = null;
+  const paid = (G.fallout && G.fallout.totalPaid) || 0;
+
+  if (!run) {
+    // 不跑：留置，如实交代
+    G.selfSurrendered = true;
+    G.waitingVerdict = true;
+    $('log').innerHTML = `<div class="evresult warn">
+      你没有跑。<br>那晚你在店里坐到很晚，把账本、税单、供应商合同一样一样理出来，摆在桌上。<br>
+      门被敲响的时候，你去开了门。<br>
+      <span style="color:#8a8a8a">—— 主动到案、如实供述，这一条会写进判决书里。</span>
+    </div>`;
+    $('btnNext').disabled = true;
+    render();
+    setTimeout(function(){ if (typeof showWaitingVerdict === 'function') showWaitingVerdict(); }, 1200);
+    return;
+  }
+
+  // 跑：1% 成功 / 50% 半路被抓 / 49% 没跑出门就被盯上
+  const r = Math.random();
+  if (r < 0.01) {
+    G.status = 'fled';
+    $('log').innerHTML = `<div class="evresult bad">你跑了。真的跑掉了。</div>`;
+  } else if (r < 0.51) {
+    G.fledAttempt = true;
+    G.waitingVerdict = true;
+    $('log').innerHTML = `<div class="evresult bad">
+      你在机场被拦下了。<br>
+      护照递过去的那一刻，柜台后面的人多看了你两眼，然后按了一下桌子底下的按钮。<br>
+      <span style="color:#8a8a8a">—— 企图潜逃，这一条会写进判决书里。</span>
+    </div>`;
+  } else {
+    G.fledAttempt = true;
+    G.waitingVerdict = true;
+    $('log').innerHTML = `<div class="evresult bad">
+      你还没走出这条街。<br>
+      车刚拐上主路，后面就跟上来两辆车。你从后视镜里看见那个车牌，就知道今晚走不了了。<br>
+      <span style="color:#8a8a8a">—— 企图潜逃，这一条会写进判决书里。</span>
+    </div>`;
+  }
+  $('btnNext').disabled = true;
+  render();
+  if (G.status !== 'fled' && typeof showWaitingVerdict === 'function') {
+    setTimeout(function(){ showWaitingVerdict(); }, 1400);
+  } else if (G.status === 'fled') {
+    setTimeout(function(){ if (typeof showFledEnding === 'function') showFledEnding(paid); }, 1200);
+  }
 }
