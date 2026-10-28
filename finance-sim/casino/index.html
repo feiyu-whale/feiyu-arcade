@@ -538,7 +538,7 @@
 
   <div class="foot">🐳 大肥鱼出品 · 模拟而已，不碰真钱<br>看概率的目的，是让你别再送钱<br>
     <span style="color:#5a4252">🔒 本页不存储任何数据、不发送任何网络请求，刷新即清零</span></div>
-  <div class="ver">v1.2.1-按真实赌场规则修正 20261028</div>
+  <div class="ver">v1.2.2-修标签切换Bug 20261028</div>
 </div>
 
 <script>
@@ -1604,16 +1604,16 @@
      切换 & 绑定
      ============================================================ */
   var tabs = document.querySelectorAll('.tabs button');
+  var PANES = ['bj','rl','sl','dc','bc','zjh','dragon','lot','horse','niu','gun','tower','scratch'];
   for (var i = 0; i < tabs.length; i++) {
     tabs[i].addEventListener('click', function(){
       for (var k = 0; k < tabs.length; k++) tabs[k].classList.remove('on');
       this.classList.add('on');
       var g = this.getAttribute('data-g');
-      $('pane-bj').style.display = (g === 'bj') ? '' : 'none';
-      $('pane-rl').style.display = (g === 'rl') ? '' : 'none';
-      $('pane-sl').style.display = (g === 'sl') ? '' : 'none';
-      $('pane-dc').style.display = (g === 'dc') ? '' : 'none';
-      $('pane-bc').style.display = (g === 'bc') ? '' : 'none';
+      for (var p = 0; p < PANES.length; p++) {
+        var el = $('pane-' + PANES[p]);
+        if (el) el.style.display = (g === PANES[p]) ? '' : 'none';
+      }
     });
   }
 
