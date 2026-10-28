@@ -173,9 +173,12 @@ function verdictHTML() {
     ${aggRows}${mitRows}
   </div>` : ''}
   <div style="border-top:1px solid #3a3a40;padding-top:16px;font-size:14px">
-    <div style="margin-bottom:10px">判处有期徒刑 <b style="color:#e05050;font-size:18px">${v.years}</b> 年，</div>
-    <div style="margin-bottom:10px">并处罚金 <b style="color:#e05050;font-size:18px">${v.fineWan}</b> 万元，</div>
-    <div>追缴违法所得 <b style="color:#e05050;font-size:18px">${v.confiscateWan}</b> 万元，上缴国库。</div>
+    <div style="text-align:center;padding:6px 0 12px">
+      判处有期徒刑 <b style="color:#e05050;font-size:26px;letter-spacing:2px">${v.years}</b> <span style="font-size:15px;color:#d8d8d8">年</span>
+    </div>
+    <div style="font-size:11px;color:#6a6a6a;text-align:center;line-height:1.8">
+      （并处没收个人财产、追缴违法所得 ${v.confiscateWan} 万元上缴国库）
+    </div>
   </div>
   <div style="margin-top:20px;font-size:12px;color:#7a7a7a;text-align:right">
     如不服本判决，可在接到判决书第二日起十日内提出上诉。
