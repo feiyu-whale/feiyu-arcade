@@ -296,6 +296,18 @@
     </div>
     <div id="brandBox" style="display:none"></div>
 
+    <div class="setup-title" style="margin-top:16px">⑤ 结算节奏</div>
+    <div class="row2">
+      <button class="modebtn active" id="paceMonth" onclick="setPace('month')">
+        <div class="mname">📅 按月</div>
+        <div class="mdesc">一次结算一个月，节奏快，适合先熟悉玩法</div>
+      </button>
+      <button class="modebtn" id="paceDay" onclick="setPace('day')">
+        <div class="mname">☀️ 按天</div>
+        <div class="mdesc">一天一天推，周末客流翘尾、生鲜天天损耗，更真实也更磨人</div>
+      </button>
+    </div>
+
     <button class="startbtn" onclick="startGame()">开始经营</button>
   </div>
 
@@ -328,6 +340,7 @@
 
     <div class="actions">
       <button class="tbtn primary" id="btnNext" onclick="doSettle()">▶ 下一个月</button>
+      <div class="verline" id="verLine" style="font-size:10px;color:#4a6a80;text-align:right;padding:2px 4px">v3.1.2-库存口径对齐 20261025</div>
       <button class="tbtn" id="btnReport" onclick="showReport()">📊 报表</button>
       <button class="tbtn" id="btnManual" onclick="showManual()">📖 手册</button>
     </div>
@@ -371,7 +384,7 @@
     </div>
   </div>
 
-  <div class="ver">v3.0.8-真实野鸡合同 20261025</div>
+  <div class="ver">v3.1.0-天网恢恢判决 20261028</div>
 </div>
 
 <script src="params.js"></script>

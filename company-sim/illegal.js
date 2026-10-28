@@ -59,12 +59,29 @@ function toggleIllegal(id) {
   if (G.illegalActs[id]) {
     delete G.illegalActs[id];
     // 停了，风险不立刻归零，但不再增长
+    // 天网恢恢：停用也留档，记下结束月份
+    if (G.illegalRecords) {
+      const rec = G.illegalRecords.find(r => r.id === id);
+      if (rec) { rec.active = false; rec.endMonth = G.month; }
+    }
     return { ok: true, msg: '已停止「' + ILLEGAL_ACTS.find(a => a.id === id).name + '」' };
   }
   const act = ILLEGAL_ACTS.find(a => a.id === id);
   if (!act) return { ok: false, msg: '没有这个操作' };
   G.illegalActs[id] = true;
   if (G.illegalRisk[id] === undefined) G.illegalRisk[id] = 0;
+  // 天网恢恢：启用即建档，记录起始月份（用于算持续时间）
+  G.illegalRecords = G.illegalRecords || [];
+  let rec = G.illegalRecords.find(r => r.id === id);
+  if (!rec) {
+    rec = { id: id, name: act.name, startMonth: G.month, months: 0, saved: 0, criminal: !!act.catchPenalty.criminal };
+    G.illegalRecords.push(rec);
+  } else if (!rec.endMonth) {
+    // 重新启用
+    rec.startMonth = G.month;
+  }
+  rec.active = true;
+  delete rec.endMonth;
   return { ok: true, msg: '已启用「' + act.name + '」——' + act.desc };
 }
 
@@ -81,6 +98,16 @@ function illegalMonthly(rev, foodCost, staffCost) {
     if (act.id === 'labor') out.staffSave += staffCost * act.savingRate;
     if (act.id === 'tax') out.taxSave += rev * act.savingRate;
     if (act.id === 'fake') out.revBoost += rev * act.revenueBoost;
+
+    // ①-b 天网恢恢：按月累加违法所得（用于判决时的追缴与量刑）
+    const gain = (act.id === 'oil' ? foodCost * act.savingRate
+               : act.id === 'labor' ? staffCost * act.savingRate
+               : act.id === 'tax' ? rev * act.savingRate
+               : act.id === 'fake' ? rev * act.revenueBoost : 0);
+    if (G.illegalRecords) {
+      const rec = G.illegalRecords.find(r => r.id === act.id);
+      if (rec) { rec.months = (rec.months || 0) + 1; rec.saved = (rec.saved || 0) + gain; rec.active = true; }
+    }
 
     // ② 风险累积（曲线：用得越久涨得越快）
     G.illegalRisk[act.id] = (G.illegalRisk[act.id] || 0) + 1;   // 存的是使用月数

@@ -63,6 +63,7 @@ const G = {
   caughtBy: null,
   pendingAftermath: null,
   crimes: [],
+  illegalRecords: [],
   official: null,
   // ═══ v3.0.0 资产负债表 ═══
   fixedAssetsGross: 0,   // 固定资产原值（装修+设备）
@@ -98,7 +99,17 @@ function expireMods() {
 /* 月度结算：核心循环
  * 顺序不可调整 —— 这是真实企业的死法
  */
+/* ═══ v3.1.0 结算模式调度（老爹 20261025 凌晨）═══
+ *  按月：原逻辑一字不动（settleMonthDirect）
+ *  按天：逐日推进，月末把 30 天的账合成一份「月报」交给界面
+ *  两种模式共用同一套结算逻辑，不搞两套财务口径
+ */
 function settleMonth() {
+  if (G.pace === 'day') return settleDay();
+  return settleMonthDirect();
+}
+
+function settleMonthDirect() {
   const p = P();
   const log = { month: G.month + 1, items: [], events: [] };
   G.month++;
@@ -302,7 +313,10 @@ function settleMonth() {
   if (typeof spoilMonthly === 'function' && typeof stockoutCheck === 'function') {
     const pol = (typeof currentStockPolicy === 'function') ? currentStockPolicy() : { days: 10 };
     const baseFoodCost = (G.foodCostLast && G.foodCostLast > 0) ? G.foodCostLast : foodCost;
-    const needStock = baseFoodCost / 30 * pol.days;
+    // v3.1.2 修正（20261025）：v月结一个月要消耗整月量，只补 10 天货必然断货
+    //   改为：补到「max(策略备货天数, 整月用量)」，保证月内不断货
+    //   否则按月模式会“注定断货”→ 扣口碑 → 营收一路下滑，与按天模式彻底脱节
+    const needStock = Math.max(baseFoodCost / 30 * pol.days, baseFoodCost);
     const gap = needStock - (G.inventory || 0);
     if (gap > 0) {
       const bulkDisc = (typeof bulkDiscount === 'function') ? bulkDiscount() : 1.0;
@@ -775,8 +789,487 @@ function settleMonth() {
   return log;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+ * v3.1.0 按天推进（老爹 20261025 凌晨「按月结算改成按天推进」）
+ *
+ *  设计原则：不重写财务逻辑，只改「时间切片」
+ *   ① 日结复用月度引擎，拿月额 ÷ 当月天数 = 日额，保证口径一致
+ *   ② 不是简单把月额除 30 —— 那样现金流会被均摊成平滑曲线（假）
+ *      真实现金流是「一块一块掉」的：
+ *        · 房租：每月 1 号一次付清（大头一次性出）
+ *        · 工资：月末发（也是大头）
+ *        · 水电：月中扣
+ *        · 营收：天天进，周末高、周中低（真实餐饮明显有周末峰）
+ *      所以日结里「固定支出按日子触发」，只有营收按日进账
+ *   ③ 损耗每天跑（生鲜天天烂），比按月跑真实得多
+ *   ④ 30 天攒成一份月报 → 界面不用改结构
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* 当月天数（简化为真实公历：2 月按 28，其他按大小月） */
+function daysInMonth(monthIdx) {
+  const m = ((monthIdx - 1) % 12) + 1;
+  return [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1];
+}
+
+/* 周内客流曲线（1=周一 … 7=周日）：餐饮周末明显翘尾 */
+function dayOfWeekFactor(dayIdx) {
+  const w = ((dayIdx - 1) % 7) + 1;
+  return [0.88, 0.86, 0.90, 0.95, 1.12, 1.30, 1.18][w - 1];
+}
+
+/* 一天的结算：把月额按「日账 + 固定日出账」拆开
+ *  返回 { items, events, netProfit, revenue } 这一天的账
+ */
+function settleOneDay(dayOfMonth, dim) {
+  const p = P();
+  const log = { day: dayOfMonth, items: [], events: [] };
+  const share = 1 / dim;                       // 月额摊到每天的基准份额
+
+  /* ── 营收：日额 × 周内曲线（重归一化，保证一个月加起来≈原月额）── */
+  //  7 天曲线均值 ≈ 1.027 → 除回去
+  const dowAdj = dayOfWeekFactor((G.day || 0) + 1) / 1.027;
+  //  v3.1.1 修正（20261025）：G.day 是「当月已过天数」（0 = 还没过），
+  //  再推进一天时 G.day 先自增，所以这里应该用 G.day+1 算周内曲线。
+  const baseRev = p.revenue * (G.effStores || G.stores);
+  const repFactor = 0.45 + (G.reputation / 100) * 0.8;
+  const morFactor = 0.85 + (G.morale / 100) * 0.3;
+  const seasonFactor = seasonFactorFor(G.seg, G.month);
+  const rand = 1 + (Math.random() * 2 - 1) * p.volatility * 0.45;  // 日波动比月波动小得多
+  const revMod = 1 + modSum('revenueDelta');
+  const cityRev = (G.cityMod && G.cityMod.revenueMult) || 1.0;
+  const compPressure = (typeof competitionPressure === 'function') ? competitionPressure() : 1.0;
+  const hist = (typeof historyRevenueMult === 'function')
+    ? historyRevenueMult(G.month, G.startYear) : { mult: 1, events: [] };
+  let macroConsumer = 1.0;
+  if (typeof macroState === 'function') macroConsumer = macroState(G.month, G.startYear).consumer;
+  const illegalBoost = (G.illegalActs && G.illegalActs.fake) ? 1.15 : 1.0;
+  const externalDrag =
+      (1 - compPressure) * 0.35 +
+      (1 - hist.mult) * 0.45 +
+      (1 - macroConsumer) * 0.40;
+  const externalFactor = 1 - Math.min(0.55, externalDrag);
+  const rev = Math.max(0, baseRev * share * dowAdj * repFactor * morFactor *
+    seasonFactor * rand * revMod * externalFactor * illegalBoost * cityRev);
+
+  /* ── 成本：日额摊（利润表口径，和月结一致）── */
+  const deal = (typeof currentDeal === 'function') ? currentDeal() : { priceUp: 0 };
+  const hqDiscount = G.hasHQ ? 0.97 : ((G.effStores || G.stores) > 8 ? 1.02 : 1.0);
+  const foodCost = rev * (p.foodCostRate + modSum('foodCostDelta')) * (1 + deal.priceUp) * hqDiscount;
+  const wagePerHead = p.staffFixedWage || (p.revenue * p.staffRate / 10);
+  const cityWage = (G.cityMod && G.cityMod.wageMult) || 1.0;
+  const staffCostDay = (G.staff * wagePerHead * cityWage * (1 + modSum('staffRateDelta')) + modSum('staffDelta')) * share;
+  const cityRent = (G.cityMod && G.cityMod.rentMult) || 1.0;
+  const rentMult = Math.min(2.0, 1 + modSum('rentDelta'));
+  const rentDay = p.rentFixed * (G.effStores || G.stores) * rentMult * cityRent * share;
+  const utilDay = p.utilFixed * (G.effStores || G.stores) * share;
+  const priceWarCut = modSum('priceWarDiscount');
+  const revAfterCut = rev * (1 - priceWarCut);
+  const otherOpexDay = rev * ((p.otherOpexRate || 0.05) + modSum('otherOpexDelta'));
+  const depreciationDay = ((typeof monthlyDepreciation === 'function')
+    ? monthlyDepreciation() : p.setupCost * (G.effStores || G.stores) * (p.depreciationRate || 0.05) / 12) * share;
+
+  let orgCostDay = 0, efficiencyLoss = 0;
+  const nStores = G.effStores || G.stores;
+  if (G.hasHQ) orgCostDay += 150000 / 30;
+  else if (nStores > 8) efficiencyLoss += 0.02;
+  if (G.hasCompany) orgCostDay += 400000 / 30;
+  else if (nStores > 25) efficiencyLoss += 0.025;
+  const miscDay = rev * (p.miscRate + efficiencyLoss) + orgCostDay;
+  const execDay = (G.execMonthly || 0) * share;
+
+  let entropyDay = 0;
+  if (typeof entropyDrain === 'function') {
+    const ed = entropyDrain(rev * dim, nStores);   // 熵增按规模算，先算月再摊
+    entropyDay = ed.loss * ((typeof entropyCoef === 'function') ? entropyCoef() : 1) * share;
+  }
+
+  const grossProfitDay = revAfterCut - foodCost - staffCostDay - rentDay - utilDay -
+    miscDay - otherOpexDay - depreciationDay - entropyDay;
+
+  /* ── 日现金流水 ── */
+  log.items.push(['营业收入', rev, 'in']);
+  // 堂食现结当天到账；外卖/团购按天挂账（T+15 / T+30）
+  const dineInRate = p.dineInRatio !== undefined ? p.dineInRatio : 0.6;
+  G.cash += revAfterCut * dineInRate;
+  const deliveryAmt = revAfterCut * (1 - dineInRate) * 0.6;
+  const grouponAmt  = revAfterCut * (1 - dineInRate) * 0.4;
+  if (deliveryAmt > 0) G.receivables.push({ amount: deliveryAmt, dueDay: G.day + 15, paid: false });
+  if (grouponAmt > 0)  G.receivables.push({ amount: grouponAmt, dueDay: G.day + 30, paid: false });
+
+  // ═══ 固定支出「按日出账」（真实：钱是一块一块掉的，不是天天均摊）═══
+  // 房租：每月 1 号一次付清
+  if (dayOfMonth === 1) {
+    const rentFull = p.rentFixed * nStores * rentMult * cityRent;
+    G.cash -= rentFull;
+    log.items.push(['交房租（月初一次性）', rentFull, 'out']);
+  }
+  // 水电：每月 15 号扣半月
+  if (dayOfMonth === 15 || dayOfMonth === dim) {
+    const utilHalf = p.utilFixed * nStores / 2;
+    G.cash -= utilHalf;
+    log.items.push(['缴水电', utilHalf, 'out']);
+  }
+  // 工资：月末发
+  if (dayOfMonth === dim) {
+    const payroll = G.staff * wagePerHead * cityWage * (1 + modSum('staffRateDelta')) + modSum('staffDelta');
+    G.cash -= payroll;
+    log.items.push(['发工资（月末）', payroll, 'out']);
+  }
+  G.cash -= (miscDay + otherOpexDay);
+
+  // 货款：按账期日结（当天买当天挂账）
+  const apDays = deal.apDays !== undefined ? deal.apDays : p.apDays;
+  if (apDays > 0) {
+    G.payables.push({ amount: foodCost, dueDay: G.day + Math.max(1, apDays), paid: false });
+  } else {
+    G.cash -= foodCost;
+  }
+
+  /* ── 应收/应付到账 ── */
+  G.receivables.forEach(r => {
+    if ((r.dueDay !== undefined ? r.dueDay : Infinity) <= G.day) {
+      G.cash += r.amount;
+      log.items.push(['收到外卖/团购账', r.amount, 'in']);
+      r.paid = true;
+    }
+  });
+  G.receivables = G.receivables.filter(r => !r.paid);
+  G.payables.forEach(a => {
+    if ((a.dueDay !== undefined ? a.dueDay : Infinity) <= G.day) {
+      G.cash -= a.amount;
+      log.items.push(['支付货款', a.amount, 'out']);
+      a.paid = true;
+    }
+  });
+  G.payables = G.payables.filter(a => !a.paid);
+
+  /* ── 库存：生鲜天天烂 ── */
+  let spoilToday = 0, shortageToday = 0;
+  if (typeof spoilMonthly === 'function' && typeof stockoutCheck === 'function') {
+    const pol = (typeof currentStockPolicy === 'function') ? currentStockPolicy() : { days: 10 };
+    const baseFoodCost = (G.foodCostLast && G.foodCostLast > 0) ? G.foodCostLast : foodCost * dim;
+    const needStock = baseFoodCost / 30 * pol.days;
+    const gap = needStock - (G.inventory || 0);
+    if (gap > 0) {
+      const bulkDisc = (typeof bulkDiscount === 'function') ? bulkDiscount() : 1.0;
+      G.inventory = (G.inventory || 0) + gap * bulkDisc;
+    }
+    const sp = spoilMonthly();          // 月度损耗函数 → 用 share 折算成一天
+    spoilToday = sp.spoil * share;
+    if (sp.spoil > 0) G.inventory = Math.max(0, G.inventory - spoilToday);
+    const use = stockoutCheck(foodCost);          // v3.1.2 修正：按天只消耗「一天的食材成本」
+    shortageToday = use.shortageRatio || 0;
+    // v3.1.2 修正：断货要扣口碑（按月扣 3 分 → 按天扣 3/30 = 0.1 分），两边口径一致
+    if (shortageToday > 0.01) {
+      addMod('revenueDelta', -use.revenuePenalty, 1);
+      G.reputation = Math.max(0, G.reputation - 3 * share);
+      if (Math.random() < 0.5) {
+        log.events.push({ type: 'bad', text: use.text });
+      }
+    }
+    G.foodCostLast = foodCost * dim;
+  }
+
+  /* ── 贷款利息日计 ── */
+  let interestDay = 0;
+  G.loans.forEach(ln => {
+    if (ln.remain <= 0) return;
+    interestDay += ln.remain * (ln.rate / 360);
+  });
+  G.cash -= interestDay;
+  if (interestDay > 1) log.items.push(['贷款日息', interestDay, 'out']);
+  // 本金月供：每月 5 号还
+  if (dayOfMonth === 5) {
+    let priSum = 0;
+    G.loans.forEach(ln => {
+      if (ln.remain <= 0) return;
+      const r = ln.rate / 12, n = ln.term;
+      const pay = ln.principal * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+      const priPart = Math.min(pay - ln.remain * r, ln.remain);
+      ln.remain -= priPart;
+      priSum += priPart;
+    });
+    if (priSum > 0) {
+      G.cash -= priSum;
+      log.items.push(['还贷款本金（每月5号）', priSum, 'out']);
+    }
+    G.loans = G.loans.filter(l => l.remain > 0.01);
+    if (G.cash >= 0) G.credit = Math.min(100, G.credit + 0.5);
+  }
+
+  const netProfitDay = grossProfitDay - interestDay;
+  log.netProfit = netProfitDay;
+  log.revenue = rev;
+  return log;
+}
+
+/* 推进一步（一天或一月）——界面统一走这里 */
+function advanceTime() {
+  return settleMonth();   // 已经在 settleMonth 里按 G.pace 分派
+}
+
+/* ═══ settleDay：按天模式的「一步」= 推进 1 天 ═══
+ *  走到月末 → 把 30 天合成一份月报（结构跟月结 log 一致，界面不用改）
+ *  中间天数 → 返回日报（mode:'day'），界面只刷数字 + 一条今日流水
+ */
+function settleDay() {
+  G.dayIdx = (G.dayIdx || 0) + 1;
+  G.day = ((G.dayIdx - 1) % 30) + 1;          // 简化月：统一 30 天
+  const dim = 30;  G.accMonth = G.accMonth || { items: {}, events: [], revenue: 0, netProfit: 0, days: 0 };
+
+  const d = settleOneDay(G.day, dim);
+  const acc = G.accMonth;
+  acc.days++;
+  acc.revenue += d.revenue;
+  acc.netProfit += d.netProfit;
+  d.items.forEach(([name, amt, kind]) => {
+    if (!acc.items[name]) acc.items[name] = { amt: 0, kind };
+    acc.items[name].amt += amt;
+  });
+  d.events.forEach(e => acc.events.push(e));
+
+  // 每日轻量自然变化（口碑/士气按 1/30 速度走，避免一天抖太多）
+  if (G.status === 'running') {
+    if (d.netProfit < 0) G.morale = Math.max(0, G.morale - 0.07);
+    else G.morale = Math.min(100, G.morale + 0.07);
+  }
+
+  // ═══ 月末：跑一遍完整的「非财务系统」并出月报 ═══
+  if (G.day === dim) {
+    const monthLog = { month: G.month + 1, items: [], events: [], mode: 'month' };
+    G.month++;
+    G.events = [];
+    Object.keys(acc.items).forEach(name => {
+      const it = acc.items[name];
+      monthLog.items.push([name, it.amt, it.kind]);
+    });
+    monthLog.events = acc.events.slice(0, 12);
+    monthLog.netProfit = acc.netProfit;
+    monthLog.revenue = acc.revenue;
+    monthLog.dayBreakdown = { days: acc.days };
+
+    // 月末跑月度系统（事件/对手/合规/黑天鹅…），用 settleMonthDirect 里的后半段
+    const extra = monthEndSystems(monthLog);
+    extra.forEach(e => monthLog.events.push(e));
+
+    monthLog.cashAfter = G.cash;
+    G.history.push(monthLog);
+    G.accMonth = null;
+    G.usedEvents = [];
+    expireMods();
+    monthLog.paceSwitchable = true;
+    return monthLog;
+  }
+
+  // 日报
+  const dayLog = {
+    mode: 'day',
+    day: G.day,
+    month: G.month,
+    dayOfMonth: G.day,
+    items: d.items,
+    events: d.events,
+    revenue: d.revenue,
+    netProfit: d.netProfit,
+    cashAfter: G.cash
+  };
+  return dayLog;
+}
+
+/* 月末系统：把月结里那些「按次发生」的事抽出来单独跑
+ *  这些不按天摊，一个月就发生一次（事件/对手/合规/黑天鹅/人事/渠道）
+ *  返回事件数组
+ */
+function monthEndSystems(monthLog) {
+  const p = P();
+  const ev = [];
+  const rev = monthLog.revenue;
+  let netProfit = monthLog.netProfit;
+  const stores = G.effStores || G.stores;
+
+  // 爬坡推进 + 新店开业
+  G.pendingStores = G.pendingStores || [];
+  G.rampingStores = G.rampingStores || [];
+  G.pendingStores = G.pendingStores.filter(ps => {
+    if (ps.openMonth <= G.month) {
+      G.stores++;
+      G.staff += (p.staffCount || 3);
+      G.rampingStores.push({ months: 0, rampMonths: ps.rampMonths });
+      return false;
+    }
+    return true;
+  });
+  G.rampingStores.forEach(rs => { rs.months++; });
+  G.rampingStores = G.rampingStores.filter(rs => rs.months < rs.rampMonths);
+  G.effStores = G.stores - G.rampingStores.length * 0.4;
+
+  // 破产判定（日结里现金可能已经穿底）
+  if (G.cash < 0 && G.status === 'running') {
+    const bsNow = (typeof balanceSheet === 'function') ? balanceSheet() : null;
+    const ratioNow = bsNow ? bsNow.debtRatio : 0;
+    const stillWorthSaving = ratioNow <= 0.55 && G.credit >= 50 && G.overdue === 0;
+    const emergLimit = stillWorthSaving ? (creditLimit() - totalDebt()) : 0;
+    if (emergLimit > 0 && G.credit >= 30) {
+      const amt = Math.min(emergLimit, 200000);
+      const rate = loanRate() * 2.5, r = rate / 12, n = 6;
+      const pay = amt * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+      G.loans.push({ principal: amt, remain: amt, rate, term: n, startMonth: G.month, product: '过桥贷' });
+      G.cash += amt;
+      G.credit = Math.max(0, G.credit - 5);
+      ev.push({ type: 'warn', text: '💸 现金断裂！银行只给过桥贷 ' + (amt / 1e4).toFixed(1) +
+        ' 万，年化 ' + (rate * 100).toFixed(1) + '%，每月还 ' + (pay / 1e4).toFixed(2) + ' 万' });
+    } else {
+      G.status = 'bankrupt';
+      ev.push({ type: 'bad', text: '💀 现金耗尽，银行拒绝续命，供应商停供，公司破产' +
+        (ratioNow > 0.55 ? '（资产负债率 ' + (ratioNow * 100).toFixed(0) + '%，没银行敢接）' : '') });
+    }
+  }
+
+  // 连续亏损计数
+  if (netProfit < 0) {
+    G.monthsNegProfit++;
+    if (G.monthsNegProfit >= 3) ev.push({ type: 'warn', text: '连续 ' + G.monthsNegProfit + ' 个月亏损，员工开始人心浮动' });
+  } else G.monthsNegProfit = 0;
+
+  // 风险累积
+  const needHQ = stores >= 10 && !G.hasHQ;
+  const needCo = stores >= 30 && !G.hasCompany;
+  if (needHQ) G.riskBuildup += 1.2;
+  if (needCo) G.riskBuildup += 2.0;
+  if (!needHQ && !needCo) G.riskBuildup = Math.max(0, G.riskBuildup - 0.5);
+  if (G.riskBuildup > 0 && Math.random() < Math.min(0.55, G.riskBuildup / 60)) {
+    const heavy = G.riskBuildup >= 30;
+    const pool = [];
+    if (!G.hasCompany) {
+      pool.push({ text: '🕵️ 突击检查：社保用工不合规被查处，罚款 ', cash: rev * 0.15, rep: -12, morale: -8 });
+      pool.push({ text: '🧾 税务稽查：账目混乱，补税加罚金 ', cash: rev * 0.25, rep: -8, morale: -5 });
+    }
+    if (!G.hasHQ) {
+      pool.push({ text: '🍲 食安事故：没有总部督导，一家店出事连累全品牌，赔偿 ', cash: rev * 0.12, rep: -20, morale: -10 });
+    }
+    if (pool.length) {
+      const hit = pool[Math.floor(Math.random() * pool.length)];
+      if (hit.cash) G.cash -= hit.cash;
+      if (hit.rep) G.reputation = Math.max(0, G.reputation + hit.rep);
+      if (hit.morale) G.morale = Math.max(0, G.morale + hit.morale);
+      ev.push({ type: 'bad', text: hit.text + (hit.cash ? (hit.cash / 1e4).toFixed(1) + ' 万' : '') });
+      G.riskBuildup = Math.max(0, G.riskBuildup - (heavy ? 25 : 10));
+    }
+  }
+
+  // 口碑回归基线（按月一次，幅度不变）
+  let base = 65;
+  if (G.cityMod && G.cityMod.trafficMult >= 1.3) base += 6;
+  else if (G.cityMod && G.cityMod.trafficMult < 0.7) base -= 6;
+  if (G.hasHQ) base += 3;
+  if (G.franchise) base -= 5;
+  G.reputationBase = base;
+  const gapToBase = base - G.reputation;
+  const scaleDrag = 1 / (1 + G.stores * 0.05);
+  let recover;
+  if (gapToBase > 0) recover = Math.min(gapToBase, Math.max(0.6, gapToBase * 0.20)) * scaleDrag;
+  else recover = netProfit > 0 ? 0.3 * scaleDrag : gapToBase * 0.08;
+  G.reputation = Math.max(0, Math.min(100, G.reputation + recover));
+
+  // 下面这些用 try 包一层：单个子系统出错不拖死整个游戏
+  const safe = (fn, ...args) => { try { return fn(...args); } catch (e) { console.error('子系统出错', e); return null; } };
+
+  if (typeof disasterCheck === 'function' && G.status === 'running') {
+    const dis = safe(disasterCheck);
+    if (dis) { const res = resolveDisaster(dis); ev.push({ type: 'bad', text: res.text }); }
+  }
+  if (typeof rivalsMonthly === 'function' && G.rivals) {
+    (safe(rivalsMonthly) || []).forEach(t => ev.push({ type: 'warn', text: t }));
+    const poach = safe(rivalsPoach); if (poach) ev.push({ type: 'bad', text: poach });
+  }
+  if (typeof illegalMonthly === 'function') {
+    const ill = safe(illegalMonthly, rev, rev * 0.42, rev * 0.3);
+    if (ill) {
+      const saveSum = (ill.foodSave || 0) + (ill.staffSave || 0) + (ill.taxSave || 0);
+      if (saveSum > 0) { G.cash += saveSum; monthLog.items.push(['违法省下的钱', -saveSum, 'memo']); }
+      (ill.warnings || []).forEach(w => ev.push({ type: 'warn', text: w }));
+      if (ill.caught && typeof makeAftermath === 'function') {
+        G.pendingAftermath = makeAftermath(ill.caught);
+        ev.push({ type: 'bad', text: '🚨 「' + ill.caught.name + '」被查了！接下来怎么办，你自己决定。' });
+      }
+    }
+  }
+  if (typeof franchiseMonthlyCost === 'function' && G.franchise) {
+    const fc = safe(franchiseMonthlyCost, rev);
+    if (fc && fc.royalty > 0) { G.cash -= fc.royalty; monthLog.items.push(['加盟权利金', fc.royalty, 'out']); }
+    const trap = safe(checkFranchiseTrap);
+    if (trap) {
+      if (trap.foodDelta) addMod('foodCostDelta', trap.foodDelta, trap.months || 2);
+      if (trap.cash) G.cash += trap.cash;
+      ev.push({ type: 'bad', text: trap.text });
+    }
+  }
+  G.warnings = [];
+  if (typeof upcomingEvents === 'function') {
+    (safe(upcomingEvents, G.month, G.startYear) || []).forEach(e => {
+      G.warnings.push(e);
+      ev.push({ type: 'warn', text: '📡 风声：' + e.inMonths + ' 个月后可能「' + e.name + '」（' + e.severity + '）' });
+    });
+  }
+  if (typeof officialMonthly === 'function' && G.official && G.official.active) {
+    const off = safe(officialMonthly);
+    if (off) {
+      if (off.type === 'demand') { G.pendingOfficialDemand = off.demand; ev.push({ type: 'warn', text: off.text }); }
+      else ev.push({ type: off.type === 'busted' ? 'bad' : 'warn', text: off.text });
+    }
+  }
+  const crime = safe(checkPendingCrimes); if (crime) ev.push({ type: 'bad', text: crime });
+  const vc = safe(checkVC); if (vc) ev.push(vc);
+  if (typeof partnerMonthly === 'function') {
+    const ps = safe(partnerMonthly, netProfit);
+    if (ps && ps.type === 'partner_split') { G.pendingPeopleEvent = ps; ev.push({ type: 'bad', text: ps.text }); }
+  }
+  if (typeof familyIntervention === 'function' && !G.pendingPeopleEvent) {
+    const fi = safe(familyIntervention);
+    if (fi) { G.pendingPeopleEvent = fi; ev.push({ type: 'warn', text: fi.text }); }
+  }
+  const rm = safe(relativeMonthly); if (rm) ev.push({ type: 'warn', text: rm });
+  if (typeof chefLeaveCheck === 'function' && !G.pendingPeopleEvent) {
+    const cl = safe(chefLeaveCheck);
+    if (cl && cl.apply) ev.push({ type: 'bad', text: cl.text + '｜' + cl.apply() });
+  }
+  const bc = safe(bigCustomerMonthly);
+  if (bc) { addMod('revenueDelta', -bc.revenueCut, 999); ev.push({ type: 'bad', text: bc.text }); }
+  if (typeof platformCommission === 'function') {
+    G.platformRate = safe(platformCommission) || G.platformRate;
+    const extra = rev * (G.platformRate - 0.18) * 0.4;
+    if (extra > 0) { G.cash -= extra; monthLog.items.push(['平台抽成上浮', extra, 'out']); }
+  }
+  const pt = safe(platformThrottleCheck);
+  if (pt) { addMod('revenueDelta', -pt.revenuePenalty, pt.months); ev.push({ type: 'bad', text: pt.text }); }
+  const sb = safe(supplyBreakCheck);
+  if (sb) { addMod('revenueDelta', -sb.revenuePenalty, sb.months); ev.push({ type: 'bad', text: sb.text }); }
+  const sc = safe(checkSupplyCut);
+  if (sc) { addMod('revenueDelta', sc.revenueDelta, sc.months); ev.push({ type: 'bad', text: sc.text }); }
+  if (typeof blackSwanCheck === 'function') {
+    const monthAbs = (typeof playerMonthToAbs === 'function') ? playerMonthToAbs(G.month, G.startYear) : G.month;
+    const bs2 = safe(blackSwanCheck, monthAbs);
+    if (bs2) {
+      if (bs2.foodCostDelta) addMod('foodCostDelta', bs2.foodCostDelta, bs2.months || 3);
+      if (bs2.revenuePenalty) addMod('revenueDelta', -bs2.revenuePenalty, bs2.months || 2);
+      if (bs2.inventoryLoss) { const lost = G.inventory || 0; G.inventory = 0; ev.push({ type: 'bad', text: bs2.text + '，损失 ' + (lost / 1e4).toFixed(1) + ' 万食材' }); }
+      else ev.push({ type: 'bad', text: bs2.text });
+    }
+  }
+  const ll = safe(landlordCheck);
+  if (ll) { G.pendingLandlord = ll; ev.push({ type: 'bad', text: ll.text }); }
+  if (G.hasInsurance && G.insuranceMonthly) { G.cash -= G.insuranceMonthly; monthLog.items.push(['财产险保费', G.insuranceMonthly, 'out']); }
+  const de = safe(entropyEvent, rev, stores); if (de) ev.push({ type: 'bad', text: de });
+  const ls = safe(loanSharkMonthly); if (ls) ev.push({ type: 'bad', text: ls });
+
+  monthLog.netProfit = netProfit;
+  return ev;
+}
+
 function seasonFactorFor(seg, month) {
-  const m = ((month - 1) % 12) + 1;
+  // v3.1.0 修正：month=0 时 ((-1)%12)+1 = 0 → 取到 undefined → NaN 传染全账
+  //  改成先加 12 再取模，0 和负数也落在 1~12
+  const m = (((month - 1) % 12) + 12) % 12 + 1;
   if (seg === 'chayin') {
     // 茶饮夏季旺
     return [0.85, 0.9, 1.0, 1.1, 1.2, 1.25, 1.25, 1.2, 1.05, 0.95, 0.85, 0.85][m - 1];

@@ -15,7 +15,10 @@ function render() {
   $('cash').textContent = money(G.cash);
   const _td = totalDebt();
   $('debt').textContent = money(_td);
-  $('month').textContent = G.month;
+  // v3.1.0：按天模式下显示「第 3 月·第 12 天」，按月模式显示「第 3 月」
+  $('month').textContent = (G.pace === 'day' && G.month >= 0 && G.day)
+    ? (G.month + 1) + '月·第' + G.day + '天'
+    : G.month;
   $('stores').textContent = G.stores;
   $('seg').textContent = p.icon + ' ' + p.name;
   $('rep').textContent = G.reputation.toFixed(0);
@@ -142,6 +145,12 @@ function giveUpDebt() {
 
 function doSettle() {
   if (G.status !== 'running') return;   // 破产/被查处都不能继续
+
+  // ═══ v3.1.0 按天模式：先只推进一天 ═══
+  //  按月模式原样走下面那段（一字不改）
+  if (G.pace === 'day') { doSettleDay(); return; }
+
+
   const log = settleMonth();
 
   // 展示本月明细
@@ -247,6 +256,107 @@ function doSettle() {
 
   // ═══ v3.0.2 月报弹窗（老爹 01:36「弽窗就不用往下滑了」）═══
   //  把这个月的结果直接弹到眼前，不用滚到底部找
+  showMonthModal(log, html);
+}
+
+/* ═══ v3.1.1 按天模式：推进一天（老爹 20261025）═══
+ *  平时：把今天的流水贴进日志，数字刷新，不弹窗（弹一天一次会烦死人）
+ *  月末：引擎返回月报（mode:'month'）→ 走原来那套月报弹窗 + 诊断，口径与按月模式一致
+ */
+function doSettleDay() {
+  const log = settleDay();
+
+  if (log && log.mode === 'month') {
+    // ═══ 月末：直接复用按月模式的完整渲染（诊断/预警/教程/事件/弹窗）═══
+    renderMonthLog(log);
+    return;
+  }
+
+  // ═══ 日报：贴一条今日流水，刷新数字 ═══
+  let html = `<div class="logtitle">第 ${G.month + 1} 月 · 第 ${log.dayOfMonth} 天</div>`;
+  html += '<table class="detail">';
+  (log.items || []).forEach(([name, amt, kind]) => {
+    if (kind === 'memo') return;
+    const cls = kind === 'in' ? 'good' : 'bad';
+    html += `<tr><td>${name}</td><td class="${cls}">${kind === 'in' ? '+' : '−'}${money(Math.abs(amt))}</td></tr>`;
+  });
+  html += `<tr class="total"><td>今日净利</td><td class="${log.netProfit >= 0 ? 'good' : 'bad'}">${money(log.netProfit)}</td></tr>`;
+  html += '</table>';
+
+  // 今天的零碎事件
+  (log.events || []).forEach(e => {
+    html += `<div class="evresult ${e.type || ''}">${e.text}</div>`;
+  });
+
+  // 破产/停业提示
+  if (G.status !== 'running') {
+    html += `<div class="survivalbox crit">经营已结束：${G.status === 'bankrupt' ? '破产' : '退出'}</div>`;
+  }
+
+  $('log').innerHTML = html;
+  render();
+}
+
+/* 把「一份月报 log」渲染到日志区 + 弹出月报卡片
+ *  2026-10-25 从 doSettle 里抽出来，按月模式和按天模式的月末共用
+ */
+function renderMonthLog(log) {
+  let html = `<div class="logtitle">第 ${log.month} 个月</div>`;
+  html += '<table class="detail">';
+  log.items.forEach(([name, amt, kind]) => {
+    if (kind === 'memo') return;
+    const cls = kind === 'in' ? 'good' : 'bad';
+    html += `<tr><td>${name}</td><td class="${cls}">${kind === 'in' ? '+' : '−'}${money(Math.abs(amt))}</td></tr>`;
+  });
+  html += `<tr class="total"><td>当月净利</td><td class="${log.netProfit >= 0 ? 'good' : 'bad'}">${money(log.netProfit)}</td></tr>`;
+  html += '</table>';
+
+  if (typeof diagnoseMonth === 'function') {
+    const diag = diagnoseMonth(log);
+    if (diag.length) {
+      html += `<div class="diagbox"><div class="diagtitle">📋 本月诊断</div>`;
+      diag.forEach(line => { html += `<div class="diagline">${line}</div>`; });
+      html += '</div>';
+    }
+  }
+
+  if (typeof survivalCheck === 'function') {
+    const sv = survivalCheck();
+    if (sv && !sv.healthy) {
+      const cls = sv.level === 'critical' ? 'crit' : sv.level === 'danger' ? 'dang' : 'warn';
+      html += `<div class="survivalbox ${cls}">${sv.text}</div>`;
+    }
+  }
+
+  if (typeof tutorialFor === 'function') {
+    const tut = tutorialFor(log.month);
+    if (tut) {
+      html += `<div class="tutbox"><div class="tuttitle">${tut.title}</div>`;
+      tut.lines.forEach(l => { html += `<div class="tutline">${l}</div>`; });
+      html += '</div>';
+    }
+  }
+
+  if (typeof decisionHints === 'function') {
+    const hints = decisionHints();
+    if (hints.length) {
+      html += `<div class="hintbox"><div class="hinttitle">💭 提示</div>`;
+      hints.forEach(h => { html += `<div class="hintline ${h.type}">${h.text}</div>`; });
+      html += '</div>';
+    }
+  }
+
+  log.events.forEach(e => {
+    html += `<div class="evresult ${e.type}">${e.text}</div>`;
+  });
+
+  if (G.pendingAftermath) html += renderAftermath();
+  if (G.pendingOfficialDemand) html += renderOfficialDemand();
+
+  $('log').innerHTML = html;
+  render();
+  if (G.pendingAftermath || G.pendingOfficialDemand) $('btnNext').disabled = true;
+
   showMonthModal(log, html);
 }
 
@@ -598,6 +708,13 @@ function startGame() {
   G.month = 0;
   G.history = [];
   G.status = 'running';
+
+  // ═══ v3.1.0 按天推进：节奏模式 + 日计数 ═══
+  G.pace = (typeof paceMode !== 'undefined' && paceMode) ? paceMode : 'month';
+  G.day = 0;        // 当月第几天
+  G.dayIdx = 0;     // 从开局起第几天
+  G.accMonth = null;
+  G.effStores = 1;
   G.mods = [];
   G.receivables = [];
   G.payables = [];
@@ -843,6 +960,16 @@ function showReport() {
 let startMode = 'start';
 let startBrand = null;
 let startYear = 2019;
+let paceMode = 'month';   // v3.1.1 结算节奏：month=按月 / day=按天
+
+/* v3.1.1 开局面板切换结算节奏（老爹 20261025） */
+function setPace(mode) {
+  paceMode = (mode === 'day') ? 'day' : 'month';
+  const m = document.getElementById('paceMonth');
+  const d = document.getElementById('paceDay');
+  if (m) m.classList.toggle('active', paceMode === 'month');
+  if (d) d.classList.toggle('active', paceMode === 'day');
+}
 
 function initSetup() {
   // 城市下拉
