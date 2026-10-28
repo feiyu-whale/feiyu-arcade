@@ -302,7 +302,14 @@
     return map;
   }
   // 取某只票当前局的名字（无映射则回退原始名）
-  function stockName(code){ return (state.nameMap&&state.nameMap[code])||(DATA[code]&&DATA[code].name)||code; }
+  // 2026-10-28 双市场：按代码前缀取对应市场数据
+  function dataOf(code){
+    if(!code) return null;
+    if(code.indexOf('CN-')===0) return DATA_CN && DATA_CN[code];
+    if(code.indexOf('US-')===0) return DATA_US && DATA_US[code];
+    return DATA && DATA[code];
+  }
+  function stockName(code){ var d=dataOf(code); return (state.nameMap&&state.nameMap[code])||(d&&d.name)||code; }
   var DEBT_RATE=0.5; // （旧）一刀切年息，已废弃，改用分档动态利率
   // 2026-10-16 分档年息（按当时资产）：<100万→8%；100万~1亿→15%；>1亿→30%
   function debtRate(){
@@ -369,24 +376,29 @@
   function totalAssets(){
     var cny=state.cny||0, usd=state.usd||0;
     var r=fxOn(state.date);
-    var mv=0;
-    for(var c in state.pos){ var px=priceOn(c,state.date); if(px==null) px=0; mv+=px*state.pos[c].shares; }
-    // 2026-10-16 做空仓：空头市值 = 开仓所得（欠券），做空盈亏 = (开仓均价−现价)×股数
-    var shortVal=0; // 空头负债（按现价计）
-    for(var s in (state.short||{})){ var spx=priceOn(s,state.date); if(spx==null) spx=0; shortVal+=spx*state.short[s].shares; }
-    // 持仓市值也按所在市场币种→人民币
-      var mktUsd = (mkt==='us');
-      var cnyPart = mktUsd ? 0 : (mv - shortVal);
-      var usdPart = mktUsd ? (mv - shortVal) : 0;
-    // 2026-10-20 v7 杠杆仓：按保证金 + 浮动盈亏计入总资产
-    var levVal=0;
+    // 2026-10-28 双市场：按代码前缀分市场结算，两个市场都算
+    var mvCN=0, mvUS=0, shortCN=0, shortUS=0, levAll=0;
+    for(var c in (state.pos||{})){
+      var px=priceOn(c,state.date); if(px==null) px=state.pos[c].cost||0;
+      if(c.indexOf('US-')===0) mvUS+=px*state.pos[c].shares; else mvCN+=px*state.pos[c].shares;
+    }
+    for(var s in (state.short||{})){
+      var spx=priceOn(s,state.date); if(spx==null) spx=0;
+      if(s.indexOf('US-')===0) shortUS+=spx*state.short[s].shares; else shortCN+=spx*state.short[s].shares;
+    }
     if(state.lev){
       for(var lc in state.lev){
         var lp=state.lev[lc], lpx=priceOn(lc,state.date); if(lpx==null) lpx=lp.entry;
-        levVal += Math.max(0, lp.margin + levPnl(lp,lpx));
+        // 保证金与盈亏都是该市场原币种，统一折成人民币口径
+        var lvRaw = lp.margin + levPnl(lp,lpx);
+        var v = isUS(lc) ? lvRaw * r : lvRaw;
+        levAll += v;
       }
     }
-    return cny + usd*r + cnyPart + usdPart*r + (mkt==='us'? levVal*r : levVal);
+    // 现金：人民币直接算，美元按汇率折
+    // 持仓：A股人民币，美股按汇率折
+    // 杠杆：已在上方折成人民币
+    return cny + usd*r + (mvCN - shortCN) + (mvUS - shortUS)*r + levAll;
   }
   // 净资产 = 总资产 − 债务（借来的钱不算自己的，防止“借钱→资产涨→再借更多”无限循环）
   function netWorth(){ return totalAssets() - (state.debt||0); }
@@ -646,19 +658,23 @@
     if(mkt==='us') return fmt(cnyAmount / fxOn(dateStr||state.date), '$');
     return fmt(cnyAmount);
   }
+  // 2026-10-28 双市场：按代码前缀判断该股属于哪个市场
+  function isUS(code){ return code && code.indexOf('US-')===0; }
+  function pxInCny(code, px){ return isUS(code) ? px * fxOn(state.date) : px; }
   function pad(n){ return String(n).padStart(2,'0'); }
   function dstr(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
 
   // 每只票：日期 → 收盘价
   function priceOn(code, dateStr){
-    var k=DATA[code].k;
+    var _d=dataOf(code); if(!_d) return null;
+    var k=_d.k;
     // 二分找「<= dateStr 的最后一根」
     var lo=0, hi=k.length-1, idx=-1;
     while(lo<=hi){ var mid=(lo+hi)>>1; if(k[mid][0]<=dateStr){ idx=mid; lo=mid+1; } else hi=mid-1; }
     if(idx<0) return null;           // 还没上市
     return parseFloat(k[idx][2]);    // 收盘价
   }
-  function firstDate(code){ return DATA[code].k[0][0]; }
+  function firstDate(code){ var _d=dataOf(code); return _d?_d.k[0][0]:'9999-99-99'; }
 
   function advance(){
     // 2026-10-17 修复：数据未加载完成时点击会崩（DATA 为 null）
@@ -913,7 +929,7 @@
   // 按「倍数」开仓：花掉 margin 保证金，吃下 margin×L 的仓位
   function openLeveraged(code){
     if(state.over) return;
-    if(!DATA||!DATA[code]) return;
+    if(!dataOf(code)) return;
     var L=levPick();
     var dir=levDirPick(); // 2026-10-20 v8 多空分开
     if(L<=1 && dir!=='short'){ buy(code); return; }
@@ -1074,7 +1090,8 @@
   }
   // 2026-10-20 v8 取当日K线（含最低/最高价）
   function barOn(code, dateStr){
-    var k=DATA[code] && DATA[code].k; if(!k) return null;
+    var _d=dataOf(code);
+    var k=_d && _d.k; if(!k) return null;
     var lo=0, hi=k.length-1, idx=-1;
     while(lo<=hi){ var mid=(lo+hi)>>1; if(k[mid][0]<=dateStr){ idx=mid; lo=mid+1; } else hi=mid-1; }
     if(idx<0) return null;
@@ -1142,12 +1159,27 @@
           }
         }
       }
-      // 多仓：盘中最低价 <= 强平价 → 爆；空仓：盘中最高价 >= 强平价 → 爆
-      var hit = isShort ? (bar.high>=liq) : (bar.low<=liq);
+      // ===== 2026-10-28 v15 修万倍档不爆仓 =====
+      // 原逻辑只看盘中最高/最低价：日线精度只有 3 位小数，
+      // 万倍档要跌 0.005% 才爆，遇上「开盘即最低」的日子永远判不到。
+      // 修法：① 开盘价直接判 ② 收盘价也判 ③ 日终按保证金浮亏兜底
+      var hit = false, hitPx = null, hitWhy = '';
+      if(isShort){
+        if(bar.open >= liq){ hit = true; hitPx = bar.open; hitWhy = '开盘跳空'; }
+        else if(bar.high >= liq){ hit = true; hitPx = liq; hitWhy = '盘中最高'; }
+        else if(bar.close >= liq){ hit = true; hitPx = bar.close; hitWhy = '收盘'; }
+      } else {
+        if(bar.open <= liq){ hit = true; hitPx = bar.open; hitWhy = '开盘跳空'; }
+        else if(bar.low <= liq){ hit = true; hitPx = liq; hitWhy = '盘中最低'; }
+        else if(bar.close <= liq){ hit = true; hitPx = bar.close; hitWhy = '收盘'; }
+      }
+      // ③ 日终兜底：按收盘价浮亏吃掉保证金 → 也判爆（高杠杆精度不足时的最后一道）
+      if(!hit){
+        var pnlClose = isShort ? (p.entry - bar.close) * p.shares : (bar.close - p.entry) * p.shares;
+        if(pnlClose <= -p.margin){ hit = true; hitPx = bar.close; hitWhy = '日终保证金耗尽'; }
+      }
       if(hit){
-        var px=liq;
-        if(!isShort && bar.open<liq) px=bar.open;   // 跳空低开：按开盘成交，更惨
-        if(isShort && bar.open>liq) px=bar.open;    // 跳空高开
+        var px = hitPx;
         var pnl=levPnl(p,px);
         var feeAmt=p.notional*LIQ_FEE;              // 2026-10-20 v13 强平违约金 0.5%
         var accr=levAccrued(p);                      // 应计未结利息
@@ -1155,7 +1187,7 @@
         var owe=Math.max(0, -pnl - p.margin + feeAmt + accr);
         delete state.lev[key];
         if(owe>0.01){ state.debt=(state.debt||0)+owe; }
-        state.log.unshift(state.date+' 【爆仓·'+(isShort?'空':'多')+'】'+stockName(p.code)+' '+p.L+'倍 · 盘中'+(isShort?'最高 '+curSym()+bar.high.toFixed(4):'最低 '+curSym()+bar.low.toFixed(4))+' 摸到强平 '+curSym()+liq.toFixed(4)+'，本金 '+money(lost)+' 归零'+(feeAmt>0?'（强平费 '+money(feeAmt)+'）':'')+(owe>0.01?'，倒欠 '+money(owe):''));
+        state.log.unshift(state.date+' 【爆仓·'+(isShort?'空':'多')+'】'+stockName(p.code)+' '+p.L+'倍 · '+(hitWhy||'盘中')+' '+curSym()+(px||liq).toFixed(4)+' 触发强平 '+curSym()+liq.toFixed(4)+'，本金 '+money(lost)+' 归零'+(feeAmt>0?'（强平费 '+money(feeAmt)+'）':'')+(owe>0.01?'，倒欠 '+money(owe):''));
         showLiquidation(stockName(p.code), p, bar, liq, lost, owe, feeAmt, accr);
       }
     }
@@ -1573,21 +1605,9 @@
     document.getElementById('curDate').textContent=state.date;
     // 总资产 = 现金 + 持仓市值
     var mv=0;
-    for(var c in state.pos){
-      var px=priceOn(c,state.date); if(px==null) px=0;
-      mv += px*state.pos[c].shares;
-    }
-    // 2026-10-16 双币种：A股显示¥、美股显示$，总资产均折成当前币种
+    // 2026-10-28 双市场：总资产统一走 totalAssets()（现金+A股+美股+杠杆，全折人民币）
     document.getElementById('cash').textContent=money(getCash());
-    // 2026-10-20 v7 总资产含杠杆保证金与浮盈
-    var levSum=0;
-    if(state.lev){
-      for(var lk in state.lev){
-        var lpp=state.lev[lk], lpxx=priceOn(lk,state.date); if(lpxx==null) lpxx=lpp.entry;
-        levSum += Math.max(0, lpp.margin + levPnl(lpp,lpxx));
-      }
-    }
-    document.getElementById('total').textContent=money(getCash()+mv+levSum);
+    document.getElementById('total').textContent=money(totalAssets());
     // 2026-10-16 美股区显示当天汇率
     var fxLine=document.getElementById('fxLine'), fxVal=document.getElementById('fxVal');
     if(fxLine){ if(mkt==='us'){ fxLine.style.display=''; fxVal.textContent='1$ = '+fxOn(state.date).toFixed(4)+'¥'; } else { fxLine.style.display='none'; } }
@@ -1786,13 +1806,14 @@
     document.getElementById('mktTip').style.display = (m==='us') ? '' : 'none';
     document.getElementById('exchPanel').style.display = (m==='us') ? '' : 'none';
     if(m==='us') renderExchInfo();
-    // 重启资金/持仓（换市场=重开）
-    state.pos={}; state.short={}; state.cny=START_CASH; state.usd=0; state.debt=0; state.debtYear=null; state.trust=null; state.log=[]; state.ach={};
-    // 换市后按该市最早上市日重置时间线
-    var earliest=codes[0];
-    for(var i=0;i<codes.length;i++){ if(DATA[codes[i]].first < DATA[earliest].first) earliest=codes[i]; }
-    CFG.start=DATA[earliest].first;
-    reset(); drawK(codes[0]);
+    // 2026-10-28 双市场：切换只换显示的数据源，钱/持仓/日期全部保留
+    state.pos = state.pos || {};
+    state.short = state.short || {};
+    state.lev = state.lev || {};
+    // 若当前日期该市场无数据（早于上市），提示但不动
+    render();
+    drawK(codes[0]);
+    setMsg(m==='us' ? '已切到美股（资金与持仓保留，人民币/美元分开记账）' : '已切到A股（资金与持仓保留）');
   }
   var DATA_CN_local=null;
   // 2026-10-16 手动换汇逻辑
