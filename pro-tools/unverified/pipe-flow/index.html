@@ -482,7 +482,7 @@
 
 </div>
 
-<div class="version-tag">v2.0.0-完整版 20261021</div>
+<div class="version-tag">v2.1.0-修测试期望值 20261029</div>
 
 <script>
 /* ============================================================
@@ -937,7 +937,8 @@ function runAllTests() {
   assert('lambda 湍流 Re=1e5 粗糙管 合理范围', lambda1 > 0.015 && lambda1 < 0.025);
   // 高 Re
   const lambda2 = calcFrictionFactor(1e7, 0.1, 0.00015).lambda;
-  assert('lambda 湍流 Re=1e7 合理范围', lambda2 > 0.008 && lambda2 < 0.02);
+  // 2026-10-29 修：ε/D=0.0015 时 Colebrook 精确值 0.02175，原上限 0.02 写错，永远过不了
+  assert('lambda 湍流 Re=1e7 合理范围', lambda2 > 0.015 && lambda2 < 0.03);
   assertThrows('lambda: Re=0 抛错', () => calcFrictionFactor(0, 0.1, 0.0001));
   assertThrows('lambda: Re=-1 抛错', () => calcFrictionFactor(-1, 0.1, 0.0001));
   assertThrows('lambda: ε=-1 抛错', () => calcFrictionFactor(1e5, 0.1, -0.0001));

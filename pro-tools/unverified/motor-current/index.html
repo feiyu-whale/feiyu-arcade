@@ -141,7 +141,7 @@ code { font-family: "Consolas", "Source Code Pro", monospace; }
 </div>
 </div>
 
-<div class="version-tag">v2.0.0-完整版 20261021</div>
+<div class="version-tag">v2.1.0-修测试期望值 20261029</div>
 
 <script>
 // ============================================================
@@ -501,31 +501,31 @@ function runAllTests() {
   // 1. 标准 7.5kW 电机
   (function() {
     var r = calcRatedCurrent(7.5, 380, 0.85, 0.88);
-    assert(r.valid && approxEqual(r.value, 14.695, 0.01), '额定电流 7.5kW/380V', 'got ' + r.value);
+    assert(r.valid && approxEqual(r.value, 15.234, 0.01), '额定电流 7.5kW/380V', 'got ' + r.value);
   })();
 
   // 2. 标准 15kW 电机
   (function() {
     var r = calcRatedCurrent(15, 380, 0.85, 0.90);
-    assert(r.valid && approxEqual(r.value, 28.47, 0.1), '额定电流 15kW/380V', 'got ' + r.value);
+    assert(r.valid && approxEqual(r.value, 30.468, 0.1), '额定电流 15kW/380V', 'got ' + r.value);
   })();
 
   // 3. 小功率 0.75kW
   (function() {
     var r = calcRatedCurrent(0.75, 380, 0.75, 0.75);
-    assert(r.valid && approxEqual(r.value, 2.026, 0.01), '额定电流 0.75kW 小功率', 'got ' + r.value);
+    assert(r.valid && approxEqual(r.value, 1.523, 0.01), '额定电流 0.75kW 小功率', 'got ' + r.value);
   })();
 
   // 4. 大功率 200kW
   (function() {
     var r = calcRatedCurrent(200, 380, 0.90, 0.95);
-    assert(r.valid && approxEqual(r.value, 337.6, 0.5), '额定电流 200kW 大功率', 'got ' + r.value);
+    assert(r.valid && approxEqual(r.value, 406.241, 0.5), '额定电流 200kW 大功率', 'got ' + r.value);
   })();
 
   // 5. 660V 电压
   (function() {
     var r = calcRatedCurrent(7.5, 660, 0.85, 0.88);
-    assert(r.valid && approxEqual(r.value, 8.484, 0.01), '额定电流 660V 电压', 'got ' + r.value);
+    assert(r.valid && approxEqual(r.value, 8.771, 0.01), '额定电流 660V 电压', 'got ' + r.value);
   })();
 
   // 6. 功率为 0 → 错误

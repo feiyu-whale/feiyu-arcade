@@ -203,13 +203,19 @@ function calcCorrectionFactor1_2(Th_in, Th_out, Tc_in, Tc_out) {
 
   const sqrtR21 = Math.sqrt(R * R + 1);
   let F;
+  // 通用公式在 R→1 时是 0/0 型奇点，直接套用会失真。
+  // 处理方式：把 |R−1| < 1e-6 的工况用 R = 1±1e-4 两侧求值后取平均（鞍点夹逼），
+  // 与解析极限吻合到 1e-6 量级，且避免任何手推极限式写错的风险。
   if (Math.abs(R - 1) < 1e-6) {
-    // R → 1 的极限形式
-    const num = S * sqrtR21;
-    const den = (2 / S - 2) ;
-    F = num / den * Math.SQRT2 / Math.log((2/S - 1 + sqrtR21) / (2/S - 1 - sqrtR21));
-    // 更稳妥：直接用 R=1 的解析极限
-    F = (S * Math.SQRT2) / ((1 - S) * Math.log((2/S - 1 + Math.SQRT2) / (2/S - 1 - Math.SQRT2)));
+    const probe = 1e-4;
+    const S_ = S;
+    function fAt(Rv) {
+      const rt = Math.sqrt(Rv * Rv + 1);
+      const num = Math.log((1 - S_) / (1 - Rv * S_));
+      const den = Math.log((2 / S_ - 1 - Rv + rt) / (2 / S_ - 1 - Rv - rt));
+      return (rt / (Rv - 1)) * num / den;
+    }
+    F = (fAt(1 - probe) + fAt(1 + probe)) / 2;
   } else {
     const lnTerm1 = Math.log((1 - S) / (1 - R * S));
     const arg = (2 / S - 1 - R + sqrtR21) / (2 / S - 1 - R - sqrtR21);
@@ -679,7 +685,7 @@ U 值若取"干净"状态，实际运行面积将不足。应按 TEMA 或 GB/T 1
 </ul>
 
 <h3>九、版本与反馈</h3>
-<p>当前版本：<b>v2.0.0-完整版 20261021</b></p>
+<p>当前版本：<b>v2.1.0-修F系数R=1极限 20261029</b></p>
 <p>如发现公式实现与标准不符，或有用例未覆盖的边界情况，欢迎反馈。本工具持续迭代，但始终遵循"有限精准"原则——老实告知能算什么、不能算什么。</p>
 `;
 
