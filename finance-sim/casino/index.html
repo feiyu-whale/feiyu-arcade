@@ -538,7 +538,7 @@
 
   <div class="foot">🐳 大肥鱼出品 · 模拟而已，不碰真钱<br>看概率的目的，是让你别再送钱<br>
     <span style="color:#5a4252">🔒 本页不存储任何数据、不发送任何网络请求，刷新即清零</span></div>
-  <div class="ver">v1.2.2-修标签切换Bug 20261028</div>
+  <div class="ver">v1.2.3-翻倍梯改真赔率 20261029</div>
 </div>
 
 <script>
@@ -1522,13 +1522,14 @@
     if (twDead) { setMsg('twMsg', '塔已塌，重新开始', 'bad'); return; }
     if (twLv === 0) {
       var bet = parseInt($('twBet').value, 10);
-      if (!bet || bet <= 0) { setMsg('twMsg', '本金不对', 'bad'); return; }
+      if (!Number.isSafeInteger(bet) || bet <= 0) { setMsg('twMsg', '本金不对（须为整数，且不超过 9007199254740991）', 'bad'); return; }
+      if (bet > 1000000000000) { setMsg('twMsg', '单注上限 1 万亿，别拿天文数字开玩笑', 'bad'); return; }
       if (bet > state.bal) { setMsg('twMsg', '余额不够了', 'bad'); showReliefIfNeeded(); return; }
       state.bal -= bet; updateWallet();
       twBet = bet; twLv = 0;
     }
     if (twLv >= 8) { setMsg('twMsg', '已经到顶层了，快收手！', 'bad'); return; }
-    if (rnd(100) < 18) {
+    if (rnd(100) < 52) {   // 48% 成功——真赌场每层必低于 50%，多出的 2% 是庄家优势
       twDead = true;
       addHist('翻倍梯·塔塌', -twBet);
       state.rounds++; updateWallet();
