@@ -52,7 +52,7 @@
     <div class="lbl">结果</div>
     <div class="out" id="out"></div>
   </div>
-  <div class="ver">v1.0.0-汉字拼音 20261016</div>
+  <div class="ver">v1.1.0-补全拼音库20992字 20261029</div>
 </div>
 <script>
 // 【pinyin】汉字→拼音。依赖：creeperyang/pinyin(MIT, 源自Android HanziToPinyin)。输入：汉字；输出：拼音(无声调)。
@@ -70,31 +70,26 @@
     return fetch("data/pinyin.json").then(function(r){return r.json();}).then(function(j){ D=j; return j; });
   }
 
+  // 字典直查：uniHans → pinyin 一一对应（全量 U+4E00–U+9FFF，20992 字）
+  var PINYIN_MAP = null;
+  function buildMap(){
+    if(PINYIN_MAP) return PINYIN_MAP;
+    PINYIN_MAP = {};
+    for(var i = 0; i < D.uniHans.length; i++){
+      PINYIN_MAP[D.uniHans[i]] = D.pinyin[i];
+    }
+    return PINYIN_MAP;
+  }
+
   function pinyinOf(ch){
-    if(D.exceptions[ch]) return D.exceptions[ch];
     var cp = ch.charCodeAt(0);
-    if(cp < 256) return ch;   // 拉丁/数字原样
-    var offset = -1, cmp;
-    cmp = COLLATOR.compare(ch, D.uniHans[0]);
-    if(cmp < 0) return ch;
-    if(cmp === 0) offset = 0;
-    else {
-      cmp = COLLATOR.compare(ch, "\u9FFF");
-      if(cmp > 0) return ch;
-      if(cmp === 0) offset = D.uniHans.length - 1;
-    }
-    if(offset < 0){
-      var begin = 0, end = D.uniHans.length - 1;
-      while(begin <= end){
-        offset = (begin + end) >> 1;
-        cmp = COLLATOR.compare(ch, D.uniHans[offset]);
-        if(cmp === 0) break;
-        else if(cmp > 0) begin = offset + 1;
-        else end = offset - 1;
-      }
-    }
-    if(cmp < 0) offset--;
-    return D.pinyins[offset] || ch;
+    if(cp < 256) return ch;           // 拉丁/数字原样
+    if(D.exceptions && D.exceptions[ch]) return D.exceptions[ch];
+    var map = buildMap();
+    var py = map[ch];
+    if(!py) return ch;                // 未收录：原样返回，不瞎猜
+    // 多音字取常用读音（第一个）
+    return py.split("/")[0];
   }
 
   function render(){

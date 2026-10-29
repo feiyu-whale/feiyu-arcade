@@ -80,7 +80,7 @@
       ④ 零声母音节用 y/w 改写（yi→ㄧ，wu→ㄨ，yu→ㄩ，yong→ㄩㄥ）。
     </div>
   </div>
-  <div class="ver">v1.0.2-修连写模式 20261022</div>
+  <div class="ver">v1.1.0-补全拼音库20992字 20261029</div>
 </div>
 <script>
 // 【zhuyin】汉字 → 注音符号(Bopomofo)，附拼音与声韵母对照表。
@@ -108,37 +108,28 @@
     });
   }
 
+  // 字典直查：uniHans → pinyin 一一对应（全量 U+4E00–U+9FFF）
+  var PYMAP = null;
+  function buildPyMap(){
+    if(PYMAP) return PYMAP;
+    PYMAP = {};
+    for(var i = 0; i < PY.uniHans.length; i++) PYMAP[PY.uniHans[i]] = PY.pinyin[i];
+    return PYMAP;
+  }
+
   // 拉丁/数字原样返回；汉字查表
   function pyOf(ch){
-    if(PY.exceptions[ch]) return PY.exceptions[ch];
     var cp = ch.charCodeAt(0);
     if(cp < 256) return ch;
-    var offset = -1, cmp;
-    cmp = COLLATOR.compare(ch, PY.uniHans[0]);
-    if(cmp < 0) return ch;
-    if(cmp === 0) offset = 0;
-    else {
-      cmp = COLLATOR.compare(ch, "\u9FFF");
-      if(cmp > 0) return ch;
-      if(cmp === 0) offset = PY.uniHans.length - 1;
-    }
-    if(offset < 0){
-      var begin = 0, end = PY.uniHans.length - 1;
-      while(begin <= end){
-        offset = (begin + end) >> 1;
-        cmp = COLLATOR.compare(ch, PY.uniHans[offset]);
-        if(cmp === 0) break;
-        else if(cmp > 0) begin = offset + 1;
-        else end = offset - 1;
-      }
-    }
-    if(cmp < 0) offset--;
-    return PY.pinyins[offset] || ch;
+    if(PY.exceptions && PY.exceptions[ch]) return PY.exceptions[ch];
+    var py = buildPyMap()[ch];
+    if(!py) return ch;              // 未收录：原样返回
+    return py.split("/")[0];        // 多音字取常用读音
   }
 
   function zyOf(ch){
-    var p = pyOf(ch).toUpperCase();
-    return PY.map[p.toLowerCase()] || null;
+    var p = String(pyOf(ch)).toLowerCase();
+    return PY.map[p] || null;
   }
 
   // 拼音 → 注音（前端兜底实现，与生成数据时的规则一致）
