@@ -190,22 +190,34 @@ function resize() {
   stage.style.width = cw + 'px';
   stage.style.height = ch + 'px';
 
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  cv.width = Math.round(W * dpr);
-  cv.height = Math.round(H * dpr);
+  // 内部分辨率固定为设计尺寸（DPR 交给 CSS 缩放），避免手机高 DPR 下切换时错位
+  cv.width = W;
+  cv.height = H;
   cv.style.width = '100%';
   cv.style.height = '100%';
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   scale = s;
 
+  // 触屏层按舞台实际显示尺寸等比缩放，保证按钮位置跟画面一致
   const touchEl = document.getElementById('touch');
   if (touchEl) {
-    const k = s / (cw / W) || 1;
-    touchEl.style.transform = '';
+    const k = cw / W;
+    touchEl.style.transform = `scale(${k})`;
+    touchEl.style.transformOrigin = 'top left';
     touchEl.style.width = W + 'px';
     touchEl.style.height = H + 'px';
     touchEl.style.left = '0';
     touchEl.style.top = '0';
+  }
+
+  // HUD 同样跟舞台缩放
+  const hud = document.getElementById('hud');
+  if (hud) {
+    const k = cw / W;
+    hud.style.transform = `scale(${k})`;
+    hud.style.transformOrigin = 'top left';
+    hud.style.width = W + 'px';
+    hud.style.height = H + 'px';
   }
 }
 window.addEventListener('resize', resize);
@@ -233,7 +245,11 @@ class FX {
   slash(x, y, r, color = '#fff', life = 0.32) {
     this.spawn({ kind: 'slash', x, y, r, color, life, max: life });
   }
-  shake(t, m) { Scene.shakeT = Math.max(Scene.shakeT, t); Scene.shakeM = Math.max(Scene.shakeM, m); }
+  shake(t, m) {
+    // t 单位毫秒；只有新抖动更强或更久时才覆盖，且 shakeM 必须与 shakeT 成对更新
+    const ms = t / 1000;
+    if (ms >= Scene.shakeT) { Scene.shakeT = ms; Scene.shakeM = m; }
+  }
   update(dt) {
     for (let i = this.list.length - 1; i >= 0; i--) {
       const p = this.list[i];

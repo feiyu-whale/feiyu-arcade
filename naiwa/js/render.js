@@ -96,7 +96,9 @@ Object.assign(Scene, {
     const anim = spr.anim;
     const im = IMG[anim.img];
     if (!im) return;
-    const totalW = im.width, fw = HERO_FW, fh = HERO_FH;
+    // 帧宽按实际图片宽度/帧数推算，避免图集尺寸与常量不一致时切错帧
+    const fw = Math.floor(im.width / anim.frames) || HERO_FW;
+    const fh = im.height || HERO_FH;
 
     // 动画时间步进
     const ha = this.heroAnim;
@@ -134,7 +136,7 @@ Object.assign(Scene, {
 
     // 抖动
     if (this.shakeT > 0) {
-      const m = this.shakeM * (this.shakeT / 0.4);
+      const m = this.shakeM * Math.min(1, this.shakeT / 0.4);
       g.translate(rand(-m, m), rand(-m, m));
     }
 

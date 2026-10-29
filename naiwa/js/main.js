@@ -84,6 +84,11 @@ const UI = {
 
     // 触屏
     this.initTouch();
+
+    // 横屏检测
+    this.checkOrientation();
+    window.addEventListener('resize', () => this.checkOrientation());
+    window.addEventListener('orientationchange', () => setTimeout(() => this.checkOrientation(), 200));
   },
 
   hideAll() {
@@ -179,20 +184,42 @@ const UI = {
     }
   },
 
+  checkOrientation() {
+    const rot = this.el('rotate');
+    if (!rot) return;
+    const portrait = window.innerHeight > window.innerWidth * 1.05;
+    rot.classList.toggle('on', portrait);
+    if (portrait && Scene.phase === 'playing' && !Scene.paused) {
+      this.pause();
+      this.autoPausedByRotate = true;
+    } else if (!portrait && this.autoPausedByRotate) {
+      this.autoPausedByRotate = false;
+      this.resume();
+    }
+  },
+
   initTouch() {
     const touchEl = this.el('touch');
-    const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-    if (isTouch) touchEl.classList.add('on');
+    // 触屏按钮一律显示（PC 上也能点，免得找不到攻击键）
+    touchEl.classList.add('on');
 
     const stick = this.el('stick'), knob = this.el('knob');
+    const zoneEl = this.el('stickZone');   // 左半屏感应区
     let sid = null, cx = 0, cy = 0;
     const R = 44;
 
     const start = (e) => {
       const t = e.changedTouches ? e.changedTouches[0] : e;
       sid = t.identifier !== undefined ? t.identifier : 'mouse';
-      const r = stick.getBoundingClientRect();
-      cx = r.left + r.width / 2; cy = r.top + r.height / 2;
+      // 摇杆圆心跟随手指按下的位置（手感更好）
+      const stageR = stage.getBoundingClientRect();
+      cx = t.clientX; cy = t.clientY;
+      // 把视觉摇杆挪到按下处
+      const lx = cx - stageR.left, ly = cy - stageR.top;
+      stick.style.left = (lx - 56) + 'px';
+      stick.style.top = (ly - 56) + 'px';
+      stick.style.bottom = 'auto';
+      knob.style.transform = '';
       Input.stick.active = true;
       move(e);
     };
@@ -213,10 +240,15 @@ const UI = {
       Input.stick.active = false; Input.stick.x = 0; Input.stick.y = 0;
       knob.style.transform = '';
     };
-    stick.addEventListener('touchstart', start, { passive: false });
-    stick.addEventListener('touchmove', move, { passive: false });
-    stick.addEventListener('touchend', end);
-    stick.addEventListener('touchcancel', end);
+    const zEl = zoneEl || stick;
+    zEl.addEventListener('touchstart', start, { passive: false });
+    zEl.addEventListener('touchmove', move, { passive: false });
+    zEl.addEventListener('touchend', end);
+    zEl.addEventListener('touchcancel', end);
+    // PC 鼠标也能拖
+    zEl.addEventListener('mousedown', start);
+    window.addEventListener('mousemove', (e) => { if (Input.stick.active && sid === 'mouse') move(e); });
+    window.addEventListener('mouseup', () => { if (sid === 'mouse') end(); });
 
     const bind = (id, down, up) => {
       const el = this.el(id);
@@ -267,7 +299,10 @@ function step(dt) {
 
   // 特效与抖动始终推进
   s.fx.update(dt);
-  if (s.shakeT > 0) { s.shakeT -= dt; if (s.shakeT <= 0) s.shakeM = 0; }
+  if (s.shakeT > 0) {
+    s.shakeT = Math.max(0, s.shakeT - dt);
+    if (s.shakeT <= 0) s.shakeM = 0;
+  }
   s.warnings = s.warnings.filter(w => { w.update(dt); return !w.done; });
 
   if (s.phase === 'title') return;

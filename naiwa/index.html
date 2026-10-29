@@ -64,14 +64,16 @@
   /* ===== 触屏按钮 ===== */
   #touch{position:absolute;inset:0;pointer-events:none;z-index:10;display:none}
   #touch.on{display:block}
-  .tbtn{position:absolute;border-radius:50%;background:#ffffff1f;border:2px solid #ffffff3d;
-    display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;
-    pointer-events:auto;backdrop-filter:blur(3px);font-weight:600;text-align:center;line-height:1.1}
+  .tbtn{position:absolute;border-radius:50%;background:rgba(30,24,52,.72);border:2.5px solid rgba(255,255,255,.55);
+    display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;
+    pointer-events:auto;backdrop-filter:blur(4px);font-weight:700;text-align:center;line-height:1.15;
+    box-shadow:0 3px 10px rgba(0,0,0,.45)}
   .tbtn:active,.tbtn.on{background:#f5d97959;border-color:#f5d979}
   .tbtn.big{width:74px;height:74px;font-size:12px}
   .tbtn.mid{width:58px;height:58px}
-  #stick{position:absolute;left:118px;bottom:96px;width:112px;height:112px;border-radius:50%;
-    border:2px dashed #ffffff2e;pointer-events:auto}
+  #stickZone{position:absolute;left:0;top:0;width:48%;height:100%;pointer-events:auto;touch-action:none}
+  #stick{position:absolute;left:70px;bottom:70px;width:112px;height:112px;border-radius:50%;
+    border:2px dashed #ffffff55;pointer-events:none;background:#ffffff0f}
   #knob{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;
     background:#ffffff3d;border:2px solid #ffffff66}
   #superBtn{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);width:112px;height:112px;
@@ -86,6 +88,10 @@
   #warn{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;
     font-size:14px;color:#ffd0a0;z-index:40;display:none;padding:0 20px;line-height:1.8}
   #warn.on{display:block}
+  #rotate{position:absolute;inset:0;background:#0f0b18;z-index:60;display:none;
+    flex-direction:column;align-items:center;justify-content:center;
+    font-size:17px;color:#ffe8b4;line-height:1.9;text-align:center}
+  #rotate.on{display:flex}
 </style>
 </head>
 <body>
@@ -112,6 +118,7 @@
     </div>
 
     <div id="touch">
+      <div id="stickZone"></div>
       <div id="stick"><div id="knob"></div></div>
       <div class="tbtn big" id="btnAtk" style="right:26px;bottom:104px">奶球</div>
       <div class="tbtn big" id="btnDef" style="right:112px;bottom:34px">防御</div>
@@ -188,7 +195,8 @@
     </div>
 
     <div id="warn"></div>
-    <div id="ver">v1.0.0-复刻首版 20261029</div>
+    <div id="rotate">📱 请横屏游玩<br><span style="font-size:11px;opacity:.7">转动手机 / 电脑请加宽窗口</span></div>
+    <div id="ver">v1.1.1-修手机画面切裂 20261029</div>
   </div>
 </div>
 <script src="js/game.js"></script>
