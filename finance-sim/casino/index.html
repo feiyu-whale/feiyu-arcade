@@ -510,16 +510,24 @@
       </div>
     </div>
     <div class="card">
-      <div class="lbl">下注（中弹 = 真的死，空枪 = 注码翻倍）</div>
+      <div class="lbl">装弹模式</div>
+      <div class="row">
+        <button class="act" id="gunM1" data-m="1">1 发（1/6起）</button>
+        <button id="gunM2" data-m="2">2 发（1/3起）</button>
+        <button id="gunM5" data-m="5">5 发（×50）</button>
+      </div>
+      <div class="lbl" style="margin-top:10px">下注（中弹 = 真的死，空枪 = 注码滚倍；上限 100 万）</div>
       <input type="number" id="gunBet" value="50" min="1" step="10">
       <div class="row"><button class="act" id="gunFire">扣扳机</button></div>
       <div class="info">
-        <b>真实规则</b>：6 发弹巢 1 颗实弹。<b>中弹当场死亡</b>——一切归零，强制重开。<br>
-        <b>真实赔率</b>（按中弹概率倒数给足，不抽水）：<br>
-        　第 1 枪活下来 <b>×6</b>（1/6）｜第 2 枪 <b>×5</b>（1/5）｜第 3 枪 <b>×4</b>（1/4）<br>
-        　第 4 枪 <b>×3</b>（1/3）｜第 5 枪 <b>×2</b>（1/2）｜第 6 枪 <b>必死</b><br>
-        <b>举例</b>：押 50，连过 5 枪 → 50×6×5×4×3×2 = <b>36,000</b>，但第 6 枪一扣必死。<br>
-        <b>没有庄家抽水</b>——每一枪的期望都等于本金；唯一的杀手是<b>第 6 枪必死</b>。赌的是命，不是概率。
+        <b>规则</b>：6 发弹巢，按所选模式装 1/2/5 颗实弹。<b>中弹当场死亡</b>——一切归零，强制重开。<br>
+        <b>1 发式</b>（不抽水，按概率倒数给足）：第1枪×6｜第2枪×5｜第3枪×4｜第4枪×3｜第5枪×2｜第6枪必死<br>
+        　押 50 连过 5 枪 → <b>36,000</b>，第 6 枪一扣必死。<br>
+        <b>2 发式</b>：第1枪×3（2/6）｜第2枪×2.5（2/5）｜第3枪×2（2/4）｜第4枪×1.5（2/3）｜第5枪必死<br>
+        <b>5 发式</b>：6 发里只有 <b>1 个空位</b>——只赌两枪：<br>
+        　第 1 枪 <b>5/6 中弹</b>；活下来接第 2 枪 <b>1/6 中弹</b>；两枪都空 → 整局 <b>×50</b><br>
+        　（净存活率 1/36，赔率 ×50 ≈ 传说级，几乎白送庄家）<br>
+        <b>单注上限 100 万</b>。赌的是命，不是概率。
       </div>
     </div>
   </div>
@@ -572,7 +580,7 @@
 
   <div class="foot">🐳 大肥鱼出品 · 模拟而已，不碰真钱<br>看概率的目的，是让你别再送钱<br>
     <span style="color:#5a4252">🔒 本页不存储任何数据、不发送任何网络请求，刷新即清零</span></div>
-  <div class="ver">v1.3.5-俄轮真实倍率 20261029</div>
+  <div class="ver">v1.4.0-俄轮三档弹数 20261029</div>
 </div>
 
 <script>
@@ -1612,11 +1620,22 @@
      俄罗斯轮盘
      ============================================================ */
   /* 真实规则：中弹即死（强制重开），空枪则注码翻倍滚到下一枪 */
-  var gunPos = 0, gunLive = 0, gunBusy = false, gunStake = 0;
+  var gunPos = 0, gunLive = 0, gunBusy = false, gunStake = 0, gunMode = 1; // gunMode = 实弹数 1/2/5
   function gunReset(){
-    gunLive = rnd(6);
+    // 按模式从 6 个弹位里抽 gunMode 个装实弹，记成数组
+    var slots = [];
+    for (var i = 0; i < 6; i++) slots.push(i);
+    // Fisher-Yates 洗牌后取前 gunMode 个
+    for (var i = 5; i > 0; i--) { var j = rnd(i + 1); var t = slots[i]; slots[i] = slots[j]; slots[j] = t; }
+    gunLiveArr = slots.slice(0, gunMode);
     gunPos = 0; gunStake = 0;
-    $('gunCh').textContent = '弹巢：6 发 1 弹 · 第 1 枪（危险度 1/6）';
+    gunChText();
+  }
+  var gunLiveArr = [];
+  function gunChText(){
+    var remain = 6 - gunPos;
+    var loaded = gunLiveArr.filter(function(x){ return x >= gunPos; }).length;
+    $('gunCh').textContent = '弹巢：6 发 ' + gunMode + ' 弹 · 第 ' + (gunPos + 1) + ' 枪（中弹 ' + loaded + '/' + remain + '）';
   }
   function gunFire(){
     if (gunBusy) return;
@@ -1627,11 +1646,11 @@
     } else {
       bet = takeBet('gunBet', 'gunMsg');    // 开新局：从余额扣
       if (!bet) return;
+      if (bet > 1000000) { setMsg('gunMsg', '单注上限 100 万', 'bad'); return; }
       gunStake = bet;
     }
     gunBusy = true;
-    var remain = 6 - gunPos;                // 剩下几枪
-    var dead = (gunPos === gunLive);
+    var dead = gunLiveArr.indexOf(gunPos) >= 0;
     gunPos++;
     if (dead) {
       // 中弹 = 真的死掉，强制重开
@@ -1646,19 +1665,33 @@
       }, 900);
       return;
     }
-    // 空枪：按真实赔率滚注（第1枪活下来×6、第2枪×5、第3枪×4、第4枪×3、第5枪×2）
-    var gunMult = 6 - (gunPos - 1);
+    // 空枪：按本枪存活概率的倒数给倍率（不抽水）；5 发式按传说赔率 ×50
+    var gunMult;
+    if (gunMode === 5) {
+      gunMult = 1;                           // 5 发式：活着爬完弹巢一次性 ×50，不逐枪滚倍
+    } else {
+      var remainBefore = 6 - (gunPos - 1);   // 开这一枪时剩几枪
+      var loadedBefore = gunLiveArr.filter(function(x){ return x >= gunPos - 1; }).length;
+      var safeBefore = remainBefore - loadedBefore;
+      gunMult = safeBefore > 0 ? (remainBefore / safeBefore) : 1;
+      gunMult = Math.round(gunMult * 100) / 100;
+    }
     gunStake = gunStake * gunMult;
     $('gunIcon').textContent = '🔫';
-    if (gunPos >= 6) {
+    var remainNow = 6 - gunPos;
+    var loadedNow = gunLiveArr.filter(function(x){ return x >= gunPos; }).length;
+    // 5 发式：只赌两枪 —— 第 1 枪 5/6 中弹；活下来的话，第 2 枪 1/6 中弹
+    if (gunMode === 5 ? (gunPos >= 2) : (remainNow <= 0 || loadedNow >= remainNow)) {
+      // 打完弹巢还没中弹 —— 幸存
+      if (gunMode === 5) gunStake = gunStake * 50;   // 5 发式：唯一空位撑到最后，整局 ×50
       var landed = gunStake;
-      settle('俄轮·六枪全空', 0, gunStake, 'gunMsg', '💨 六枪全空！注码翻到 ' + fmt(landed) + ' 全部落袋', '', 0);
+      settle('俄轮·全空', 0, gunStake, 'gunMsg', '💨 弹巢全空！注码翻到 ' + fmt(landed) + ' 全部落袋', '', 0);
       gunStake = 0;
       gunReset();
-      setMsg('gunMsg', '💨 六枪全空！落袋 ' + fmt(landed) + '，弹巢重置');
+      setMsg('gunMsg', '💨 弹巢全空！落袋 ' + fmt(landed) + '，重置');
     } else {
-      setMsg('gunMsg', '咔嗒——空枪 ×' + gunMult + '。注码滚到 ' + fmt(gunStake) + '，还剩 ' + (6 - gunPos) + ' 枪', 'good');
-      $('gunCh').textContent = '弹巢：6 发 1 弹 · 第 ' + (gunPos + 1) + ' 枪（危险度 1/' + (6 - gunPos) + '）';
+      setMsg('gunMsg', '咔嗒——空枪 ×' + gunMult + '。注码滚到 ' + fmt(gunStake) + '，还剩 ' + remainNow + ' 枪', 'good');
+      gunChText();
     }
     gunBusy = false;
   }
@@ -1832,6 +1865,20 @@
 
   // 俄罗斯轮盘
   $('gunFire').addEventListener('click', gunFire);
+  // 装弹模式切换（1/2/5 发）
+  (function(){
+    var mBtns = document.querySelectorAll('#gunM1,#gunM2,#gunM5');
+    for (var i = 0; i < mBtns.length; i++) {
+      mBtns[i].addEventListener('click', function(){
+        if (gunStake > 0) { setMsg('gunMsg', '这一局还没结束，打完再换', 'bad'); return; }
+        for (var k = 0; k < mBtns.length; k++) mBtns[k].classList.remove('act');
+        this.classList.add('act');
+        gunMode = parseInt(this.getAttribute('data-m'), 10);
+        gunReset();
+        setMsg('gunMsg', '已换成 ' + gunMode + ' 发模式，扣扳机开始', '');
+      });
+    }
+  })();
 
   // 翻倍梯
   $('twUp').addEventListener('click', twUp);
