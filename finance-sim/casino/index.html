@@ -153,6 +153,20 @@
   .fever.show { animation:fev 1.1s ease-out; }
   @keyframes fev { 0%{opacity:0;transform:scale(.4)} 30%{opacity:1;transform:scale(1.15)}
     70%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1.05) translateY(-30px)} }
+  .heat { background:#160e14; border:1px solid #3a2436; border-radius:10px; padding:8px 10px; margin-bottom:10px; }
+  .heat-top { display:flex; justify-content:space-between; font-size:11px; color:#a88a9c; margin-bottom:5px; }
+  .heat-top span:last-child { font-weight:700; color:#7fe0a8; }
+  .heat-top span:last-child.warn { color:#ffd860; }
+  .heat-top span:last-child.danger { color:#ff6a6a; }
+  .heat-bar { height:6px; background:#0e080c; border-radius:4px; overflow:hidden; }
+  .heat-fill { height:100%; width:0%; border-radius:4px; transition:width .35s ease, background .35s ease;
+    background:linear-gradient(90deg,#2f8a5a,#3fb98a); }
+  .heat-fill.warn { background:linear-gradient(90deg,#8a6a1a,#ffc040); }
+  .heat-fill.danger { background:linear-gradient(90deg,#8a1a1a,#ff5050); }
+  .heat-lb { font-size:10px; color:#6a5060; margin-top:5px; line-height:1.5; }
+  .heat.rob { animation:robShake .5s ease; border-color:#ff5050; }
+  @keyframes robShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)}
+    40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
   .hist { max-height:150px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
   .hi { display:flex; justify-content:space-between; font-size:11.5px; padding:5px 2px;
     border-bottom:1px solid #241628; color:#a88a9c; }
@@ -177,6 +191,12 @@
     <div><div class="lb">余额</div><div class="vv" id="bal">1000</div></div>
     <div><div class="lb">本局输赢</div><div class="vv" id="net">0</div></div>
     <div><div class="lb">总局数</div><div class="vv" id="rounds">0</div></div>
+  </div>
+
+  <div class="heat" id="heat">
+    <div class="heat-top"><span>🚨 劫匪盯梢</span><span id="heatTxt">安全</span></div>
+    <div class="heat-bar"><div class="heat-fill" id="heatFill" style="width:0%"></div></div>
+    <div class="heat-lb" id="heatLb">钱多了，道上就有人惦记了</div>
   </div>
 
   <div class="relief" id="relief" style="display:none">
@@ -538,7 +558,7 @@
 
   <div class="foot">🐳 大肥鱼出品 · 模拟而已，不碰真钱<br>看概率的目的，是让你别再送钱<br>
     <span style="color:#5a4252">🔒 本页不存储任何数据、不发送任何网络请求，刷新即清零</span></div>
-  <div class="ver">v1.2.3-翻倍梯改真赔率 20261029</div>
+  <div class="ver">v1.3.0-加劫匪盯梢机制 20261029</div>
 </div>
 
 <script>
@@ -575,6 +595,77 @@
     $('net').textContent = (net >= 0 ? '+' : '') + fmt(net);
     $('net').className = 'vv' + (net < 0 ? ' neg' : '');
     $('rounds').textContent = state.rounds;
+    updateHeat();
+  }
+
+  /* ============================================================
+     劫匪盯梢机制
+     规则：钱越多，被劫概率越大。以"净赚倍率"（余额/起始本金）分层：
+       ×1   → 0%      （穷光蛋，劫匪看不上）
+       ×2   → 3%
+       ×5   → 8%
+       ×10  → 15%
+       ×30  → 25%
+       ×100 → 35%
+       ×500 → 50%
+       ×2000及以上 → 65%（封顶）
+     触发点：每局结算后按当前身家掷一次骰子（每局最多劫一次）
+     被劫损失：身家的 30%（向下取整），至少损失 1
+  ============================================================ */
+  function heatRate(){
+    var mult = state.bal / state.start;
+    if (mult < 2)   return 0;
+    if (mult < 5)   return 0.03;
+    if (mult < 10)  return 0.08;
+    if (mult < 30)  return 0.15;
+    if (mult < 100) return 0.25;
+    if (mult < 500) return 0.35;
+    if (mult < 2000) return 0.50;
+    return 0.65;
+  }
+  function heatLabel(mult){
+    if (mult < 2)   return ['安全', '穷光蛋一个，劫匪看不上'];
+    if (mult < 5)   return ['有人瞄了一眼', '你有点钱了，小道上有眼睛在看你'];
+    if (mult < 10)  return ['被盯上了', '你开始被记在小本本上了'];
+    if (mult < 30)  return ['有人跟梢', '出门记得回头看两眼'];
+    if (mult < 100) return ['危险', '道上已经传开你手里有大钱'];
+    if (mult < 500) return ['高度危险', '劫匪正在商量怎么下手'];
+    if (mult < 2000) return ['极危险', '你已经被围上了'];
+    return ['插翅难逃', '整个道上的劫匪都在等你落单'];
+  }
+  var heatRobbedThisRound = false;
+  function updateHeat(){
+    var mult = state.bal / state.start;
+    var rate = heatRate(), lb = heatLabel(mult);
+    var pct = Math.min(100, rate / 0.65 * 100);
+    var pctTxt = (rate * 100).toFixed(0) + '%';
+    $('heatTxt').textContent = lb[0] + (rate > 0 ? ' · 被劫 ' + pctTxt : '');
+    $('heatTxt').className = rate >= 0.35 ? 'danger' : (rate >= 0.15 ? 'warn' : '');
+    $('heatFill').style.width = pct + '%';
+    $('heatFill').className = 'heat-fill' + (rate >= 0.35 ? ' danger' : (rate >= 0.15 ? ' warn' : ''));
+    $('heatLb').textContent = lb[1] + (rate > 0 ? '——每局结算后有 ' + pctTxt + ' 概率被劫，损失身家的 30%' : '');
+  }
+  function tryRobbery(){
+    if (heatRobbedThisRound) return false;
+    var rate = heatRate();
+    if (rate <= 0) return false;
+    if (rnd(10000) >= rate * 10000) return false;
+    heatRobbedThisRound = true;
+    var loss = Math.max(1, Math.floor(state.bal * 0.30));
+    state.bal -= loss;
+    addHist('🚨 被劫匪劫走', -loss);
+    $('bal').textContent = fmt(state.bal);
+    $('bal').className = 'vv' + (state.bal < 0 ? ' neg' : '');
+    var net = state.bal - state.start;
+    $('net').textContent = (net >= 0 ? '+' : '') + fmt(net);
+    $('net').className = 'vv' + (net < 0 ? ' neg' : '');
+    showFever('🚨 被劫走 ' + fmt(loss) + '！');
+    var h = $('heat');
+    h.classList.add('rob');
+    setTimeout(function(){ h.classList.remove('rob'); }, 600);
+    updateHeat();
+    showReliefIfNeeded();
+    return true;
   }
   function setMsg(id, text, cls){
     var el = $(id);
@@ -1087,7 +1178,9 @@
     var delta = payout - bet;
     state.bal += payout;
     state.rounds++;
+    heatRobbedThisRound = false;
     updateWallet();
+    tryRobbery();
     addHist(name, delta);
     if (payout > bet) {
       setMsg(msgId, winTxt + '  +' + fmt(payout), 'good');
