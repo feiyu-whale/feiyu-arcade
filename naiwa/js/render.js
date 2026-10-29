@@ -132,12 +132,18 @@ Object.assign(Scene, {
 
   // ---------- 主渲染 ----------
   render(g) {
+    // 每帧先整屏清空，防止任何残留叠加
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, W, H);
+    g.fillStyle = '#171321';
+    g.fillRect(0, 0, W, H);
+
     g.save();
 
-    // 抖动
+    // 抖动（限幅，防止极端值把画面推出屏幕）
     if (this.shakeT > 0) {
-      const m = this.shakeM * Math.min(1, this.shakeT / 0.4);
-      g.translate(rand(-m, m), rand(-m, m));
+      const m = Math.min(14, this.shakeM) * Math.min(1, this.shakeT / 0.4);
+      if (m > 0.05) g.translate(rand(-m, m), rand(-m, m));
     }
 
     // 背景
