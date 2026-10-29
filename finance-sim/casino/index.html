@@ -167,6 +167,16 @@
   .heat.rob { animation:robShake .5s ease; border-color:#ff5050; }
   @keyframes robShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)}
     40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+  .dead { position:fixed; inset:0; background:rgba(8,4,8,.92); display:flex; align-items:center;
+    justify-content:center; z-index:200; opacity:0; transition:opacity .3s ease; padding:20px; }
+  .dead.show { opacity:1; }
+  .dead-box { background:#1a0e14; border:1px solid #8a1a2a; border-radius:14px; padding:26px 22px;
+    text-align:center; max-width:320px; box-shadow:0 0 40px rgba(255,40,60,.35); }
+  .dead-t { font-size:26px; font-weight:900; color:#ff5050; letter-spacing:4px; margin-bottom:12px;
+    text-shadow:0 0 18px rgba(255,40,40,.8); }
+  .dead-lb { font-size:12px; color:#a88a9c; line-height:1.9; margin-bottom:18px; }
+  .dead-box button { width:100%; padding:11px; font-size:14px; font-weight:700; color:#fff;
+    background:linear-gradient(160deg,#8a2a52,#5a1a36); border:1px solid #d05a8a; border-radius:9px; }
   .hist { max-height:150px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
   .hi { display:flex; justify-content:space-between; font-size:11.5px; padding:5px 2px;
     border-bottom:1px solid #241628; color:#a88a9c; }
@@ -558,7 +568,7 @@
 
   <div class="foot">🐳 大肥鱼出品 · 模拟而已，不碰真钱<br>看概率的目的，是让你别再送钱<br>
     <span style="color:#5a4252">🔒 本页不存储任何数据、不发送任何网络请求，刷新即清零</span></div>
-  <div class="ver">v1.3.0-加劫匪盯梢机制 20261029</div>
+  <div class="ver">v1.3.1-劫匪1%致死 20261029</div>
 </div>
 
 <script>
@@ -643,7 +653,7 @@
     $('heatTxt').className = rate >= 0.35 ? 'danger' : (rate >= 0.15 ? 'warn' : '');
     $('heatFill').style.width = pct + '%';
     $('heatFill').className = 'heat-fill' + (rate >= 0.35 ? ' danger' : (rate >= 0.15 ? ' warn' : ''));
-    $('heatLb').textContent = lb[1] + (rate > 0 ? '——每局结算后有 ' + pctTxt + ' 概率被劫，损失身家的 30%' : '');
+    $('heatLb').textContent = lb[1] + (rate > 0 ? '——每局结算后有 ' + pctTxt + ' 概率被劫，损失身家的 30%；被劫时有 1% 概率直接丧命（强制重开）' : '');
   }
   function tryRobbery(){
     if (heatRobbedThisRound) return false;
@@ -651,6 +661,8 @@
     if (rate <= 0) return false;
     if (rnd(10000) >= rate * 10000) return false;
     heatRobbedThisRound = true;
+    // 劫匪下手时，1% 概率直接杀人 —— 强制重开
+    if (rnd(100) < 1) { playerKilled(); return true; }
     var loss = Math.max(1, Math.floor(state.bal * 0.30));
     state.bal -= loss;
     addHist('🚨 被劫匪劫走', -loss);
@@ -665,6 +677,33 @@
     setTimeout(function(){ h.classList.remove('rob'); }, 600);
     updateHeat();
     showReliefIfNeeded();
+    return true;
+  }
+  function playerKilled(){
+    var lost = state.bal;
+    state.bal = state.start;
+    state.rounds = 0;
+    state.hist = [];
+    state.reliefUsed = false;
+    twBet = 0; twLv = 0; twDead = false;
+    addHist('💀 被劫匪杀死·强制重开', -lost);
+    updateWallet();
+    twRender();
+    showFever('💀 你被劫匪杀了——一切归零');
+    var h = $('heat');
+    h.classList.add('rob');
+    setTimeout(function(){ h.classList.remove('rob'); }, 600);
+    var ov = document.createElement('div');
+    ov.className = 'dead';
+    ov.innerHTML = '<div class="dead-box"><div class="dead-t">💀 你死了</div>' +
+      '<div class="dead-lb">劫匪下手了。身家 ' + fmt(lost) + ' 全部清空，<br>余额重置为 ' + fmt(state.start) + '。</div>' +
+      '<button id="deadBtn">重新开始</button></div>';
+    document.body.appendChild(ov);
+    setTimeout(function(){ ov.classList.add('show'); }, 20);
+    $('deadBtn').onclick = function(){
+      ov.classList.remove('show');
+      setTimeout(function(){ if (ov.parentNode) ov.parentNode.removeChild(ov); }, 300);
+    };
     return true;
   }
   function setMsg(id, text, cls){
