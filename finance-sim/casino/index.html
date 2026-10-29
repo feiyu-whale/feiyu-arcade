@@ -219,6 +219,7 @@
     <div class="heat-top"><span>🚨 劫匪盯梢</span><span id="heatTxt">安全</span></div>
     <div class="heat-bar"><div class="heat-fill" id="heatFill" style="width:0%"></div></div>
     <div class="heat-lb" id="heatLb">钱多了，道上就有人惦记了</div>
+    <div class="heat-lb" id="runLb" style="color:#8a5a3a">🏦 赌场跑路风险：身家过 50 倍开始出现，越高越大</div>
   </div>
 
   <div class="relief" id="relief" style="display:none">
@@ -592,7 +593,7 @@
 
   <div class="foot">🐳 大肥鱼出品 · 模拟而已，不碰真钱<br>看概率的目的，是让你别再送钱<br>
     <span style="color:#5a4252">🔒 本页不存储任何数据、不发送任何网络请求，刷新即清零</span></div>
-  <div class="ver">v1.5.2-加偷税漏税 20261029</div>
+  <div class="ver">v1.5.3-加赌场跑路 20261029</div>
 </div>
 
 <script>
@@ -808,12 +809,48 @@
     showReliefIfNeeded();
     return true;
   }
+  /* ---------- 赌场跑路：你赢太多，庄家可能卷款消失 ---------- */
+  // 按身家倍率判定跑路概率（赢太多赌场扛不住）
+  var casinoRobbed = false;
+  function runAwayRate(){
+    var mult = state.bal / state.start;
+    if (mult < 50)   return 0;        // 小赢，赌场还扛得住
+    if (mult < 200)  return 0.005;    // ×50 起：0.5%
+    if (mult < 1000) return 0.02;     // ×200 起：2%
+    if (mult < 5000) return 0.06;     // ×1000 起：6%
+    return 0.15;                      // ×5000 起：15%（赌场连夜跑路）
+  }
+  function tryRunAway(){
+    if (casinoRobbed) return false;
+    var rate = runAwayRate();
+    if (rate <= 0) return false;
+    if (rnd(10000) >= rate * 10000) return false;
+    casinoRobbed = true;
+    var lost = state.bal;
+    state.bal = state.start;
+    addHist('🏦 赌场跑路·卷走全部', -lost);
+    updateWallet();
+    showFever('🏦 赌场跑路了！');
+    var ov = document.createElement('div');
+    ov.className = 'dead';
+    ov.innerHTML = '<div class="dead-box"><div class="dead-t">🏦 赌场跑路了</div>' +
+      '<div class="dead-lb">你赢得太多了——老板连夜卷着你的 ' + fmt(lost) + ' 消失了。<br>保安把你请出门，余额重置为 ' + fmt(state.start) + '。<br><br>（现实里，赢太多的客人要么被限制下注，要么就是这样。）</div>' +
+      '<button id="runBtn">自认倒霉</button></div>';
+    document.body.appendChild(ov);
+    setTimeout(function(){ ov.classList.add('show'); }, 20);
+    $('runBtn').onclick = function(){
+      ov.classList.remove('show');
+      setTimeout(function(){ if (ov.parentNode) ov.parentNode.removeChild(ov); }, 300);
+    };
+    return true;
+  }
   function playerKilled(){
     var lost = state.bal;
     state.bal = state.start;
     state.rounds = 0;
     state.hist = [];
     state.reliefUsed = false;
+    casinoRobbed = false;
     twBet = 0; twLv = 0; twDead = false;
     addHist('💀 被劫匪杀死·强制重开', -lost);
     updateWallet();
@@ -1359,6 +1396,7 @@
     heatRobbedThisRound = false;
     updateWallet();
     tryRobbery();
+    tryRunAway();
     addHist(name, delta - tax);
     if (state.rounds % 100 === 0) {
       var paid = settleYearTax();
