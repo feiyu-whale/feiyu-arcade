@@ -568,7 +568,7 @@
 
   <div class="foot">🐳 大肥鱼出品 · 模拟而已，不碰真钱<br>看概率的目的，是让你别再送钱<br>
     <span style="color:#5a4252">🔒 本页不存储任何数据、不发送任何网络请求，刷新即清零</span></div>
-  <div class="ver">v1.3.2-修刮刮乐点击 20261029</div>
+  <div class="ver">v1.3.3-修刮刮乐点不动 20261029</div>
 </div>
 
 <script>
@@ -1688,7 +1688,7 @@
      ============================================================ */
   var SC_SYM = ['🍀','💎','👑','💰'];
   var SC_MULT = { '🍀':5, '💎':10, '👑':20, '💰':50 };
-  var scSymbols = [], scOpened = 0, scBusy = false, scFlipped = [];
+  var scSymbols = [], scOpened = 0, scBusy = false, scFlipped = [], scBought = false;
   // 只负责刷新格子外观，不重复绑定事件（事件用委托，绑一次就够）
   function scRender(){
     var h = '';
@@ -1713,16 +1713,16 @@
         if (scSymbols[k] === bestSym) btns[k].classList.add('win');
       }
     }
-    scBusy = false;
+    scBusy = false; scBought = false;
     settle('刮刮乐', bet, payout, 'scratchMsg', txt, txt, 5);
   }
   function scBuy(){
-    if (scBusy) return;
+    if (scBusy && scBought && scOpened < 9) return;   // 正在刮时不许买新的
     var bet = parseInt($('scratchBet').value, 10);
     if (!bet || bet <= 0) { setMsg('scratchMsg', '票价不对', 'bad'); return; }
     if (bet > state.bal) { setMsg('scratchMsg', '余额不够了', 'bad'); showReliefIfNeeded(); return; }
     state.bal -= bet; updateWallet();
-    scBusy = true;
+    scBusy = true; scBought = true;
     scSymbols = []; scOpened = 0; scFlipped = [];
     for (var i = 0; i < 9; i++) { scSymbols.push(SC_SYM[rnd(SC_SYM.length)]); scFlipped.push(false); }
     $('scratchGrid').innerHTML = '';
@@ -1816,10 +1816,9 @@
   $('scratchGrid').addEventListener('click', function(e){
     var btn = e.target.closest('button[data-i]');
     if (!btn) return;
-    if (scBusy) return;
+    if (!scBought) { setMsg('scratchMsg', '先买一张票再刮', 'bad'); return; }
     var i = parseInt(btn.getAttribute('data-i'), 10);
     if (isNaN(i) || scFlipped[i]) return;   // 已刮开的点不动
-    if (!scBusy) { setMsg('scratchMsg', '先买一张票再刮', 'bad'); return; }
     scFlipped[i] = true;                     // 只翻开点中的这一格，乱序也行
     scOpened = scFlipped.filter(Boolean).length;
     scRender();
