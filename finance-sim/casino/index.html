@@ -209,10 +209,10 @@
 
   <div class="tax" id="taxCard">
     <div class="tax-row"><span>🧾 累计缴税（意外所得 24%）</span><span id="taxPaid">0</span></div>
-    <div class="tax-row"><span>💰 本年累计盈利（财产税基数）</span><span id="yearGain">0</span></div>
-    <div class="tax-row"><span>🏛️ 年度财产税（超 10 万部分 × 1%）</span><span id="propTaxPreview">0</span></div>
-      <div class="row" style="margin-top:7px"><button id="yearTaxBtn">📅 结算年度（手动）</button></div>
-    <div class="tax-note">每 100 局自动结算一次，也可手动结算；只对超出 10 万的盈利部分征 1%</div>
+    <div class="tax-row"><span>💰 本年累计应税盈利</span><span id="yearGain">0</span></div>
+    <div class="tax-row"><span>🏛️ 年度所得税清算（联邦累进，多退少补）</span><span id="propTaxPreview">0</span></div>
+      <div class="row" style="margin-top:7px"><button id="yearTaxBtn">📅 年度报税（手动）</button></div>
+    <div class="tax-note">每 100 局自动报税一次。按美国联邦累进税率清算全年盈利，已预扣 24% 可抵，多退少补</div>
   </div>
 
   <div class="heat" id="heat">
@@ -592,7 +592,7 @@
 
   <div class="foot">🐳 大肥鱼出品 · 模拟而已，不碰真钱<br>看概率的目的，是让你别再送钱<br>
     <span style="color:#5a4252">🔒 本页不存储任何数据、不发送任何网络请求，刷新即清零</span></div>
-  <div class="ver">v1.5.0-加所得税和财产税 20261029</div>
+  <div class="ver">v1.5.1-年度改联邦累进清算 20261029</div>
 </div>
 
 <script>
@@ -614,7 +614,7 @@
   }
 
   /* ---------- 金额 ---------- */
-  var state = { bal: 1000, start: 1000, rounds: 0, hist: [], reliefUsed: false, taxPaid: 0, yearGain: 0 };
+  var state = { bal: 1000, start: 1000, rounds: 0, hist: [], reliefUsed: false, taxPaid: 0, yearGain: 0, yearPrepaid: 0 };
   var $ = function(id){ return document.getElementById(id); };
 
   function fmt(n){
@@ -633,34 +633,63 @@
     updateTaxCard();
   }
 
-  /* ---------- 税务显示 & 年度财产税 ---------- */
-  var PROP_TAX_FREE = 100000;    // 起征点 10 万
-  var PROP_TAX_RATE = 0.01;      // 超出部分 1%
-  function propTaxDue(){
-    var base = Math.max(0, state.yearGain - PROP_TAX_FREE);
-    return Math.floor(base * PROP_TAX_RATE);
+  /* ---------- 税务显示 & 年度所得税清算（美国联邦累进税率） ---------- */
+  // 2024 联邦单身税率档（简化到 4 档，覆盖游戏量级）
+  var FED_BRACKETS = [
+    { upTo: 11600,   rate: 0.10 },
+    { upTo: 47150,   rate: 0.12 },
+    { upTo: 100525,  rate: 0.22 },
+    { upTo: Infinity,rate: 0.24 }
+  ];
+  // 按累进税率算全年应缴
+  function fedTaxOwed(income){
+    if (income <= 0) return 0;
+    var owed = 0, prev = 0;
+    for (var i = 0; i < FED_BRACKETS.length; i++) {
+      var b = FED_BRACKETS[i];
+      if (income > prev) {
+        var seg = Math.min(income, b.upTo) - prev;
+        owed += seg * b.rate;
+        prev = b.upTo;
+      } else break;
+    }
+    return Math.floor(owed);
+  }
+  // 清算差额 = 应缴 - 已预扣（正数补缴，负数退税）
+  function yearTaxDue(){
+    var owed = fedTaxOwed(state.yearGain);
+    var prepaid = state.yearPrepaid || 0;
+    return owed - prepaid;
   }
   function updateTaxCard(){
     $('taxPaid').textContent = fmt(state.taxPaid);
     $('yearGain').textContent = fmt(state.yearGain);
-    var due = propTaxDue();
-    $('propTaxPreview').textContent = due > 0 ? fmt(due) + '（待缴）' : '未达起征点';
+    var due = yearTaxDue();
+    $('propTaxPreview').textContent = (due > 0 ? '补缴 ' + fmt(due) : (due < 0 ? '退税 ' + fmt(-due) : '持平'));
   }
-  /* 年度结算：从余额扣财产税，盈利基数清零 */
+  /* 年度报税清算：应缴 = 累进税额；已预扣 24% 可抵；多退少补 */
   function settleYearTax(){
-    var due = propTaxDue();
-    if (due <= 0) {
-      state.yearGain = 0;
-      updateTaxCard();
-      return 0;
+    var due = yearTaxDue();          // 正数=补缴，负数=退税
+    if (due > 0) {
+      var pay = Math.min(due, Math.max(0, state.bal));
+      state.bal -= pay;
+      state.taxPaid += pay;
+      addHist('🏛️ 年度补缴税', -pay);
+      state.yearGain = 0; state.yearPrepaid = 0;
+      updateWallet();
+      return pay;
+    } else if (due < 0) {
+      var refund = -due;
+      state.bal += refund;
+      state.taxPaid -= refund;
+      addHist('🏛️ 年度退税', refund);
+      state.yearGain = 0; state.yearPrepaid = 0;
+      updateWallet();
+      return due;                    // 返回负数表示退税
     }
-    var pay = Math.min(due, Math.max(0, state.bal));
-    state.bal -= pay;
-    state.taxPaid += pay;
-    addHist('🏛️ 年度财产税', -pay);
-    state.yearGain = 0;
-    updateWallet();
-    return pay;
+    state.yearGain = 0; state.yearPrepaid = 0;
+    updateTaxCard();
+    return 0;
   }
 
   /* ============================================================
@@ -1279,6 +1308,7 @@
     }
     state.bal += payout - tax;
     state.taxPaid += tax;
+    state.yearPrepaid += tax;
     if (profit > 0) state.yearGain += profit;
     state.rounds++;
     heatRobbedThisRound = false;
@@ -1287,10 +1317,10 @@
     addHist(name, delta - tax);
     if (state.rounds % 100 === 0) {
       var paid = settleYearTax();
-      if (paid > 0) {
-        showFever('🏛️ 年度财产税 ' + fmt(paid));
+      if (paid !== 0) {
+        showFever('🏛️ 年度' + (paid > 0 ? '补缴 ' + fmt(paid) : '退税 ' + fmt(-paid)));
         setMsg(msgId, (payout > bet ? winTxt + '  +' + fmt(payout) : loseTxt) +
-          '<br>🏛️ 满 100 局，年度财产税扣除 ' + fmt(paid), payout > bet ? 'good' : 'bad');
+          '<br>🏛️ 满 100 局，年度报税' + (paid > 0 ? '补缴 ' + fmt(paid) : '退税 ' + fmt(-paid)), payout > bet ? 'good' : 'bad');
       }
     }
     var taxTxt = tax > 0 ? '（税前 +' + fmt(profit) + ' · 缴税 ' + fmt(tax) + ' · 到手 +' + fmt(profit - tax) + '）' : '';
@@ -1966,8 +1996,9 @@
   // 年度财产税手动结算
   $('yearTaxBtn').addEventListener('click', function(){
     var paid = settleYearTax();
-    if (paid > 0) { showFever('🏛️ 年度财产税 ' + fmt(paid)); }
-    else { showFever('🏛️ 未达起征点'); }
+    if (paid > 0) { showFever('🏛️ 年度补缴 ' + fmt(paid)); }
+    else if (paid < 0) { showFever('🏛️ 年度退税 ' + fmt(-paid)); }
+    else { showFever('🏛️ 清算持平'); }
     updateWallet();
   });
 
