@@ -54,7 +54,7 @@
     <div id="axis"></div>
     <div class="hint">按时间轴并列排列；点击任一段可回填查询年份。数据源：yansheng836/parallel-histories（MIT）。</div>
   </div>
-  <div class="ver">v1.0.0-中外对照 20261017</div>
+  <div class="ver">v1.1.0-修数据起止+公元0年 20261029</div>
 </div>
 <script>
 // 【cross-era】中外纪年对照。依赖：data/cross.json（源自 yansheng836/parallel-histories，MIT）。输入：年份；输出：同期中国/世界分期。
@@ -83,11 +83,18 @@
     var box = $("res");
     if(!/^-?\d+$/.test(raw)){ box.innerHTML = "<div class='hint'>输入年份</div>"; return; }
     var y = parseInt(raw, 10);
+    // 公元 0 年不存在
+    if(y === 0){ box.innerHTML = "<div class='err'>历史上没有公元 0 年——公元前 1 年之后直接是公元 1 年</div>"; return; }
     load().then(function(){
       var c = find(DATA.cn, y), w = find(DATA.west, y);
+      // 边界年（同时落在前后两段的端点）要把两段都显示出来
+      function fmt(g){
+        if(!g || !g.length) return '（超出范围）';
+        return g.map(function(x){ return x.label; }).join(' ／ ');
+      }
       box.innerHTML = '<div class="r">公元 <span class="v">'+yl(y)+'</span> 年<br>' +
-        (c.length ? '<span class="k">中国：</span><span class="v">'+c[0].label+'</span>' : '<span class="k">中国：</span>（超出范围）') + '<br>' +
-        (w.length ? '<span class="k">世界：</span><span class="v">'+w[0].label+'</span>' : '<span class="k">世界：</span>（超出范围）') + '</div>';
+        '<span class="k">中国：</span><span class="v">'+fmt(c)+'</span><br>' +
+        '<span class="k">世界：</span><span class="v">'+fmt(w)+'</span></div>';
       // 高亮时间轴命中行
       document.querySelectorAll("#axis .pair").forEach(function(el){
         var b = parseFloat(el.getAttribute("data-b")), e2 = el.getAttribute("data-e");

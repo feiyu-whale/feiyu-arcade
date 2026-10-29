@@ -50,7 +50,7 @@
     <div class="tl" id="timeline"></div>
     <div class="legend">共 <span id="cnt">0</span> 条。数据源：上海图书馆开放数据平台（经 SongshGeoLab/chinese_history_toolkits 清洗，MIT）。上古纪年存学术分歧，采「夏商周断代工程/上图」口径。</div>
   </div>
-  <div class="ver">v1.0.0-朝代纪年 20261017</div>
+  <div class="ver">v1.1.0-修数据起止+公元0年 20261029</div>
 </div>
 <script>
 // 【dynasty】公元年→朝代纪年。依赖：data/dynasties.json（源自上海图书馆开放数据平台，MIT）。输入：年份；输出：所属朝代+时间线。
@@ -72,6 +72,8 @@
     var box = $("res");
     if(!/^-?\d+$/.test(raw)){ box.innerHTML = "<div class='hint'>输入年份</div>"; return; }
     var y = parseInt(raw, 10);
+    // 公元 0 年不存在：公元前 1 年之后直接是公元 1 年
+    if(y === 0){ box.innerHTML = "<div class='err'>历史上没有公元 0 年——公元前 1 年之后直接是公元 1 年</div>"; return; }
     load().then(function(){
       // 命中所有覆盖该年的朝代条目
       var hits = DYN.filter(function(d){ return y >= d.begin && y <= d.end; });
