@@ -109,9 +109,80 @@ body {
 
 	</head>
 	<body>
-		<canvas id="canvas">
+		<canvas id="canvas" style="touch-action:none;">
 			Your browser does not support the canvas tag.
 		</canvas>
+
+		<script>
+		// 【2026-10-29】触屏 -> 鼠标事件转发
+		// 说明：部分手机浏览器对 WebGL/EMSCRIPTEN 的指针事件支持不全，导致
+		// Godot 收不到 InputEventScreenTouch，点卡片无反应。这里把 touch 转成 mouse 再派发。
+		(function () {
+			var cv = document.getElementById('canvas');
+			if (!cv) return;
+			var lastTouch = null;
+
+			function dispatch(type, touch, buttons) {
+				var rect = cv.getBoundingClientRect();
+				var x = touch.clientX - rect.left;
+				var y = touch.clientY - rect.top;
+				var ev = new MouseEvent(type, {
+					bubbles: true,
+					cancelable: true,
+					view: window,
+					clientX: touch.clientX,
+					clientY: touch.clientY,
+					screenX: touch.screenX,
+					screenY: touch.screenY,
+					button: 0,
+					buttons: buttons,
+					detail: 1
+				});
+				// 部分实现读 offsetX/offsetY，补上
+				try {
+					Object.defineProperty(ev, 'offsetX', { get: function () { return x; } });
+					Object.defineProperty(ev, 'offsetY', { get: function () { return y; } });
+				} catch (e) {}
+				return cv.dispatchEvent(ev);
+			}
+
+			cv.addEventListener('touchstart', function (e) {
+				if (e.touches.length > 1) return;   // 多指交给浏览器（缩放等）
+				var t = e.changedTouches[0];
+				lastTouch = t.identifier;
+				cv.focus && cv.focus();
+				dispatch('mousemove', t, 0);
+				dispatch('mousedown', t, 1);
+				e.preventDefault();
+			}, { passive: false });
+
+			cv.addEventListener('touchmove', function (e) {
+				var t = null;
+				for (var i = 0; i < e.changedTouches.length; i++) {
+					if (e.changedTouches[i].identifier === lastTouch) { t = e.changedTouches[i]; break; }
+				}
+				if (!t) return;
+				dispatch('mousemove', t, 1);
+				e.preventDefault();
+			}, { passive: false });
+
+			cv.addEventListener('touchend', function (e) {
+				var t = null;
+				for (var i = 0; i < e.changedTouches.length; i++) {
+					if (e.changedTouches[i].identifier === lastTouch) { t = e.changedTouches[i]; break; }
+				}
+				if (!t) return;
+				dispatch('mouseup', t, 0);
+				dispatch('click', t, 0);
+				lastTouch = null;
+				e.preventDefault();
+			}, { passive: false });
+
+			cv.addEventListener('touchcancel', function () {
+				lastTouch = null;
+			});
+		}());
+		</script>
 
 		<noscript>
 			Your browser does not support JavaScript.
