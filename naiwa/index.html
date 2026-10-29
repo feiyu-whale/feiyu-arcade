@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#171321">
+<title>勇者奶蛙传 · 肥鱼复刻版</title>
+<style>
+  :root{
+    --ink:#171321; --ink2:#241d34; --cream:#ffe8b4; --gold:#f5d979;
+    --mint:#a9ffd1; --pink:#ffadc6; --purple:#8b6fd4; --danger:#ff6b6b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:var(--ink);color:#fff;
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+    user-select:none;-webkit-user-select:none;touch-action:none}
+  #app{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  #stage{position:relative;background:#000;overflow:hidden;transform-origin:center center;flex:0 0 auto}
+  canvas{display:block;width:100%!important;height:100%!important}
+
+  /* ===== HUD ===== */
+  #hud{position:absolute;inset:0;pointer-events:none;font-size:13px;opacity:0;transition:opacity .25s;transform-origin:top left}
+  #hud.on{opacity:1}
+  .hud-row{position:absolute;left:0;right:0;display:flex;gap:8px;align-items:center;padding:8px 10px}
+  .hud-top{top:0}
+  .hud-bottom{bottom:0;justify-content:center}
+  .hpbar{flex:0 0 180px;height:16px;border-radius:9px;background:#0003;border:1.5px solid #ffffff33;overflow:hidden;position:relative}
+  .hpfill{height:100%;width:100%;background:linear-gradient(90deg,#4be08a,#a9ffd1);transition:width .12s}
+  .hpbar span{position:absolute;inset:0;text-align:center;font-size:11px;line-height:16px;
+    text-shadow:0 1px 2px #000;font-weight:600}
+  .tag{padding:2px 8px;border-radius:8px;background:#ffffff18;border:1px solid #ffffff2e;font-size:11px}
+  .energybar{flex:0 0 150px;height:12px;border-radius:7px;background:#0003;border:1.5px solid #ffffff33;overflow:hidden;position:relative}
+  .energyfill{height:100%;width:0%;background:linear-gradient(90deg,#8b6fd4,#d7b3ff)}
+  .boss-wrap{position:absolute;top:34px;left:50%;transform:translateX(-50%);width:min(420px,60%);
+    opacity:0;transition:opacity .3s}
+  .boss-wrap.on{opacity:1}
+  .boss-name{text-align:center;font-size:12px;color:#ffd0ff;margin-bottom:3px;text-shadow:0 1px 3px #000}
+  .bossbar{height:10px;border-radius:6px;background:#0004;border:1.5px solid #ff9dff55;overflow:hidden}
+  .bossfill{height:100%;width:100%;background:linear-gradient(90deg,#ff5f9e,#ffb3d9)}
+  .boss-status{text-align:center;font-size:10.5px;color:#ffe3a8;margin-top:2px;min-height:13px}
+
+  /* ===== 覆盖层 ===== */
+  .overlay{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 50% 40%,rgba(44,34,71,.82),rgba(18,14,29,.92));pointer-events:auto;z-index:20;padding:18px;text-align:center}
+  .overlay.on{display:flex}
+  .overlay h1{font-size:26px;letter-spacing:1px;color:var(--cream);text-shadow:0 3px 0 #00000066;margin-bottom:4px}
+  .overlay h2{font-size:20px;color:var(--cream);margin-bottom:8px}
+  .overlay p{font-size:12.5px;color:#cbbde8;line-height:1.7;margin-bottom:4px}
+  .btn{margin-top:12px;padding:9px 26px;border-radius:22px;border:none;cursor:pointer;
+    background:linear-gradient(180deg,#ffd98a,#e9a93f);color:#3a2a08;font-size:14px;font-weight:700;
+    box-shadow:0 4px 0 #00000055;transition:transform .08s}
+  .btn:active{transform:translateY(2px);box-shadow:0 2px 0 #00000055}
+  .btn.ghost{background:#ffffff1a;color:#e8dcff;border:1px solid #ffffff33;box-shadow:none;font-weight:500}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .card{background:#ffffff10;border:1.5px solid #ffffff26;border-radius:12px;padding:10px 12px;
+    width:170px;cursor:pointer;transition:.12s;text-align:left}
+  .card:hover{border-color:#f5d97999;background:#ffffff1a;transform:translateY(-2px)}
+  .card .ico{font-size:19px;color:var(--gold)}
+  .card .nm{font-size:13px;font-weight:700;color:#fff;margin:2px 0 3px}
+  .card .ds{font-size:11px;color:#b6a9d4;line-height:1.45}
+  .cards{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:560px}
+  #helpList{font-size:12.5px;color:#c9bce8;line-height:1.9;text-align:left;max-width:420px}
+
+  /* ===== 触屏按钮 ===== */
+  #touch{position:absolute;inset:0;pointer-events:none;z-index:10;display:none}
+  #touch.on{display:block}
+  .tbtn{position:absolute;border-radius:50%;background:#ffffff1f;border:2px solid #ffffff3d;
+    display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;
+    pointer-events:auto;backdrop-filter:blur(3px);font-weight:600;text-align:center;line-height:1.1}
+  .tbtn:active,.tbtn.on{background:#f5d97959;border-color:#f5d979}
+  .tbtn.big{width:74px;height:74px;font-size:12px}
+  .tbtn.mid{width:58px;height:58px}
+  #stick{position:absolute;left:118px;bottom:96px;width:112px;height:112px;border-radius:50%;
+    border:2px dashed #ffffff2e;pointer-events:auto}
+  #knob{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;
+    background:#ffffff3d;border:2px solid #ffffff66}
+  #superBtn{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);width:112px;height:112px;
+    border-radius:50%;border:3px solid #ffd0f0;background:#ff5f9e33;display:none;
+    align-items:center;justify-content:center;flex-direction:column;pointer-events:auto;text-align:center}
+  #superBtn.on{display:flex}
+  #superBtn .big{font-size:16px;font-weight:800;color:#fff}
+  #superBtn .sm{font-size:10px;color:#ffd0f0;margin-top:2px}
+
+  /* 版本号 */
+  #ver{position:absolute;right:6px;bottom:4px;font-size:10px;color:#ffffff4d;z-index:30;pointer-events:none}
+  #warn{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;
+    font-size:14px;color:#ffd0a0;z-index:40;display:none;padding:0 20px;line-height:1.8}
+  #warn.on{display:block}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="cv"></canvas>
+
+    <div id="hud">
+      <div class="hud-row hud-top">
+        <div class="hpbar"><div class="hpfill" id="hpfill"></div><span id="hptxt">120/120</span></div>
+        <div class="energybar"><div class="energyfill" id="enfill"></div></div>
+        <div class="tag" id="zoneTag">奶笑村</div>
+        <div class="tag" id="waveTag">第 1 波</div>
+        <div class="tag" id="peachTag" style="display:none">🍑 0</div>
+      </div>
+      <div class="boss-wrap" id="bossWrap">
+        <div class="boss-name" id="bossName"></div>
+        <div class="bossbar"><div class="bossfill" id="bossfill"></div></div>
+        <div class="boss-status" id="bossStatus"></div>
+      </div>
+      <div class="hud-row hud-bottom">
+        <div class="tag" id="objTag"></div>
+      </div>
+    </div>
+
+    <div id="touch">
+      <div id="stick"><div id="knob"></div></div>
+      <div class="tbtn big" id="btnAtk" style="right:26px;bottom:104px">奶球</div>
+      <div class="tbtn big" id="btnDef" style="right:112px;bottom:34px">防御</div>
+      <div class="tbtn mid" id="btnDash" style="right:126px;bottom:112px">冲撞</div>
+      <div class="tbtn mid" id="btnLaugh" style="right:26px;bottom:26px">大笑</div>
+      <div class="tbtn mid" id="btnPeach" style="right:200px;bottom:110px">🍑</div>
+      <div class="tbtn mid" id="btnNaidan" style="right:200px;bottom:34px">奶蛋</div>
+      <div id="superBtn"><div class="big">超级</div><div class="sm">大笑</div></div>
+      <div class="tbtn mid" id="btnPause" style="left:10px;top:44px">‖</div>
+    </div>
+
+    <!-- 标题 -->
+    <div class="overlay on" id="ovTitle">
+      <h1>勇者奶蛙传</h1>
+      <p>关于如何从憋笑魔王手中<br>救下公主这件事</p>
+      <p style="font-size:11px;color:#8f82b0;margin-top:6px">肥鱼复刻版 · 七章冒险</p>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn" id="btnStart">开始冒险</button>
+        <button class="btn ghost" id="btnContinue" style="display:none">继续冒险</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn ghost" id="btnHelp">操作说明</button>
+        <button class="btn ghost" id="btnSound">🔊 声音开</button>
+      </div>
+    </div>
+
+    <!-- 说明 -->
+    <div class="overlay" id="ovHelp">
+      <h2>怎么玩</h2>
+      <div id="helpList">
+        <b>电脑</b>：WASD/方向键走位 · J 或按住空格防御 · F 奶球 · Shift 冲撞 · E 大笑 · C 罐头 · V 奶蛋 · Esc 暂停<br>
+        <b>手机</b>：左下摇杆走位 · 右侧技能按钮<br>
+        <b>核心</b>：奶球打人攒能量，能量满按 E 大笑清场；魔王要逗到破防才行。
+      </div>
+      <button class="btn" id="btnHelpBack">知道了</button>
+    </div>
+
+    <!-- 升级 -->
+    <div class="overlay" id="ovUpgrade">
+      <h2>有点上头了</h2>
+      <p>选一招，更离谱。</p>
+      <div class="cards" id="upCards"></div>
+    </div>
+
+    <!-- 失败 -->
+    <div class="overlay" id="ovDefeat">
+      <h2>只是肚子着地了</h2>
+      <p>豆公主，我一定会找到最完美的时间线的！</p>
+      <p id="defeatStat" style="font-size:11px;color:#8f82b0"></p>
+      <div class="btn-row">
+        <button class="btn" id="btnRetry">从本区域重试</button>
+        <button class="btn ghost" id="btnQuit">回标题</button>
+      </div>
+    </div>
+
+    <!-- 胜利 -->
+    <div class="overlay" id="ovWin">
+      <h1>营救成功</h1>
+      <p>全城堡，笑场了。</p>
+      <p id="winStat" style="font-size:12px;color:#cbbde8"></p>
+      <div class="btn-row">
+        <button class="btn" id="btnAgain">再救一次</button>
+      </div>
+    </div>
+
+    <!-- 暂停 -->
+    <div class="overlay" id="ovPause">
+      <h2>勇者休息中</h2>
+      <p>歇会儿，再笑。</p>
+      <div class="btn-row">
+        <button class="btn" id="btnResume">继续营救</button>
+        <button class="btn ghost" id="btnPauseQuit">回标题</button>
+      </div>
+    </div>
+
+    <div id="warn"></div>
+    <div id="ver">v1.0.0-复刻首版 20261029</div>
+  </div>
+</div>
+<script src="js/game.js"></script>
+<script src="js/world.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/boss.js"></script>
+<script src="js/render.js"></script>
+<script src="js/main.js"></script>
+<script src="js/selftest.js"></script>
+</body>
+</html>
