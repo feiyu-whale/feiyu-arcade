@@ -198,26 +198,17 @@ function resize() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   scale = s;
 
-  // 触屏层按舞台实际显示尺寸等比缩放，保证按钮位置跟画面一致
-  const touchEl = document.getElementById('touch');
-  if (touchEl) {
-    const k = cw / W;
-    touchEl.style.transform = `scale(${k})`;
-    touchEl.style.transformOrigin = 'top left';
-    touchEl.style.width = W + 'px';
-    touchEl.style.height = H + 'px';
-    touchEl.style.left = '0';
-    touchEl.style.top = '0';
-  }
-
-  // HUD 同样跟舞台缩放
-  const hud = document.getElementById('hud');
-  if (hud) {
-    const k = cw / W;
-    hud.style.transform = `scale(${k})`;
-    hud.style.transformOrigin = 'top left';
-    hud.style.width = W + 'px';
-    hud.style.height = H + 'px';
+  // 触屏层 / HUD 都按舞台实际显示比例缩放（stage 本身已是屏幕尺寸，子层固定 1280x720 再缩）
+  const k = cw / W;
+  for (const id of ['touch', 'hud']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.style.transform = `scale(${k})`;
+    el.style.transformOrigin = 'top left';
+    el.style.width = W + 'px';
+    el.style.height = H + 'px';
+    el.style.left = '0';
+    el.style.top = '0';
   }
 }
 window.addEventListener('resize', resize);

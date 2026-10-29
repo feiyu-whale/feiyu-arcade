@@ -97,6 +97,7 @@ const UI = {
   showHud(v) {
     const h = this.el('hud');
     if (h) h.classList.toggle('on', !!v);
+    if (this.touchEl) this.touchEl.classList.toggle('on', !!v);
   },
   toTitle() {
     this.showHud(false);
@@ -200,8 +201,7 @@ const UI = {
 
   initTouch() {
     const touchEl = this.el('touch');
-    // 触屏按钮一律显示（PC 上也能点，免得找不到攻击键）
-    touchEl.classList.add('on');
+    this.touchEl = touchEl;
 
     const stick = this.el('stick'), knob = this.el('knob');
     const zoneEl = this.el('stickZone');   // 左半屏感应区
