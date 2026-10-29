@@ -404,22 +404,31 @@
   <!-- ============ 炸金花 ============ -->
   <div id="pane-zjh" style="display:none">
     <div class="card">
-      <div class="lbl">你的三张牌</div>
-      <div class="zjh" id="zjhMine"></div>
-      <div class="msg" id="zjhMsg">闷牌下注，看牌后可加注</div>
+      <div class="lbl">牌桌（6 人桌 · 5 个对手）</div>
+      <div class="zjh-table" id="zjhTable"></div>
     </div>
     <div class="card">
-      <div class="lbl">下注</div>
+      <div class="lbl">你的三张牌</div>
+      <div class="zjh" id="zjhMine"></div>
+      <div class="msg" id="zjhMsg">点「发牌」开局 · 每手台费按底注 2% 收</div>
+    </div>
+    <div class="card">
+      <div class="lbl">底注</div>
       <input type="number" id="zjhBet" value="50" min="1" step="10">
       <div class="row">
-        <button id="zjhLook">看牌</button>
+        <button class="act" id="zjhDeal">发牌开局</button>
+        <button id="zjhLook">看牌（付底注 50%）</button>
+      </div>
+      <div class="row">
         <button class="act" id="zjhFold">弃牌</button>
-        <button class="act" id="zjhCall">跟牌</button>
+        <button class="act" id="zjhCall">跟注</button>
         <button id="zjhRaise">加注</button>
       </div>
       <div class="info">
-        <b>牌型倍率</b>：豹子 <b>30倍</b> · 同花顺 <b>20倍</b> · 同花 <b>8倍</b> · 顺子 <b>6倍</b> · 对子 <b>3倍</b> · 高牌 <b>2倍</b>（赢才给）<br>
-        <b>规则</b>：你和庄家各三张，比牌型与点数；<b>跟牌</b>=追加当前注额，<b>加注</b>=翻倍。<b>看牌</b>后本把可比，但成本翻倍。
+        <b>6 人桌真实对局</b>：你和 5 个对手各三张牌，比牌型与点数，最大的人拿走全部底池。<br>
+        <b>对手也会思考</b>：牌弱早弃、牌中跟注、牌强加注——不是无脑跟到底。<br>
+        <b>看牌要付钱</b>：付底注的 50%，弃牌不退。<br>
+        <b>赌场只收钱</b>：每手台费（底注 2%）+ 赢池抽水 5%。不下场对赌。
       </div>
     </div>
   </div>
@@ -593,7 +602,7 @@
 
   <div class="foot">🐳 大肥鱼出品 · 模拟而已，不碰真钱<br>看概率的目的，是让你别再送钱<br>
     <span style="color:#5a4252">🔒 本页不存储任何数据、不发送任何网络请求，刷新即清零</span></div>
-  <div class="ver">v1.5.3-加赌场跑路 20261029</div>
+  <div class="ver">v1.7.0-炸金花6人桌 20261029</div>
 </div>
 
 <script>
@@ -1425,7 +1434,7 @@
   /* ============================================================
      炸金花
      ============================================================ */
-  var zjhState = { cards: null, house: null, seen: false, houseSeen: false, bet: 0, playing: false, round: 0 };
+  var zjhState = { cards: null, house: null, seen: false, houseSeen: false, bet: 0, playing: false, round: 0, myIn: 0, houseIn: 0, baseBet: 50 };
   var ZJH_TYPE = { 5:'豹子', 4:'同花顺', 3:'同花', 2:'顺子', 1:'对子', 0:'高牌' };
   var ZJH_MULT = { 5:30, 4:20, 3:8, 2:6, 1:3, 0:2 };
   function zjhRankVal(r){ return ['2','3','4','5','6','7','8','9','10','J','Q','K','A'].indexOf(r); }
@@ -1451,90 +1460,152 @@
     }
     return 0;
   }
+  var ZJH_FEE_RATE = 0.02;   // 台费：底注 2%
+  var ZJH_RAKE = 0.05;       // 赢池抽水 5%
+  var ZJH_MAX_ROUNDS = 4;    // 最多 4 轮，之后开牌
+  var ZJH_OPP = 5;           // 5 个对手
+
+  var zjhState = { cards: null, opps: [], seen: false, playing: false,
+                   round: 0, myIn: 0, pot: 0, baseBet: 50, inHand: [] };
+
+  /* 对手策略：按自己牌力决定 弃/跟/加 */
+  function zjhOppAct(opp){
+    var e = opp.ev, power = e.type * 10 + e.key[0];
+    var r = rnd(100);
+    if (power < 4) return r < 55 ? 'fold' : 'call';            // 极烂牌多弃
+    if (power < 8) return r < 30 ? 'fold' : (r < 45 ? 'raise' : 'call');
+    if (power < 20) return r < 8 ? 'fold' : (r < 55 ? 'raise' : 'call');
+    if (power < 32) return r < 3 ? 'fold' : (r < 70 ? 'raise' : 'call');
+    return r < 88 ? 'raise' : 'call';
+  }
+
+  function zjhRenderTable(){
+    var h = '';
+    for (var i = 0; i < zjhState.opps.length; i++) {
+      var o = zjhState.opps[i];
+      var cls = o.folded ? 'out' : '';
+      var status = o.folded ? '弃牌' : (o.ev ? ZJH_TYPE[o.ev.type] : '在局');
+      h += '<div class="zjh-seat ' + cls + '"><span class="nm">' + o.name + '</span>' +
+           '<span class="st">' + status + '</span></div>';
+    }
+    $('zjhTable').innerHTML = h;
+  }
+
   function zjhNewHand(){
     newDeck();
     zjhState.cards = [draw(), draw(), draw()];
-    zjhState.house = [draw(), draw(), draw()];
     zjhState.seen = false;
-    zjhState.houseSeen = false;
-    zjhState.bet = 0;
-    zjhState.playing = false;
+    zjhState.playing = true;
     zjhState.round = 0;
+    zjhState.myIn = 0;
+    zjhState.pot = 0;
+    zjhState.baseBet = parseInt($('zjhBet').value, 10) || 50;
+    var names = ['老张', '阿强', '小马', '大刘', '王姐'];
+    zjhState.opps = [];
+    for (var i = 0; i < ZJH_OPP; i++) {
+      var c = [draw(), draw(), draw()];
+      zjhState.opps.push({ name: names[i], cards: c, ev: zjhEval(c), folded: false });
+    }
+    // 台费
+    var fee = Math.max(1, Math.floor(zjhState.baseBet * ZJH_FEE_RATE));
+    if (state.bal < fee) { setMsg('zjhMsg', '余额不够付台费', 'bad'); return; }
+    state.bal -= fee;
+    addHist('🎴 开桌台费', -fee);
+    updateWallet();
+    zjhRenderTable();
     $('zjhMine').innerHTML = zjhState.cards.map(function(c){ return cardHTML(c, 'back'); }).join('');
-    setMsg('zjhMsg', '第 1 轮 · 闷牌下注（不看牌金额减半），看牌后可加注');
+    setMsg('zjhMsg', '已开桌 · 台费 ' + fmt(fee) + ' · 你的牌还没看（看牌付 ' +
+      fmt(Math.floor(zjhState.baseBet * 0.5)) + '）');
   }
-  /* 真实炸金花：多轮跟注拉锯，庄家每轮按牌力决定跟/加/弃，直到一方弃牌或开牌 */
-  function zjhDealerDecide(){
-    var ev = zjhEval(zjhState.house);
-    // 牌力权重：越小越差
-    var power = ev.type * 10 + ev.key[0];
-    var r = rnd(100);
-    if (power < 8) return (r < 45) ? 'fold' : 'call';       // 烂牌多弃
-    if (power < 20) return (r < 12) ? 'fold' : (r < 45 ? 'raise' : 'call');
-    if (power < 32) return (r < 6) ? 'fold' : (r < 60 ? 'raise' : 'call');
-    return (r < 75) ? 'raise' : 'call';                      // 大牌猛加
+
+  /* 开牌结算 */
+  function zjhShowdown(){
+    var alive = zjhState.opps.filter(function(o){ return !o.folded; });
+    var mine = zjhEval(zjhState.cards);
+    var best = null, bestName = '你';
+    for (var i = 0; i < alive.length; i++) {
+      if (best === null || zjhCompare(alive[i].ev, best) > 0) { best = alive[i].ev; bestName = alive[i].name; }
+    }
+    var iWin = best === null || zjhCompare(mine, best) > 0;
+    var tie = best !== null && zjhCompare(mine, best) === 0;
+    var pot = zjhState.pot;
+    var rake = Math.floor(pot * ZJH_RAKE);
+    var out = iWin ? (pot - rake) : (tie ? zjhState.myIn : 0);
+    $('zjhMine').innerHTML = zjhState.cards.map(function(c){ return cardHTML(c); }).join('');
+    var oppTxt = alive.map(function(o){ return o.name + ':' + ZJH_TYPE[o.ev.type]; }).join(' ');
+    settle('炸金花·开牌', zjhState.myIn, out, 'zjhMsg',
+      '你 ' + ZJH_TYPE[mine.type] + ' 胜过全场（' + (alive.length) + ' 人在局）· 底池 ' + fmt(pot) + ' · 抽水 ' + fmt(rake),
+      '你 ' + ZJH_TYPE[mine.type] + ' · ' + bestName + ' 以 ' + (best ? ZJH_TYPE[best.type] : '-') + ' 赢下底池',
+      2);
+    zjhState.playing = false;
+    zjhState.myIn = 0; zjhState.pot = 0; zjhState.round = 0;
+    setTimeout(function(){ zjhState.cards = null; $('zjhMine').innerHTML = ''; }, 2500);
   }
+
+  /* 玩家行动后推进 */
   function zjhPlay(action){
-    var bet = parseInt($('zjhBet').value, 10);
-    if (!bet || bet <= 0) { setMsg('zjhMsg', '下注额不对', 'bad'); return; }
+    if (!zjhState.playing || !zjhState.cards) { setMsg('zjhMsg', '先点「发牌开局」', 'bad'); return; }
+
     if (action === 'look') {
-      if (!zjhState.cards || zjhState.seen) { setMsg('zjhMsg', '已经看过了', 'bad'); return; }
+      if (zjhState.seen) { setMsg('zjhMsg', '已经看过了', 'bad'); return; }
+      var cost = Math.floor(zjhState.baseBet * 0.5);
+      if (state.bal < cost) { setMsg('zjhMsg', '余额不够看牌', 'bad'); return; }
+      state.bal -= cost; updateWallet();
+      zjhState.myIn += cost; zjhState.pot += cost;
       zjhState.seen = true;
       $('zjhMine').innerHTML = zjhState.cards.map(function(c){ return cardHTML(c); }).join('');
-      var ev = zjhEval(zjhState.cards);
-      setMsg('zjhMsg', '你的牌：' + ZJH_TYPE[ev.type] + '（看牌后跟注金额翻倍）', '');
+      var e = zjhEval(zjhState.cards);
+      setMsg('zjhMsg', '看了牌（付 ' + fmt(cost) + '，弃牌不退）：' + ZJH_TYPE[e.type] +
+        '<br>底池 ' + fmt(zjhState.pot), '');
       return;
     }
+
     if (action === 'fold') {
-      if (zjhState.bet > 0) {
+      if (zjhState.myIn > 0) {
         state.rounds++;
-        addHist('炸金花·弃牌', -zjhState.bet);
-        setMsg('zjhMsg', '弃牌，已下的 ' + fmt(zjhState.bet) + ' 不要了', 'bad');
-      } else {
-        setMsg('zjhMsg', '弃牌');
-      }
+        addHist('炸金花·弃牌', -zjhState.myIn);
+        setMsg('zjhMsg', '弃牌，已投的 ' + fmt(zjhState.myIn) + ' 归底池', 'bad');
+      } else setMsg('zjhMsg', '弃牌，只损失台费');
       showReliefIfNeeded();
-      zjhNewHand();
+      zjhState.playing = false;
+      zjhState.myIn = 0; zjhState.pot = 0; zjhState.round = 0;
       return;
     }
-    // call / raise —— 看牌后需要双倍
-    var base = zjhState.seen ? bet * 2 : bet;
-    var need = (action === 'raise') ? base * 2 : base;
-    if (need > state.bal) { setMsg('zjhMsg', '余额不够了', 'bad'); showReliefIfNeeded(); return; }
+
+    // 跟 / 加
+    zjhState.round++;
+    var need = Math.floor(zjhState.baseBet * Math.pow(1.5, zjhState.round - 1) * (action === 'raise' ? 2 : 1));
+    if (need > state.bal) { setMsg('zjhMsg', '余额不够跟注（需 ' + fmt(need) + '）', 'bad'); return; }
     state.bal -= need; updateWallet();
-    zjhState.bet += need;
-    zjhState.playing = true;
-    // 庄家行动
-    var dec = zjhDealerDecide();
-    if (dec === 'fold') {
-      var payout = zjhState.bet * 2;   // 赢走自己下的 + 庄家对等的
-      var mineEv = zjhEval(zjhState.cards);
-      settle('炸金花·庄弃牌', zjhState.bet, payout, 'zjhMsg',
-        '庄家弃牌！你赢下底池（你的牌：' + ZJH_TYPE[mineEv.type] + '）', '', 2);
-      zjhState.bet = 0; zjhState.playing = false;
-      setTimeout(zjhNewHand, 1600);
+    zjhState.myIn += need; zjhState.pot += need;
+
+    // 对手依次行动
+    var aliveCount = 0;
+    for (var i = 0; i < zjhState.opps.length; i++) {
+      var o = zjhState.opps[i];
+      if (o.folded) continue;
+      var act = zjhOppAct(o);
+      if (act === 'fold') { o.folded = true; continue; }
+      var put = Math.floor(zjhState.baseBet * Math.pow(1.5, zjhState.round - 1) * (act === 'raise' ? 2 : 1));
+      zjhState.pot += put;
+      aliveCount++;
+    }
+    zjhRenderTable();
+
+    if (aliveCount === 0) {
+      // 全跑光，你直接赢
+      var rake = Math.floor(zjhState.pot * ZJH_RAKE);
+      settle('炸金花·全场弃牌', zjhState.myIn, zjhState.pot - rake, 'zjhMsg',
+        '所有对手都弃牌！你赢下底池 ' + fmt(zjhState.pot) + '（抽水 ' + fmt(rake) + '）', '', 2);
+      zjhState.playing = false;
+      zjhState.myIn = 0; zjhState.pot = 0; zjhState.round = 0;
       return;
     }
-    if (dec === 'raise') {
-      var houseNeed = (zjhState.houseSeen ? 0 : 0) + base * 2;
-      if (houseNeed > state.bal + zjhState.bet) {
-        // 庄家加注但你跟不起 → 视作你被逼弃牌提示
-        setMsg('zjhMsg', '庄家加注！跟不起就弃牌', 'bad');
-        return;
-      }
-    }
-    // 开牌比较（多轮拉锯到这里，双方亮牌）
-    var mine = zjhEval(zjhState.cards), theirs = zjhEval(zjhState.house);
-    var cmp = zjhCompare(mine, theirs);
-    var out = 0;
-    var txt = '你：' + ZJH_TYPE[mine.type] + ' vs 庄：' + ZJH_TYPE[theirs.type];
-    if (cmp > 0) out = zjhState.bet * 2;
-    else if (cmp === 0) out = zjhState.bet;
-    $('zjhMine').innerHTML = zjhState.cards.map(function(c){ return cardHTML(c); }).join('');
-    settle('炸金花', zjhState.bet, out, 'zjhMsg',
-      txt + ' —— 你赢！', txt + ' —— 输了', 2);
-    zjhState.bet = 0; zjhState.playing = false;
-    setTimeout(zjhNewHand, 1600);
+
+    if (zjhState.round >= ZJH_MAX_ROUNDS) { zjhShowdown(); return; }
+
+    setMsg('zjhMsg', '第 ' + zjhState.round + ' 轮 · 你投 ' + fmt(zjhState.myIn) +
+      ' · 底池 ' + fmt(zjhState.pot) + ' · 还在局 ' + aliveCount + ' 人<br>继续跟还是弃牌？', '');
   }
 
   /* ============================================================
@@ -2017,6 +2088,7 @@
   $('bcTie').addEventListener('click', function(){ bcPlay('tie'); });
 
   // 炸金花
+  $('zjhDeal').addEventListener('click', zjhNewHand);
   $('zjhLook').addEventListener('click', function(){ zjhPlay('look'); });
   $('zjhFold').addEventListener('click', function(){ zjhPlay('fold'); });
   $('zjhCall').addEventListener('click', function(){ zjhPlay('call'); });
