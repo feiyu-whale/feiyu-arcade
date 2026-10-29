@@ -568,7 +568,7 @@
 
   <div class="foot">🐳 大肥鱼出品 · 模拟而已，不碰真钱<br>看概率的目的，是让你别再送钱<br>
     <span style="color:#5a4252">🔒 本页不存储任何数据、不发送任何网络请求，刷新即清零</span></div>
-  <div class="ver">v1.3.1-劫匪1%致死 20261029</div>
+  <div class="ver">v1.3.2-修刮刮乐点击 20261029</div>
 </div>
 
 <script>
@@ -1688,25 +1688,15 @@
      ============================================================ */
   var SC_SYM = ['🍀','💎','👑','💰'];
   var SC_MULT = { '🍀':5, '💎':10, '👑':20, '💰':50 };
-  var scSymbols = [], scOpened = 0, scBusy = false;
+  var scSymbols = [], scOpened = 0, scBusy = false, scFlipped = [];
+  // 只负责刷新格子外观，不重复绑定事件（事件用委托，绑一次就够）
   function scRender(){
     var h = '';
     for (var i = 0; i < 9; i++) {
-      var opened = i < scOpened;
-      h += '<button data-i="' + i + '" class="' + (opened ? 'open' : '') + '">' + (opened ? scSymbols[i] : '?') + '</button>';
+      var opened = !!scFlipped[i];
+      h += '<button data-i="' + i + '" class="' + (opened ? 'open' : '') + '">' + (opened ? scSymbols[i] : '❓') + '</button>';
     }
     $('scratchGrid').innerHTML = h;
-    var btns = $('scratchGrid').querySelectorAll('button');
-    for (var i = 0; i < btns.length; i++) {
-      btns[i].addEventListener('click', function(){
-        if (scBusy) return;
-        var i = parseInt(this.getAttribute('data-i'), 10);
-        if (i < scOpened) return;
-        scOpened = i + 1;
-        scRender();
-        if (scOpened >= 9) scFinish();
-      });
-    }
   }
   function scFinish(){
     var cnt = {};
@@ -1716,8 +1706,15 @@
     var bet = parseInt($('scratchBet').value, 10) || 30;
     var payout = best > 0 ? bet * best : 0;
     var txt = best > 0 ? ('三个 ' + bestSym + ' 中奖！' + best + '倍') : '没凑齐三个一样的';
-    settle('刮刮乐', bet, payout, 'scratchMsg', txt, txt, 5);
+    // 中奖符号高亮
+    if (best > 0) {
+      var btns = $('scratchGrid').querySelectorAll('button');
+      for (var k = 0; k < btns.length; k++) {
+        if (scSymbols[k] === bestSym) btns[k].classList.add('win');
+      }
+    }
     scBusy = false;
+    settle('刮刮乐', bet, payout, 'scratchMsg', txt, txt, 5);
   }
   function scBuy(){
     if (scBusy) return;
@@ -1726,8 +1723,8 @@
     if (bet > state.bal) { setMsg('scratchMsg', '余额不够了', 'bad'); showReliefIfNeeded(); return; }
     state.bal -= bet; updateWallet();
     scBusy = true;
-    scSymbols = []; scOpened = 0;
-    for (var i = 0; i < 9; i++) scSymbols.push(SC_SYM[rnd(SC_SYM.length)]);
+    scSymbols = []; scOpened = 0; scFlipped = [];
+    for (var i = 0; i < 9; i++) { scSymbols.push(SC_SYM[rnd(SC_SYM.length)]); scFlipped.push(false); }
     $('scratchGrid').innerHTML = '';
     scRender();
     setMsg('scratchMsg', '一格一格点开刮，凑齐三个一样自动结算', '');
@@ -1815,6 +1812,19 @@
 
   // 刮刮乐
   $('scratchBuy').addEventListener('click', scBuy);
+  // 刮刮乐：事件委托（绑一次，避免每次重渲染叠加监听器）
+  $('scratchGrid').addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-i]');
+    if (!btn) return;
+    if (scBusy) return;
+    var i = parseInt(btn.getAttribute('data-i'), 10);
+    if (isNaN(i) || scFlipped[i]) return;   // 已刮开的点不动
+    if (!scBusy) { setMsg('scratchMsg', '先买一张票再刮', 'bad'); return; }
+    scFlipped[i] = true;                     // 只翻开点中的这一格，乱序也行
+    scOpened = scFlipped.filter(Boolean).length;
+    scRender();
+    if (scOpened >= 9) scFinish();
+  });
 
   // 救济金
   $('reliefBtn').addEventListener('click', function(){
