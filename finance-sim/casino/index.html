@@ -211,8 +211,8 @@
     <div class="tax-row"><span>🧾 累计缴税（意外所得 24%）</span><span id="taxPaid">0</span></div>
     <div class="tax-row"><span>💰 本年累计应税盈利</span><span id="yearGain">0</span></div>
     <div class="tax-row"><span>🏛️ 年度所得税清算（联邦累进，多退少补）</span><span id="propTaxPreview">0</span></div>
-      <div class="row" style="margin-top:7px"><button id="yearTaxBtn">📅 年度报税（手动）</button></div>
-    <div class="tax-note">每 100 局自动报税一次。按美国联邦累进税率清算全年盈利，已预扣 24% 可抵，多退少补</div>
+      <div class="row" style="margin-top:7px"><button id="yearTaxBtn">📅 老实报税</button><button id="dodgeTaxBtn">🕵️ 偷税漏税</button></div>
+    <div class="tax-note">每 100 局自动老实报税。按美国联邦累进税率清算全年盈利，已预扣 24% 可抵，多退少补。<br>偷税能省下税款，但被 IRS 查到的代价是补税 + 1.5 倍罚款；逃税超 50 万还有坐牢（强制重开）风险。</div>
   </div>
 
   <div class="heat" id="heat">
@@ -592,7 +592,7 @@
 
   <div class="foot">🐳 大肥鱼出品 · 模拟而已，不碰真钱<br>看概率的目的，是让你别再送钱<br>
     <span style="color:#5a4252">🔒 本页不存储任何数据、不发送任何网络请求，刷新即清零</span></div>
-  <div class="ver">v1.5.1-年度改联邦累进清算 20261029</div>
+  <div class="ver">v1.5.2-加偷税漏税 20261029</div>
 </div>
 
 <script>
@@ -690,6 +690,51 @@
     state.yearGain = 0; state.yearPrepaid = 0;
     updateTaxCard();
     return 0;
+  }
+
+  /* ---------- 偷税漏税：省税但可能被 IRS 查 ---------- */
+  function dodgeTax(){
+    var due = yearTaxDue();
+    // 没有应缴税款就没得偷
+    if (due <= 0) {
+      var paid0 = settleYearTax();
+      showFever(paid0 < 0 ? '🏛️ 你还该退税，不用偷' : '🏛️ 无税可偷');
+      updateWallet();
+      return { dodged: 0, caught: false };
+    }
+    var saved = due;                                  // 本该补缴的金额
+    // 被抓概率按逃税额分层
+    var p;
+    if (saved < 10000)      p = 0.05;
+    else if (saved < 100000) p = 0.15;
+    else if (saved < 1000000) p = 0.35;
+    else                     p = 0.60;
+    var caught = rnd(10000) < p * 10000;
+    if (!caught) {
+      // 逃税成功：不用交，账清零
+      state.yearGain = 0; state.yearPrepaid = 0;
+      addHist('🕵️ 逃税成功·省下 ' + fmt(saved), 0);
+      showFever('🕵️ 逃税成功，省下 ' + fmt(saved));
+      updateWallet();
+      return { dodged: saved, caught: false };
+    }
+    // 被抓：补缴欠税 + 1.5 倍罚款
+    var fine = Math.floor(saved * 1.5);
+    var total = saved + fine;
+    var pay = Math.min(total, Math.max(0, state.bal));
+    state.bal -= pay;
+    state.taxPaid += pay;
+    addHist('🚔 IRS 查处·补税+罚款', -pay);
+    state.yearGain = 0; state.yearPrepaid = 0;
+    updateWallet();
+    showFever('🚔 被 IRS 查到！罚 ' + fmt(pay));
+    // 逃税超 50 万 → 额外 20% 坐牢（强制重开）
+    var jailed = false;
+    if (saved >= 500000 && rnd(100) < 20) {
+      jailed = true;
+      setTimeout(function(){ playerKilled(); }, 800);
+    }
+    return { dodged: saved, caught: true, fine: fine, total: pay, jailed: jailed };
   }
 
   /* ============================================================
@@ -1993,7 +2038,20 @@
     if (scOpened >= 9) scFinish();
   });
 
-  // 年度财产税手动结算
+  // 偷税漏税
+  $('dodgeTaxBtn').addEventListener('click', function(){
+    var r = dodgeTax();
+    if (r.caught) {
+      var msg = '🚔 被 IRS 查到<br>偷逃 ' + fmt(r.dodged) + ' · 罚款 ' + fmt(r.fine) + ' · 共扣 ' + fmt(r.total);
+      if (r.jailed) msg += '<br>💀 逃税金额过大，判了——强制重开';
+      showFever('🚔 被查');
+    } else if (r.dodged > 0) {
+      showFever('🕵️ 逃税成功');
+    }
+    updateWallet();
+  });
+
+  // 年度税老实报税
   $('yearTaxBtn').addEventListener('click', function(){
     var paid = settleYearTax();
     if (paid > 0) { showFever('🏛️ 年度补缴 ' + fmt(paid)); }
