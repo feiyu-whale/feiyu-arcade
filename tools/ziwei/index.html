@@ -117,7 +117,7 @@
   <div id="result"></div>
 
   <div class="hint">紫微斗数由 iztro（MIT）计算 · 传统文化参考 🐳<br>属传统命理文化，非科学结论，仅供娱乐参考</div>
-  <div class="ver">v1.2.0-加格局识别+古籍 20261031</div>
+  <div class="ver">v1.2.1-去GPL依赖重写 20261031</div>
 </div>
 
 <script src="lib/iztro.js"></script>
@@ -152,9 +152,9 @@
     if(py.length<3){ tip.style.display='none'; return; }
     var y=parseInt(py[0],10);
     if(typeof ZW==='undefined'||!ZW.solar){ tip.style.display='none'; return; }
-    if(!ZW.solar.isChinaDSTYear(y)){ tip.style.display='none'; return; }
-    var rg=ZW.solar.chinaDSTRange(y);
-    tip.innerHTML='⚠️ <b>'+y+' 年</b>中国大陆实行过夏令时（'+rg.start+' → '+rg.end+'）。'
+    if(!ZW.solar.hadDST(y)){ tip.style.display='none'; return; }
+    var rg=ZW.solar.dstRange(y);
+    tip.innerHTML='⚠️ <b>'+y+' 年</b>中国大陆实行过夏令时（'+(rg.startMonth+' 月 '+rg.startDay+' 日')+' → '+(rg.endMonth+' 月 '+rg.endDay+' 日')+'）。'
       +'若出生在此时段，钟表读数比标准时间<b>快 1 小时</b>。'
       +'时辰是 2 小时一档，<b>落在边界会整个换盘</b>。本工具不自动扣减——请自行确认为准。';
     tip.style.display='';
@@ -184,14 +184,14 @@
         repHour=parseInt(cp[0],10); repMin=parseInt(cp[1]||'0',10);
       }
       var lng = lngRaw?parseFloat(lngRaw):undefined;
-      var r=ZW.solar.calculateTrueSolarTime({
+      var r=ZW.solar.trueSolarTime({
         year:y, month:mo, day:da,
         clockHour:repHour, clockMinute:repMin,
         longitude:(typeof lng==='number'&&isFinite(lng))?lng:undefined
       });
-      if(r.corrected||lngRaw){
+      if(r.applied||lngRaw){
         // 真太阳日偏移 → 调整日期
-        var off=ZW.solar.resolveZiweiDayOffset(r,'next-day');
+        var off=ZW.solar.chartDayShift(r,'next-day');
         if(off!==0){
           var nd=new Date(Date.UTC(y,mo-1,da+off));
           useDate=nd.getUTCFullYear()+'-'+pad2(nd.getUTCMonth()+1)+'-'+pad2(nd.getUTCDate());
@@ -222,7 +222,7 @@
           if(p.name==='命宫') mingIdx=BR.indexOf(p.earthlyBranch);
           if(p.name==='身宫') shenIdx=BR.indexOf(p.earthlyBranch);
         });
-        chartForPatterns={mingGongBranch:mingIdx,shenGongBranch:shenIdx,palaces:pal};
+        chartForPatterns={mingBranch:mingIdx,shenBranch:shenIdx,palaces:pal};
       }
     }catch(e){ console.warn('格局转换失败',e); }
 
@@ -233,13 +233,13 @@
       var brs=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
       h+='<div class="card"><h3>真太阳时校正</h3>';
       h+='<div class="info-row"><span class="k">经度修正</span><span class="v">'
-        +(sr.longitudeCorrectionMinutes>=0?'+':'')+sr.longitudeCorrectionMinutes.toFixed(2)+' 分钟</span></div>';
+        +(sr.longitudeDelta>=0?'+':'')+sr.longitudeDelta.toFixed(2)+' 分钟</span></div>';
       h+='<div class="info-row"><span class="k">均时差</span><span class="v">'
-        +(sr.equationOfTimeMinutes>=0?'+':'')+sr.equationOfTimeMinutes.toFixed(2)+' 分钟</span></div>';
+        +(sr.equationOffset>=0?'+':'')+sr.equationOffset.toFixed(2)+' 分钟</span></div>';
       h+='<div class="info-row"><span class="k">合计校正</span><span class="v"><b>'
-        +(sr.totalCorrectionMinutes>=0?'+':'')+sr.totalCorrectionMinutes.toFixed(1)+' 分钟</b></span></div>';
+        +(sr.totalDelta>=0?'+':'')+sr.totalDelta.toFixed(1)+' 分钟</b></span></div>';
       h+='<div class="info-row"><span class="k">真太阳时</span><span class="v">'
-        +ZW.solar.formatTrueSolarClock(sr,true)+'（'+brs[useHour]+'时）</span></div>';
+        +ZW.solar.formatClock(sr,true)+'（'+brs[useHour]+'时）</span></div>';
       if(solarInfo.off!==0){
         h+='<div class="info-row"><span class="k">跨日偏移</span><span class="v">'
           +(solarInfo.off>0?'+':'')+solarInfo.off+' 天 → 排盘日 '+useDate+'</span></div>';
@@ -261,19 +261,19 @@
     // 格局识别
     if(chartForPatterns){
       try{
-        var pats=ZW.patterns.detectPatterns(chartForPatterns);
+        var pats=ZW.patterns.detect(chartForPatterns);
         if(pats.length){
-          var LV={'excellent':['#f0c860','上格'],'good':['#7fe3ff','吉格'],
-                  'neutral':['#93aecb','中格'],'caution':['#e06868','慎格']};
+          var LV={'top':['#f0c860','上格'],'fair':['#7fe3ff','中格'],
+                  'aid':['#7fe3a0','助力'],'warn':['#e06868','恶格']};
           h+='<div class="card"><h3>格局识别 · 共 '+pats.length+' 项</h3>';
           pats.forEach(function(pt){
-            var lv=LV[pt.level]||LV.neutral;
+            var lv=LV[pt.tier]||LV.neutral;
             h+='<div class="pat">'
               +'<div class="pat-h"><b style="color:'+lv[0]+'">'+pt.name+'</b>'
               +'<span class="pat-tag" style="border-color:'+lv[0]+';color:'+lv[0]+'">'+lv[1]+'</span></div>'
-              +'<div class="pat-d">'+pt.description+'</div>'
-              +(pt.palaces&&pt.palaces.length?'<div class="pat-p">涉及宫位：'+pt.palaces.join('、')+'</div>':'')
-              +(pt.source?'<div class="pat-s">出处：'+pt.source+'</div>':'')
+              +'<div class="pat-d">'+pt.text+'</div>'
+              +(pt.where&&pt.where.length?'<div class="pat-p">涉及宫位：'+pt.where.join('、')+'</div>':'')
+              +(pt.cite?'<div class="pat-s">出处：'+pt.cite+'</div>':'')
               +'</div>';
           });
           h+='<p class="note">格局为古籍体系的组合判读，非绝对论断，仅供参照。</p></div>';
