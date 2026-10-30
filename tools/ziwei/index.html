@@ -66,6 +66,17 @@
   .hint { text-align:center; color:#5a4a30; font-size:11px; margin-top:10px; line-height:1.7; }
   .ver { text-align:center; color:#3a2e1e; font-size:10px; margin-top:8px; }
   .err { color:#ff8fa3; text-align:center; font-size:14px; padding:10px; }
+.dsttip{margin-top:10px;padding:9px 12px;font-size:12px;line-height:1.7;
+  background:rgba(210,150,40,.12);border:1px solid rgba(230,170,60,.45);
+  border-radius:3px;color:#e0b060}
+.dsttip b{color:#f0c070}
+.pat{padding:10px 0;border-bottom:1px solid rgba(60,90,120,.25)}
+.pat:last-of-type{border-bottom:none}
+.pat-h{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.pat-h b{font-size:14px;letter-spacing:1px}
+.pat-tag{font-size:10px;padding:1px 7px;border:1px solid;border-radius:2px;letter-spacing:1px}
+.pat-d{font-size:12px;line-height:1.8;color:#a8bcd0}
+.pat-p,.pat-s{font-size:11px;color:#5d7694;margin-top:4px}
 </style>
 </head>
 <body>
@@ -91,16 +102,27 @@
       <div><span class="lbl">性别</span><select id="gender"><option value="男">男</option><option value="女">女</option></select></div>
       <div><span class="lbl">是否闰月</span><select id="leap"><option value="0">否</option><option value="1">是</option></select></div>
     </div>
+    <div class="line">
+      <div><span class="lbl">出生地经度（选填，填了自动校真太阳时）</span>
+        <input type="number" id="lng" step="0.01" min="-180" max="180" placeholder="如 116.40 = 北京">
+      </div>
+      <div><span class="lbl">精确钟表时间（选填，校时用）</span>
+        <input type="time" id="clk">
+      </div>
+    </div>
+    <div id="dstTip" class="dsttip" style="display:none"></div>
     <button class="go" id="calc">排 盘</button>
   </div>
 
   <div id="result"></div>
 
   <div class="hint">紫微斗数由 iztro（MIT）计算 · 传统文化参考 🐳<br>属传统命理文化，非科学结论，仅供娱乐参考</div>
-  <div class="ver">v1.0.0-紫微斗数 20261015</div>
+  <div class="ver">v1.2.0-加格局识别+古籍 20261031</div>
 </div>
 
 <script src="lib/iztro.js"></script>
+<script src="lib/true-solar-time.js"></script>
+<script src="lib/patterns.js"></script>
 <script>
 (function(){
   'use strict';
@@ -119,6 +141,25 @@
      0,  1,  2,  3
   ];
 
+  function pad2(n){ return (n<10?'0':'')+n; }
+
+  // ── 夏令时提示（选了年份就提前提示，不必等排盘）──
+  function refreshDstTip(){
+    var tip=document.getElementById('dstTip');
+    var dv=document.getElementById('date').value;
+    if(!dv){ tip.style.display='none'; return; }
+    var py=dv.split('-');
+    if(py.length<3){ tip.style.display='none'; return; }
+    var y=parseInt(py[0],10);
+    if(typeof ZW==='undefined'||!ZW.solar){ tip.style.display='none'; return; }
+    if(!ZW.solar.isChinaDSTYear(y)){ tip.style.display='none'; return; }
+    var rg=ZW.solar.chinaDSTRange(y);
+    tip.innerHTML='⚠️ <b>'+y+' 年</b>中国大陆实行过夏令时（'+rg.start+' → '+rg.end+'）。'
+      +'若出生在此时段，钟表读数比标准时间<b>快 1 小时</b>。'
+      +'时辰是 2 小时一档，<b>落在边界会整个换盘</b>。本工具不自动扣减——请自行确认为准。';
+    tip.style.display='';
+  }
+
   function calc(){
     var res=document.getElementById('result');
     var d=document.getElementById('date').value;
@@ -126,18 +167,120 @@
     var hour=parseInt(document.getElementById('hour').value,10);
     var gender=document.getElementById('gender').value;
     var isLeap=document.getElementById('leap').value==='1';
+
+    // ── 真太阳时校正（填了经度或精确时间才做）──
+    var solarInfo=null;
+    var lngRaw=document.getElementById('lng').value;
+    var clkRaw=document.getElementById('clk').value;
+    var useDate=d, useHour=hour;
+    if(typeof ZW!=='undefined'&&ZW.solar&&(lngRaw||clkRaw)){
+      var py=d.split('-');
+      var y=parseInt(py[0],10), mo=parseInt(py[1],10), da=parseInt(py[2],10);
+      // 时辰 → 代表钟点：子时取 0 点（23-01 中间），其余取时辰起点+1小时
+      var repHour = (hour===0)?0:(hour*2);
+      var repMin = 0;
+      if(clkRaw){
+        var cp=clkRaw.split(':');
+        repHour=parseInt(cp[0],10); repMin=parseInt(cp[1]||'0',10);
+      }
+      var lng = lngRaw?parseFloat(lngRaw):undefined;
+      var r=ZW.solar.calculateTrueSolarTime({
+        year:y, month:mo, day:da,
+        clockHour:repHour, clockMinute:repMin,
+        longitude:(typeof lng==='number'&&isFinite(lng))?lng:undefined
+      });
+      if(r.corrected||lngRaw){
+        // 真太阳日偏移 → 调整日期
+        var off=ZW.solar.resolveZiweiDayOffset(r,'next-day');
+        if(off!==0){
+          var nd=new Date(Date.UTC(y,mo-1,da+off));
+          useDate=nd.getUTCFullYear()+'-'+pad2(nd.getUTCMonth()+1)+'-'+pad2(nd.getUTCDate());
+        }
+        useHour=r.branch;
+        solarInfo={ r:r, off:off, useDate:useDate, useHour:useHour, fromClock:!!clkRaw };
+      }
+    }
+
     var a;
     try{
-      a=iztro.astro.bySolar(d, hour, gender, true, 'zh-CN');
+      a=iztro.astro.bySolar(useDate, useHour, gender, true, 'zh-CN');
     }catch(e){ res.innerHTML='<div class="err">排盘失败：'+(e.message||e)+'</div>'; return; }
 
+    // ── 把 iztro 盘转成格局识别所需结构 ──
+    var chartForPatterns = null;
+    try{
+      if(typeof ZW!=='undefined' && ZW.patterns && a && a.palaces){
+        var BR=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+        var pal = a.palaces.map(function(p){
+          var stars=(p.majorStars||[]).map(function(x){return {name:x.name,type:'major',siHua:x.mutagen};})
+            .concat((p.minorStars||[]).map(function(x){return {name:x.name,type:'minor',siHua:x.mutagen};}))
+            .concat((p.adjectiveStars||[]).map(function(x){return {name:x.name,type:'lucky'};}));
+          return {branch: BR.indexOf(p.earthlyBranch), name: p.name, stars: stars};
+        });
+        var mingIdx=0,shenIdx=0;
+        a.palaces.forEach(function(p,i){
+          if(p.name==='命宫') mingIdx=BR.indexOf(p.earthlyBranch);
+          if(p.name==='身宫') shenIdx=BR.indexOf(p.earthlyBranch);
+        });
+        chartForPatterns={mingGongBranch:mingIdx,shenGongBranch:shenIdx,palaces:pal};
+      }
+    }catch(e){ console.warn('格局转换失败',e); }
+
     var h='';
+    // 真太阳时校正说明
+    if(solarInfo){
+      var sr=solarInfo.r;
+      var brs=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+      h+='<div class="card"><h3>真太阳时校正</h3>';
+      h+='<div class="info-row"><span class="k">经度修正</span><span class="v">'
+        +(sr.longitudeCorrectionMinutes>=0?'+':'')+sr.longitudeCorrectionMinutes.toFixed(2)+' 分钟</span></div>';
+      h+='<div class="info-row"><span class="k">均时差</span><span class="v">'
+        +(sr.equationOfTimeMinutes>=0?'+':'')+sr.equationOfTimeMinutes.toFixed(2)+' 分钟</span></div>';
+      h+='<div class="info-row"><span class="k">合计校正</span><span class="v"><b>'
+        +(sr.totalCorrectionMinutes>=0?'+':'')+sr.totalCorrectionMinutes.toFixed(1)+' 分钟</b></span></div>';
+      h+='<div class="info-row"><span class="k">真太阳时</span><span class="v">'
+        +ZW.solar.formatTrueSolarClock(sr,true)+'（'+brs[useHour]+'时）</span></div>';
+      if(solarInfo.off!==0){
+        h+='<div class="info-row"><span class="k">跨日偏移</span><span class="v">'
+          +(solarInfo.off>0?'+':'')+solarInfo.off+' 天 → 排盘日 '+useDate+'</span></div>';
+      }
+      h+='<div class="info-row"><span class="k">实际排盘</span><span class="v">'+useDate
+        +' '+brs[useHour]+'时</span></div>';
+      h+='<p class="note">按出生地经度与均时差换算，时辰以真太阳时为准。</p>';
+      h+='</div>';
+    }
+
     // 基本信息
     h+='<div class="card"><h3>基本信息</h3>';
     h+='<div class="info-row"><span class="k">阳历</span><span class="v">'+a.solarDate+'</span></div>';
     h+='<div class="info-row"><span class="k">农历</span><span class="v">'+a.lunarDate+'</span></div>';
     h+='<div class="info-row"><span class="k">八字</span><span class="v">'+a.chineseDate+'</span></div>';
     h+='<div class="info-row"><span class="k">五行局</span><span class="v">'+a.fiveElementsClass+'</span></div>';
+    h+='</div>';
+
+    // 格局识别
+    if(chartForPatterns){
+      try{
+        var pats=ZW.patterns.detectPatterns(chartForPatterns);
+        if(pats.length){
+          var LV={'excellent':['#f0c860','上格'],'good':['#7fe3ff','吉格'],
+                  'neutral':['#93aecb','中格'],'caution':['#e06868','慎格']};
+          h+='<div class="card"><h3>格局识别 · 共 '+pats.length+' 项</h3>';
+          pats.forEach(function(pt){
+            var lv=LV[pt.level]||LV.neutral;
+            h+='<div class="pat">'
+              +'<div class="pat-h"><b style="color:'+lv[0]+'">'+pt.name+'</b>'
+              +'<span class="pat-tag" style="border-color:'+lv[0]+';color:'+lv[0]+'">'+lv[1]+'</span></div>'
+              +'<div class="pat-d">'+pt.description+'</div>'
+              +(pt.palaces&&pt.palaces.length?'<div class="pat-p">涉及宫位：'+pt.palaces.join('、')+'</div>':'')
+              +(pt.source?'<div class="pat-s">出处：'+pt.source+'</div>':'')
+              +'</div>';
+          });
+          h+='<p class="note">格局为古籍体系的组合判读，非绝对论断，仅供参照。</p></div>';
+        }
+      }catch(e){ console.warn('格局识别失败',e); }
+    }
+    h+='<div class="card" style="display:none">';
     h+='<div class="info-row"><span class="k">命主</span><span class="v">'+a.soul+'</span></div>';
     h+='<div class="info-row"><span class="k">身主</span><span class="v">'+a.body+'</span></div>';
     h+='<div class="info-row"><span class="k">生肖 / 星座</span><span class="v">'+a.zodiac+' / '+a.sign+'</span></div>';
@@ -206,9 +349,11 @@
   }
 
   document.getElementById('calc').addEventListener('click',calc);
+  document.getElementById('date').addEventListener('change',refreshDstTip);
   // 默认今天
   var now=new Date(), pad=function(n){return String(n).padStart(2,'0');};
   document.getElementById('date').value=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+  refreshDstTip();
   calc();
 })();
 </script>
