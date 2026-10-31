@@ -152,6 +152,10 @@ function render() {
   if (typeof renderPricePanel === 'function') { try { renderPricePanel(); } catch (e) { } }
   // v3.4.0 新品研发面板
   if (typeof renderResearchPanel === 'function') { try { renderResearchPanel(); } catch (e) { } }
+  // v3.5.0 厨师面板
+  if (typeof renderChefPanel === 'function') { try { renderChefPanel(); } catch (e) { } }
+  // v3.5.1 推广面板
+  if (typeof renderPromoPanel === 'function') { try { renderPromoPanel(); } catch (e) { } }
 }
 
 /* ═══ v3.3.0 结局三·卖掉公司养老 ═══ */
@@ -1450,6 +1454,22 @@ function applyPrice() {
   if (!inp) return;
   const v = parseFloat(inp.value);
   if (!isFinite(v) || v <= 0) { alert('请填一个大于 0 的价格'); return; }
+
+  // v3.6.0 加盟店：改价要过总部
+  const ap = needHQApprove('price', v);
+  if (!ap.passed) {
+    const choice = confirm(ap.msg + '\n\n要不要硬着头皮私自改价？（可能被查到罚款）');
+    if (!choice) return;
+    G.customPrice = v;
+    render();
+    renderPricePanel();
+    const pen = applyHQPenalty('price');
+    if (pen) alert(pen);
+    render();
+    return;
+  }
+  if (ap.msg) alert(ap.msg);
+
   G.customPrice = v;
   render();
   renderPricePanel();
@@ -1477,16 +1497,21 @@ function renderResearchPanel() {
   let h = '<div class="panel" style="background:#0e1620;border:1px solid #2a4055;border-radius:10px;padding:12px;margin:10px 0">';
   h += '<div style="font-size:12px;color:#90c0e0;font-weight:700;margin-bottom:8px">🍳 新品研发</div>';
 
-  // 已研发的招牌菜
+  // 已研发的菜品（v3.4.1：不告诉好坏，玩家自己上架判断）
   const dishes = G.dishes || [];
   if (dishes.length) {
-    h += '<div style="font-size:10px;color:#7a94ac;margin-bottom:6px">已有招牌菜：</div>';
-    dishes.forEach(function (d) {
-      h += '<div style="font-size:10px;color:#7fe0a8;line-height:1.8">· ' + d.name +
-           '（' + d.lvl + ' 级）营收 +' + (d.revBonus * 100).toFixed(0) + '%</div>';
+    h += '<div style="font-size:10px;color:#7a94ac;margin-bottom:6px">研发成果（自己看着办，上不上架你定）：</div>';
+    dishes.forEach(function (d, i) {
+      const on = d.onMenu;
+      const sold = d.soldMonths || 0;
+      h += '<div style="font-size:10px;line-height:1.9;color:' + (on ? '#7fe0a8' : '#7a94ac') + '">';
+      h += (on ? '🍽️ ' : '📦 ') + d.name + '（' + d.lvl + ' 级）';
+      if (sold > 0) h += ' · 已卖 ' + sold + ' 个月';
+      h += ' <button class="tbtn" onclick="toggleDish(' + i + ')" style="padding:3px 9px;font-size:9px">' + (on ? '下架' : '上架') + '</button>';
+      h += '</div>';
     });
     const total = (typeof dishRevBonus === 'function') ? dishRevBonus() : 0;
-    h += '<div style="font-size:10px;color:#a0c0d8;margin:4px 0 8px">合计加成 +' + (total * 100).toFixed(0) + '%</div>';
+    h += '<div style="font-size:10px;color:' + (total >= 0 ? '#a0c0d8' : '#e07070') + ';margin:4px 0 8px">上架菜品合计影响 ' + (total >= 0 ? '+' : '') + (total * 100).toFixed(0) + '%</div>';
   }
 
   // 研发中
@@ -1499,17 +1524,24 @@ function renderResearchPanel() {
     });
   }
 
-  // 发起研发
-  h += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">';
-  h += '<select id="resLvl" style="padding:7px 8px;background:#0a1218;border:1px solid #2a4055;border-radius:7px;color:#a0c0d8;font-size:11px;font-family:inherit">';
-  TASTE_TIERS.forEach(function (t) {
-    h += '<option value="' + t.lvl + '">' + t.lvl + '级 ' + t.name + '（' + (t.cost / 1e4).toFixed(0) + '万起，成率' + (t.baseChance * 100).toFixed(0) + '%）</option>';
+  // 发起研发（双维度：食材 × 品质）
+  h += '<div style="font-size:10px;color:#7a94ac;margin:8px 0 4px">食材档位</div>';
+  h += '<select id="resIng" style="width:100%;padding:7px 8px;background:#0a1218;border:1px solid #2a4055;border-radius:7px;color:#a0c0d8;font-size:11px;font-family:inherit">';
+  INGREDIENT_TIERS.forEach(function (t) {
+    h += '<option value="' + t.id + '">' + t.name + '（' + t.desc + '）</option>';
   });
   h += '</select>';
-  h += '<input id="resBudget" type="number" min="1" placeholder="预算(万)" style="width:90px;padding:7px 9px;background:#0a1218;border:1px solid #2a4055;border-radius:7px;color:#c8d8e8;font-size:11px;font-family:inherit">';
+  h += '<div style="font-size:10px;color:#7a94ac;margin:8px 0 4px">品质等级（与食材无关——番茄炒蛋也能做到传世）</div>';
+  h += '<select id="resQ" style="width:100%;padding:7px 8px;background:#0a1218;border:1px solid #2a4055;border-radius:7px;color:#a0c0d8;font-size:11px;font-family:inherit">';
+  QUALITY_TIERS.forEach(function (t) {
+    h += '<option value="' + t.lvl + '">' + t.lvl + '级 ' + t.name + '（成率' + (t.baseChance * 100).toFixed(1) + '%，加成+' + (t.revBonus * 100).toFixed(0) + '%）</option>';
+  });
+  h += '</select>';
+  h += '<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">';
+  h += '<input id="resBudget" type="number" min="1" placeholder="预算(万，可空)" style="width:110px;padding:7px 9px;background:#0a1218;border:1px solid #2a4055;border-radius:7px;color:#c8d8e8;font-size:11px;font-family:inherit">';
   h += '<button class="tbtn" onclick="doStartResearch()" style="padding:7px 14px">开始研发</button>';
   h += '</div>';
-  h += '<div style="font-size:9px;color:#5a7a90;margin-top:6px;line-height:1.7">多投钱能提高成功率（边际递减）｜同时最多研发 2 道｜研发期间团队分心，当月营收略降</div>';
+  h += '<div style="font-size:9px;color:#5a7a90;margin-top:6px;line-height:1.7">高端食材容错率高（好料不易做砸）｜小店灵感多、大店标准化｜同时最多 2 道｜研发期团队分心，当月营收略降</div>';
 
   h += '</div>';
   el.innerHTML = h;
@@ -1517,13 +1549,150 @@ function renderResearchPanel() {
 
 function doStartResearch() {
   if (typeof startResearch !== 'function') return;
-  const lvlEl = $('resLvl'), budEl = $('resBudget');
-  if (!lvlEl) return;
-  const lvl = parseInt(lvlEl.value, 10) || 1;
+  const ingEl = $('resIng'), qEl = $('resQ'), budEl = $('resBudget');
+  if (!ingEl || !qEl) return;
+  const ingId = ingEl.value;
+  const qLvl = parseInt(qEl.value, 10) || 1;
   const budgetWan = parseFloat(budEl && budEl.value);
   const budget = (isFinite(budgetWan) && budgetWan > 0) ? budgetWan * 1e4 : 0;
-  const r = startResearch(lvl, budget);
+  // v3.6.0 加盟店：上新要总部批
+  const ap = needHQApprove('dish');
+  if (!ap.passed) {
+    const choice = confirm(ap.msg + '\n\n要不要自己偷偷上？（被查到可能被责令下架）');
+    if (!choice) return;
+    const r2 = startResearch(ingId, qLvl, budget);
+    alert(r2.msg);
+    const pen = applyHQPenalty('dish');
+    if (pen) alert(pen);
+    render();
+    return;
+  }
+  if (ap.msg) alert(ap.msg);
+
+  const r = startResearch(ingId, qLvl, budget);
   alert(r.msg);
   render();
   renderResearchPanel();
+}
+
+function toggleDish(i) {
+  if (typeof toggleDishOnMenu !== 'function') return;
+  const r = toggleDishOnMenu(i);
+  if (r && r.msg) alert(r.msg);
+  render();
+}
+
+/* ═══ v3.5.0 厨师面板 ═══ */
+function renderChefPanel() {
+  const el = $('chefPanel');
+  if (!el || typeof CHEF_LEVELS === 'undefined') return;
+  if (typeof ensureChef !== 'function') return;
+  const c = ensureChef();
+
+  let h = '<div class="panel" style="background:#0e1620;border:1px solid #2a4055;border-radius:10px;padding:12px;margin:10px 0">';
+  h += '<div style="font-size:12px;color:#90c0e0;font-weight:700;margin-bottom:8px">👨‍🍳 主厨</div>';
+  h += '<div style="font-size:11px;color:#a0c0d8;line-height:1.9">';
+  h += '等级 <b style="color:#7fe0a8">' + c.lvl + ' 级 · ' + c.name + '</b>';
+  h += ' ｜ 月薪 <b>' + (c.wage / 1e4).toFixed(1) + ' 万</b>';
+  h += ' ｜ 手艺系数 <b style="color:#e0c080">×' + c.skill.toFixed(2) + '</b>';
+  h += '<br><span style="font-size:10px;color:#6a8aaa">' + (CHEF_LEVELS.find(x => x.lvl === c.lvl) || {}).desc + '</span>';
+  h += '</div>';
+
+  // 忠诚度只给模糊描述，不给数字
+  let loyTxt = '不太好', loyColor = '#e07070';
+  if (c.loyalty >= 75) { loyTxt = '很踏实'; loyColor = '#70c070'; }
+  else if (c.loyalty >= 55) { loyTxt = '还算稳'; loyColor = '#a0c080'; }
+  else if (c.loyalty >= 40) { loyTxt = '有点飘'; loyColor = '#e0c060'; }
+  h += '<div style="font-size:10px;color:#7a94ac;margin-top:6px">状态：<b style="color:' + loyColor + '">' + loyTxt + '</b>';
+  h += ' ｜ 跟了你 ' + c.seasons + ' 个月</div>';
+
+  if (c.lvl < 5) {
+    const next = CHEF_LEVELS.find(x => x.lvl === c.lvl + 1);
+    const cost = next.wage * 12;
+    h += '<button class="tbtn" onclick="doTrainChef()" style="margin-top:8px;padding:7px 14px;font-size:11px">送培训升「' + next.name + '」（' + (cost / 1e4).toFixed(0) + ' 万）</button>';
+  }
+  h += '</div>';
+  el.innerHTML = h;
+}
+
+function doTrainChef() {
+  if (typeof trainChef !== 'function') return;
+  const r = trainChef();
+  alert(r.msg);
+  render();
+}
+
+/* ═══ v3.5.1 推广面板 ═══ */
+function renderPromoPanel() {
+  const el = $('promoPanel');
+  if (!el || typeof PROMO_TIERS === 'undefined') return;
+  const power = (typeof currentPromoPower === 'function') ? currentPromoPower() : 1.0;
+  const active = (G.promos || []).filter(p => p.left > 0);
+
+  let h = '<div class="panel" style="background:#0e1620;border:1px solid #2a4055;border-radius:10px;padding:12px;margin:10px 0">';
+  h += '<div style="font-size:12px;color:#90c0e0;font-weight:700;margin-bottom:8px">📣 推广</div>';
+  h += '<div style="font-size:11px;color:#a0c0d8;line-height:1.9">当前推广力 <b style="color:' +
+       (power >= 2 ? '#7fe0a8' : power >= 1.3 ? '#e0c080' : '#8aa8c0') + '">×' + power.toFixed(2) + '</b>';
+  h += '<span style="font-size:10px;color:#6a8aaa">（决定网红爆款的开发成功率）</span></div>';
+
+  if (active.length) {
+    h += '<div style="font-size:10px;color:#c0a070;margin-top:6px">进行中：';
+    active.forEach(p => { h += '· ' + p.name + '（还剩 ' + p.left + ' 月）'; });
+    h += '</div>';
+  }
+
+  h += '<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">';
+  h += '<select id="promoTier" style="flex:1;min-width:150px;padding:7px 8px;background:#0a1218;border:1px solid #2a4055;border-radius:7px;color:#a0c0d8;font-size:11px;font-family:inherit">';
+  PROMO_TIERS.forEach(t => {
+    h += '<option value="' + t.id + '">' + t.name + '（' + (t.minCost / 1e4).toFixed(1) + '~' + (t.maxCost / 1e4).toFixed(0) + ' 万）</option>';
+  });
+  h += '</select>';
+  h += '<input id="promoBudget" type="number" min="0.1" step="0.1" placeholder="预算(万)" style="width:100px;padding:7px 9px;background:#0a1218;border:1px solid #2a4055;border-radius:7px;color:#c8d8e8;font-size:11px;font-family:inherit">';
+  h += '<button class="tbtn" onclick="doStartPromo()" style="padding:7px 14px">投放</button>';
+  h += '</div>';
+  h += '<div style="font-size:9px;color:#5a7a90;margin-top:6px;line-height:1.7">一次性投放，不月月扣｜效果随时间衰减｜有翻车风险（钱花了没水花）</div>';
+  h += '</div>';
+  el.innerHTML = h;
+}
+
+function doStartPromo() {
+  if (typeof startPromo !== 'function') return;
+  const tEl = $('promoTier'), bEl = $('promoBudget');
+  if (!tEl) return;
+  const budgetWan = parseFloat(bEl && bEl.value);
+  const budget = (isFinite(budgetWan) && budgetWan > 0) ? budgetWan * 1e4 : 0;
+  // v3.6.0 加盟店：推广要报批
+  const ap = needHQApprove('promo');
+  if (!ap.passed) {
+    const choice = confirm(ap.msg + '\n\n要不要私下投放？（可能被总部查到）');
+    if (!choice) return;
+    const r2 = startPromo(tEl.value, budget);
+    alert(r2.msg);
+    const pen = applyHQPenalty('promo');
+    if (pen) alert(pen);
+    render();
+    return;
+  }
+  if (ap.msg) alert(ap.msg);
+
+  const r = startPromo(tEl.value, budget);
+  alert(r.msg);
+  render();
+}
+
+/* ═══ v3.6.0 报批封装：加盟状态下要过总部 ═══ */
+function needHQApprove(actionType, detail) {
+  if (typeof hqApprove !== 'function' || typeof isFranchised !== 'function') return { passed: true, msg: '' };
+  if (!isFranchised()) return { passed: true, msg: '' };
+  const r = hqApprove(actionType, detail);
+  return r;
+}
+
+/* 违规处罚执行（私下做了没报批的事） */
+function applyHQPenalty(actionType) {
+  if (typeof hqPenalty !== 'function' || typeof isFranchised !== 'function') return null;
+  if (!isFranchised()) return null;
+  const p = hqPenalty(actionType, G.revenueLast || 0);
+  if (p && p.caught) return p.text;
+  return null;
 }

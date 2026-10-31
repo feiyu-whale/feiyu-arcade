@@ -247,6 +247,11 @@ function settleMonthDirect() {
   const priceCfg = (typeof grouponEffect === 'function') ? grouponEffect(G) : { revMult: 1, unitCost: 0, price: 0 };
   const grouponRevMult = priceCfg.revMult;
 
+  // ═══ v3.5.2 推广带来的日常客流（跟手艺路线叠加，不替代）═══
+  const promoTraffic = (typeof currentPromoPower === 'function')
+    ? (1 + (currentPromoPower() - 1) * 0.25)   // 推广力2.8 → 客流 +45%
+    : 1.0;
+
   // ═══ v3.4.0 招牌菜加成 + 研发分心 ═══
   const dishBonus = (typeof dishRevBonus === 'function') ? (1 + dishRevBonus()) : 1.0;
   const researchPenalty = (typeof researchDistraction === 'function') ? researchDistraction() : 1.0;
@@ -255,7 +260,7 @@ function settleMonthDirect() {
   const rev = Math.max(0,
     baseRev * repFactor * morFactor * seasonFactor * rand * revMod *
     externalFactor * illegalBoost * brandMult * selftoBrandFactor * chayinCity * grouponRevMult *
-    dishBonus * researchPenalty);
+    dishBonus * researchPenalty * promoTraffic);
   G.revenueLast = rev;
   G.revenueLast = rev;
   if (grouponRevMult > 1.01) {
@@ -839,6 +844,37 @@ function settleMonthDirect() {
   if (typeof tickResearch === 'function') {
     const revents = tickResearch();
     revents.forEach(e => log.events.push(e));
+  }
+  // v3.4.1 上架菜的月度反馈（逐步暴露好坏）
+  if (typeof menuFeedback === 'function') {
+    const fb = menuFeedback();
+    if (fb) log.events.push(fb);
+  }
+  // ═══ v3.5.1 推广衰减 ═══
+  if (typeof tickPromo === 'function') { tickPromo(); }
+  // ═══ v3.5.2 推广反噬：夸过头东西跟不上 ═══
+  if (typeof promoBacklashCheck === 'function') {
+    const pb = promoBacklashCheck();
+    if (pb) log.events.push(pb);
+  }
+  // ═══ v3.6.0 加盟总部：野鸡品牌跑路检查 ═══
+  if (typeof hqRunawayCheck === 'function') {
+    const ra = hqRunawayCheck();
+    if (ra) log.events.push(ra);
+  }
+
+  // ═══ v3.5.0 厨师系统：跳槽 / 涨薪 ═══
+  if (typeof ensureChef === 'function') {
+    const chef = ensureChef();
+    // 厨师工资计入人工成本（单独列一项，方便玩家看见）
+    if (chef && chef.wage > 0) {
+      G.cash -= chef.wage;
+      log.items.push(['主厨工资', chef.wage, 'out']);
+    }
+    if (typeof chefPoachCheck === 'function') {
+      const cp = chefPoachCheck();
+      if (cp) log.events.push(cp);
+    }
   }
 
   expireMods();
