@@ -75,7 +75,7 @@
   <div id="tracks"></div>
   <div id="picker" style="display:none"></div>
 </div>
-<div id="ver">v1.3.0-WebGPU与多线程加速 20261101</div>
+<div id="ver">v1.3.1-修白屏回退单线程 20261101</div>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.all.min.js"></script>
 <script type="module">
@@ -191,14 +191,13 @@ async function loadModel() {
   const cores = navigator.hardwareConcurrency || 2;
 
   // WASM 多线程：必须同时有 SharedArrayBuffer（靠服务端 COOP/COEP 头）+ 多核
-  ort.env.wasm.numThreads = hasSAB ? Math.min(8, Math.max(1, cores)) : 1;
+  // ⚠️ 2026-11-01：临时关掉线程与 proxy —— 实测开全后编译完白屏，先回退保卒
+  ort.env.wasm.numThreads = 1;
   ort.env.wasm.simd = true;
-  // 多线程时打开 proxy，避免主线程被占死（页面能继续响应）
-  ort.env.wasm.proxy = hasSAB && ort.env.wasm.numThreads > 1;
+  // proxy 不开：开了会把推理甩进 worker，出错时页面拿不到控制台报错，只看到白屏
+  ort.env.wasm.proxy = false;
 
-  const modeDesc = hasGPU
-    ? `WebGPU${hasSAB ? ` + WASM ${ort.env.wasm.numThreads} 线程备选` : ''}`
-    : (hasSAB ? `WASM ${ort.env.wasm.numThreads} 线程（无 GPU 加速）` : 'WASM 单线程（无 GPU 也无跨源隔离，最慢）');
+  const modeDesc = hasGPU ? 'WebGPU 优先' : 'WASM 单线程';
 
   const blob = await fetchModelBytes();
   const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -225,7 +224,7 @@ async function loadModel() {
       executionProviders: ['wasm'],
       graphOptimizationLevel: 'all',
     });
-    backend = hasSAB ? `WASM ×${ort.env.wasm.numThreads}` : 'WASM 单线程';
+    backend = 'WASM 单线程';
   }
 
   stopTimer();
