@@ -51,21 +51,25 @@
 
   <div id="drop">
     <div class="big">拖一首歌进来，或者点这里选择文件</div>
-    <div class="small">支持 mp3 / wav / flac / ogg / m4a（浏览器能解的都行）</div>
-    <input type="file" id="file" accept="audio/*" hidden>
+    <div class="small">音频：mp3 / wav / flac / ogg / m4a / aac / opus…<br>
+      压缩包：zip / tar / tar.gz / tgz（自动解开，自己挑里面的音频）</div>
+    <input type="file" id="file"
+           accept="audio/*,video/*,.zip,.tar,.gz,.tgz,.mp3,.wav,.flac,.ogg,.m4a,.aac,.opus" hidden>
   </div>
 
   <div class="bar"><i id="bar"></i></div>
   <div id="status">等待中…</div>
 
   <div id="tracks"></div>
+  <div id="picker" style="display:none"></div>
 </div>
-<div id="ver">v1.0.0-浏览器端分离 20261101</div>
+<div id="ver">v1.1.0-压缩包自动解压 20261101</div>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.all.min.js"></script>
 <script type="module">
 import { decodeToStereo, separate, SOURCES, CHUNK_SAMPLES } from './pipeline.js';
 import { encodeWav } from './dsp.js';
+import { isArchive, unarchive } from './archive.js';
 
 const MODEL_URL = './model/htdemucs_freq.onnx';
 const MODEL_PARTS = 4;   // 模型超过 GitHub 单文件 100MB 限制，已切成 4 块
@@ -76,6 +80,7 @@ const fileInput = document.getElementById('file');
 const bar = document.getElementById('bar');
 const statusEl = document.getElementById('status');
 const tracksEl = document.getElementById('tracks');
+const pickerEl = document.getElementById('picker');
 
 let session = null;
 
@@ -157,9 +162,38 @@ async function handleFile(file) {
   if (!file) return;
   tracksEl.style.display = 'none';
   tracksEl.innerHTML = '';
+  pickerEl.style.display = 'none';
+  pickerEl.innerHTML = '';
   setBar(0);
 
   try {
+    // ① 压缩包 → 先解开，挑里面的媒体文件
+    if (isArchive(file.name)) {
+      setStatus(`正在解开压缩包 ${file.name} …`);
+      const items = await unarchive(file);
+      if (items.length === 0) throw new Error('压缩包里没有找到音频/视频文件');
+      if (items.length === 1) {
+        setStatus(`压缩包里有 1 个文件，用它：${items[0].name}`);
+        file = new File([items[0].blob], items[0].name, { type: items[0].blob.type });
+      } else {
+        setStatus(`压缩包里有 ${items.length} 个文件，请选一个`);
+        pickerEl.style.display = 'block';
+        pickerEl.innerHTML = '<div style="font-size:13px;color:#7c8ca6;margin-bottom:8px">压缩包里有这些，点一个开始分离：</div>';
+        items.forEach((it) => {
+          const btn = document.createElement('button');
+          btn.textContent = `${it.path}  (${(it.blob.size / 1048576).toFixed(1)} MB)`;
+          btn.style.cssText = 'display:block;width:100%;margin-bottom:6px;background:#1b2b44;color:#dbe7f5;text-align:left';
+          btn.onclick = () => {
+            const f = new File([it.blob], it.name, { type: it.blob.type });
+            handleFile(f);
+          };
+          pickerEl.appendChild(btn);
+        });
+        setBar(0);
+        return;
+      }
+    }
+
     const sess = await loadModel();
 
     setStatus('正在解码音频…');
