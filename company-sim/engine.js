@@ -74,6 +74,9 @@ const G = {
   debtCheck: null,       // 本月抽贷检查结果
   // ═══ v3.0.0 库存 ═══
   stockPolicy: 'normal', // lean / normal / bulk
+  // ═══ v3.3.0 团购定价 ═══
+  priceMode: 'normal',   // cheap / normal / premium / burn
+  customPrice: 0,        // 玩家自己填的团购价（>0 则覆盖档位）
   // ═══ v3.0.0 宏观 ═══
   macroConsumer: 1.0,    // 消费意愿系数（隐藏）
   macroRate: 0.06,       // 资金成本（隐藏）
@@ -207,12 +210,60 @@ function settleMonthDirect() {
   // 封顶 0.55：再糟也保 45% 基本盘（过路客+老客+刚需）
   const externalFactor = 1 - Math.min(0.55, externalDrag);
 
+  // ═══ v3.3.0（2026-10-31 老爹亲定）品牌溢价：加盟大牌子自带客流 ═══
+  // 老爹原话：「大品牌抽了那么多钱，没有一点加成那就不太好了」
+  const brandMult = (typeof brandRevMult === 'function') ? brandRevMult() : 1.0;
+
+  // ═══ v3.3.0（2026-10-31 老爹亲定）自建品牌「熬熟客」成长曲线 ═══
+  //  老爹原话：「自己建的牌子前面一年比较亏，后面一年加成飙到跟大品牌差不多」
+  //  又补：「只有在二三线城市有用，大城市几乎没有（深圳这种尤其少）」
+  //  逻辑：加盟不受影响（天生有牌子）；自建靠熬时间，熬多久值多少看当地熟客绑定强度
+  const selftoBrandFactor = (() => {
+    if (G.franchise) return 1.0;                  // 加盟品牌不适用
+    if (typeof localBondOf !== 'function') return 1.0;
+    const bond = localBondOf(G.cityId);            // 0~1
+    const age = G.month - (G.openMonth || 0);      // 开业至今月数
+    let base;
+    if (age < 12) base = 0.65;                     // 第1年：打响期
+    else if (age < 24) base = 1.00;                // 第2年：口碑起来
+    else base = 1.15;                              // 第3年+：熟客沉淀完成
+    // 用 bond 把「基准 1.0」拉到「实际值」：bond=1 全拿，bond=0 一点没有
+    return 1.0 + (base - 1.0) * bond;
+  })();
+  // 茶饮在低线城市削弱（县城/地级市喝奶茶的少）
+  const chayinCity = (typeof chayinCityPenalty === 'function')
+    ? chayinCityPenalty(G.seg, G.cityId) : 1.0;
+
+  // ═══ v3.3.0（2026-10-31 老爹亲定）团购定价：跌破成本 → 客流暴涨 11 倍 ═══
+  //  老爹原话：「一份成本 80 块的火锅，你给团购价 79 块，客流直接变原来的 11 倍」
+  //  现实参照：社区团购/拼多多烧钱抢客，钱烧完就完
+  //
+  //  单位成本 = （食材+人工+房租+水电+杂费+其他运营+折旧）÷ 预估单量
+  //  价格比 = 团购价 ÷ 单位成本
+  //    ≥1.30     → 客流 ×1.00（正常）
+  //    1.00~1.30 → 线性上扬至 ×2.50
+  //    ≤1.00     → 客流 ×11.00（跌破成本，疯抢）
+  //  但“客流暴涨 ≠ 能接住”：超过接待力上限的部分直接流失 + 磕口碑
+  const priceCfg = (typeof grouponEffect === 'function') ? grouponEffect(G) : { revMult: 1, unitCost: 0, price: 0 };
+  const grouponRevMult = priceCfg.revMult;
+
+  // ═══ v3.4.0 招牌菜加成 + 研发分心 ═══
+  const dishBonus = (typeof dishRevBonus === 'function') ? (1 + dishRevBonus()) : 1.0;
+  const researchPenalty = (typeof researchDistraction === 'function') ? researchDistraction() : 1.0;
+
   // 违法增益单独算（这是自己主动加的，保留乘法）
   const rev = Math.max(0,
     baseRev * repFactor * morFactor * seasonFactor * rand * revMod *
-    externalFactor * illegalBoost);
+    externalFactor * illegalBoost * brandMult * selftoBrandFactor * chayinCity * grouponRevMult *
+    dishBonus * researchPenalty);
   G.revenueLast = rev;
   G.revenueLast = rev;
+  if (grouponRevMult > 1.01) {
+    log.events.push({ type: grouponRevMult >= 10 ? 'bad' : 'info',
+      text: '🎟️ 团购引流：客流 ' + grouponRevMult.toFixed(2) + ' 倍（单价 ' + priceCfg.price.toFixed(0) +
+            ' / 单位成本 ' + priceCfg.unitCost.toFixed(0) + '）' +
+            (grouponRevMult >= 10 ? '——跌破成本，卖多少亏多少' : '') });
+  }
   log.items.push(['营业收入', rev, 'in']);
 
   // ── 2. 成本 ──
@@ -784,6 +835,12 @@ function settleMonthDirect() {
   }
 
 
+  // ═══ v3.4.0 新品研发推进 ═══
+  if (typeof tickResearch === 'function') {
+    const revents = tickResearch();
+    revents.forEach(e => log.events.push(e));
+  }
+
   expireMods();
   G.usedEvents = [];
   log.netProfit = netProfit;
@@ -1274,12 +1331,40 @@ function seasonFactorFor(seg, month) {
   // v3.1.0 修正：month=0 时 ((-1)%12)+1 = 0 → 取到 undefined → NaN 传染全账
   //  改成先加 12 再取模，0 和负数也落在 1~12
   const m = (((month - 1) % 12) + 12) % 12 + 1;
-  if (seg === 'chayin') {
-    // 茶饮夏季旺
-    return [0.85, 0.9, 1.0, 1.1, 1.2, 1.25, 1.25, 1.2, 1.05, 0.95, 0.85, 0.85][m - 1];
-  }
-  const winter = [1.15, 1.2, 1.05, 0.95, 0.9, 0.85, 0.85, 0.9, 1.0, 1.1, 1.15, 1.2];
-  return winter[m - 1];
+  // ═══ v3.3.0（2026-10-31 老爹亲定）：四个行业分开画曲线 ═══
+  //  茶饮：夏高、秋冬也旺、春天最淡（热饮嫌热、冷饮嫌凉）
+  //  火锅(堂食)：冬最旺、春秋中、夏淡（天热没人想坐空调房吃辣锅）
+  //  正餐：节日驱动（春节/五一/国庆/年末），平日平稳
+  //  快餐：全年几乎拉平，小幅波动
+  const CURVES = {
+    chayin: [
+      // 1  2  3   4    5    6    7    8    9    10   11   12
+      1.00, 0.95, 0.85, 0.82, 0.90, 1.15, 1.28, 1.22, 1.10, 1.05, 1.02, 1.00
+    ],
+    huoguo: [
+      1.30, 1.28, 1.05, 1.00, 0.95, 0.85, 0.82, 0.85, 0.95, 1.08, 1.20, 1.30
+    ],
+    zhengcan: [
+      // 春节(2月)最旺、五一(5月)上扬、国庆(10月)最旺之一、年末(12月)聚餐
+      1.10, 1.25, 1.00, 1.00, 1.15, 0.98, 0.95, 0.98, 1.00, 1.20, 1.05, 1.15
+    ],
+    kuaican: [
+      1.02, 0.95, 1.00, 1.00, 1.00, 1.00, 0.98, 1.00, 1.02, 1.02, 1.00, 1.01
+    ]
+  };
+  const curve = CURVES[seg];
+  if (curve) return curve[m - 1];
+  // 未知行业回退：全年持平（宁可平，不要乱跳）
+  return 1.0;
+}
+
+/* 季节名称（给 UI 提示用）*/
+function seasonNameFor(seg, month) {
+  const c = seasonFactorFor(seg, month);
+  if (c >= 1.18) return '旺季';
+  if (c >= 1.05) return '小旺';
+  if (c <= 0.88) return '淡季';
+  return '平季';
 }
 
 /* 开店：从 1 家扩到 2 家，成本 = setupCost */

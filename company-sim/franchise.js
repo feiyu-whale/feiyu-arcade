@@ -182,6 +182,40 @@ function franchiseMonthlyCost(rev) {
   return { royalty, extraSupply, events: [] };
 }
 
+/* ═══ v3.3.0 品牌溢价（2026-10-31 老爹亲定）═══
+ * 老爹原话：「大品牌抽了那么多钱，没有一点加成那就不太好了」
+ *
+ * 逻辑：加盟不是纯吃亏——牌子本身就是资产
+ *   ① 品牌溢价营收：大牌子自带客流，客人愿意为招牌多走两步
+ *   ② 品牌溢价毛利：集中采购 + 标准化，损耗低、议价强
+ *   ③ 品牌风险缓释：正规牌子不会突然断供/爆雷（已在 trap 机制里）
+ *
+ * 算总账仍然是「加盟 ≈ 花钱买时间与客流」，净收益略低于自建（因为交了权利金），
+ * 但开局稳、死得晚——这才是真实的加盟动机。
+ */
+const BRAND_PREMIUM = {
+  good: { revMult: 1.18, marginBonus: 0.025, desc: '大牌子自带客流，客人愿意为招牌多走两步' },
+  meh:  { revMult: 1.05, marginBonus: 0.008, desc: '牌子有点名气，但总部支持不到位' },
+  scam: { revMult: 1.10, marginBonus: -0.02, desc: '名字听着唬人，实际靠噱头拉一波客' },
+  self: { revMult: 1.00, marginBonus: 0.000, desc: '自建品牌，无溢价，但也不用交权利金' }
+};
+
+/* 当前品牌溢价（无加盟 → 自建 1.0） */
+function brandPremium() {
+  const tier = (G.franchise && G.franchise.tier) || 'self';
+  return BRAND_PREMIUM[tier] || BRAND_PREMIUM.self;
+}
+
+/* 品牌溢价营收系数（供 engine 用） */
+function brandRevMult() {
+  return brandPremium().revMult;
+}
+
+/* 品牌溢价对食材/毛利的影响（正数=省成本，负数=更贵） */
+function brandMarginBonus() {
+  return brandPremium().marginBonus;
+}
+
 /* 野鸡品牌暴露机制：开业后 2~8 个月内陆续爆雷 */
 function checkFranchiseTrap() {
   const f = G.franchise;

@@ -21,6 +21,46 @@ const CITY_TIERS = {
 /* 城市清单：人口单位万（常住），收入单位元/年（人均可支配收入）
  * 数据年份：2024 年统计公报口径，取整到可信精度
  */
+/* 城市熟客绑定强度 localBond（0~1）· v3.3.0 2026-10-31 老爹亲定
+ * 老爹原话：「二三线城市乡土情节比较重，呆久了人家把你当邻里，大城市几乎没有」
+ * 含义：自建品牌靠「熬时间攒熟客」能不能成——localBond 越高，熬出来越厚
+ *  0.15 = 深圳型移民城市，压根攒不起熟客
+ *  0.85 = 三线以下，县城老邻居，三年就是自己人
+ */
+const LOCAL_BOND = {
+  bj: 0.55, sh: 0.50, gz: 0.60, sz: 0.15,   // 一线：北京/上海/广州老爷子多，深圳最低
+  cd: 0.75, cq: 0.75, cs: 0.70, xa: 0.70,   // 新一线：本地人多、老街区多
+  cq2: 0,                                    // 占位（避免笔误）
+  hz: 0.40, su: 0.45, nj: 0.50, wh: 0.55,   // 外来人口多
+  tj: 0.65, zz: 0.60, qd: 0.55, dg: 0.20,   // 东莞工厂型，跟深圳一个毛病
+  nb: 0.55, fs: 0.65, hf: 0.45
+};
+const LOCAL_BOND_TIER2 = 0.70;   // 二线统一偏乡土
+const LOCAL_BOND_TIER3 = 0.85;   // 三线及以下：最重人情
+
+function localBondOf(cityId) {
+  if (!cityId) return 0.5;
+  if (LOCAL_BOND[cityId] != null) return LOCAL_BOND[cityId];
+  const c = CITIES.find(x => x.id === cityId);
+  if (!c) return 0.5;
+  if (c.tier === 'tier2') return LOCAL_BOND_TIER2;
+  if (c.tier === 'tier3') return LOCAL_BOND_TIER3;
+  return 0.5;
+}
+
+/* 茶饮在三线及以下的削弱（老爹 20:35：「县城哪来那么多喝奶茶的」）*/
+const CHAYIN_TIER3_PENALTY = 0.55;   // 直接砍到 55%
+const CHAYIN_TIER2_PENALTY = 0.82;
+
+function chayinCityPenalty(seg, cityId) {
+  if (seg !== 'chayin') return 1.0;
+  const c = CITIES.find(x => x.id === cityId);
+  if (!c) return 1.0;
+  if (c.tier === 'tier3') return CHAYIN_TIER3_PENALTY;
+  if (c.tier === 'tier2') return CHAYIN_TIER2_PENALTY;
+  return 1.0;
+}
+
 const CITIES = [
   // ── 一线 ──
   { id:'bj', name:'北京', tier:'tier1', pop:2185, income:85400, note:'首都，餐饮竞争极烈，租金天花板' },

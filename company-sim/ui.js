@@ -148,6 +148,10 @@ function render() {
       ep.innerHTML = (typeof sellEndingHTML === 'function') ? sellEndingHTML() : '';
     }
   }
+  // v3.3.0 团购定价面板
+  if (typeof renderPricePanel === 'function') { try { renderPricePanel(); } catch (e) { } }
+  // v3.4.0 新品研发面板
+  if (typeof renderResearchPanel === 'function') { try { renderResearchPanel(); } catch (e) { } }
 }
 
 /* ═══ v3.3.0 结局三·卖掉公司养老 ═══ */
@@ -1389,4 +1393,137 @@ function answerFallout(run) {
   } else if (G.status === 'fled') {
     setTimeout(function(){ if (typeof showFledEnding === 'function') showFledEnding(paid); }, 1200);
   }
+}
+
+/* ═══ v3.3.0（2026-10-31 老爹亲定）团购定价面板 ═══
+ * 玩家可自己填团购价，跌破单位成本 → 客流暴涨（但被接待力封顶）
+ */
+function renderPricePanel() {
+  const el = $('pricePanel');
+  if (!el || typeof grouponEffect !== 'function') return;
+  const e = grouponEffect(G);
+  if (!e) return;
+
+  const ratioPct = (e.ratio * 100).toFixed(0);
+  const multShown = e.revMult.toFixed(2);
+  const isLoss = e.ratio < 1.0;
+  const isCapped = e.rawMult > e.revMult + 0.001;
+
+  let color = '#6a8aaa';
+  if (e.ratio >= 1.3) color = '#70c070';
+  else if (e.ratio >= 1.0) color = '#d0c060';
+  else color = '#e07070';
+
+  let h = '<div class="panel" style="background:#0e1620;border:1px solid #2a4055;border-radius:10px;padding:12px;margin:10px 0">';
+  h += '<div style="font-size:12px;color:#90c0e0;font-weight:700;margin-bottom:8px">🎟️ 团购定价</div>';
+  h += '<div style="font-size:10px;color:#7a94ac;line-height:1.9;margin-bottom:8px">';
+  h += '单位成本 <b style="color:#a0c0d8">¥' + e.unitCost.toFixed(1) + '</b> ｜ ';
+  h += '当前定价 <b style="color:' + color + '">¥' + e.price.toFixed(0) + '</b> ';
+  h += '（成本的 ' + ratioPct + '%）<br>';
+  h += '客流倍数 <b style="color:' + color + '">×' + multShown + '</b>';
+  if (isLoss) h += ' <span style="color:#e07070">⚠️ 跌破成本，卖一单亏一单</span>';
+  if (isCapped) h += '<br><span style="color:#e0a060">⚠️ 想来的客人有 ×' + e.rawMult.toFixed(1) + '，但店接不住（上限 ×' + (e.rawMult > e.revMult ? '1.3' : '') + '），大量排队后走人</span>';
+  h += '</div>';
+
+  // 输入框 + 四个快捷档位
+  h += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">';
+  h += '<input id="priceInput" type="number" min="1" step="1" value="' + e.price.toFixed(0) + '" style="width:90px;padding:7px 9px;background:#0a1218;border:1px solid #2a4055;border-radius:7px;color:#c8d8e8;font-size:12px;font-family:inherit">';
+  h += '<button class="tbtn" onclick="applyPrice()" style="padding:7px 14px">设为团购价</button>';
+  h += '<button class="tbtn" onclick="resetPrice()" style="padding:7px 10px;font-size:10px;opacity:.8">恢复标准</button>';
+  h += '</div>';
+
+  h += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">';
+  const modes = [['cheap', '低价冲量'], ['normal', '标准'], ['premium', '高端'], ['burn', '团购烧钱']];
+  modes.forEach(function (m) {
+    const active = (G.priceMode === m[0] && !(G.customPrice > 0)) ? ' style="border-color:#3a7aaa;background:#14283a"' : '';
+    h += '<button class="tbtn" onclick="setPriceMode(\'' + m[0] + '\')"' + active + ' style2="" ' + (active ? '' : '') +
+         ' style="padding:6px 10px;font-size:10px">' + m[1] + '</button>';
+  });
+  h += '</div>';
+
+  h += '</div>';
+  el.innerHTML = h;
+}
+
+function applyPrice() {
+  const inp = $('priceInput');
+  if (!inp) return;
+  const v = parseFloat(inp.value);
+  if (!isFinite(v) || v <= 0) { alert('请填一个大于 0 的价格'); return; }
+  G.customPrice = v;
+  render();
+  renderPricePanel();
+}
+
+function resetPrice() {
+  G.customPrice = 0;
+  G.priceMode = 'normal';
+  render();
+  renderPricePanel();
+}
+
+function setPriceMode(m) {
+  G.customPrice = 0;
+  G.priceMode = m;
+  render();
+  renderPricePanel();
+}
+
+/* ═══ v3.4.0（2026-10-31 老爹亲定）新品研发面板 ═══ */
+function renderResearchPanel() {
+  const el = $('researchPanel');
+  if (!el || typeof TASTE_TIERS === 'undefined') return;
+
+  let h = '<div class="panel" style="background:#0e1620;border:1px solid #2a4055;border-radius:10px;padding:12px;margin:10px 0">';
+  h += '<div style="font-size:12px;color:#90c0e0;font-weight:700;margin-bottom:8px">🍳 新品研发</div>';
+
+  // 已研发的招牌菜
+  const dishes = G.dishes || [];
+  if (dishes.length) {
+    h += '<div style="font-size:10px;color:#7a94ac;margin-bottom:6px">已有招牌菜：</div>';
+    dishes.forEach(function (d) {
+      h += '<div style="font-size:10px;color:#7fe0a8;line-height:1.8">· ' + d.name +
+           '（' + d.lvl + ' 级）营收 +' + (d.revBonus * 100).toFixed(0) + '%</div>';
+    });
+    const total = (typeof dishRevBonus === 'function') ? dishRevBonus() : 0;
+    h += '<div style="font-size:10px;color:#a0c0d8;margin:4px 0 8px">合计加成 +' + (total * 100).toFixed(0) + '%</div>';
+  }
+
+  // 研发中
+  const doing = G.research || [];
+  if (doing.length) {
+    h += '<div style="font-size:10px;color:#e0c080;margin-bottom:6px">研发中：</div>';
+    doing.forEach(function (r) {
+      h += '<div style="font-size:10px;color:#c0a070;line-height:1.8">· ' + r.name +
+           '（成功率 ' + (r.chance * 100).toFixed(0) + '%，还剩 ' + r.left + ' 个月）</div>';
+    });
+  }
+
+  // 发起研发
+  h += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">';
+  h += '<select id="resLvl" style="padding:7px 8px;background:#0a1218;border:1px solid #2a4055;border-radius:7px;color:#a0c0d8;font-size:11px;font-family:inherit">';
+  TASTE_TIERS.forEach(function (t) {
+    h += '<option value="' + t.lvl + '">' + t.lvl + '级 ' + t.name + '（' + (t.cost / 1e4).toFixed(0) + '万起，成率' + (t.baseChance * 100).toFixed(0) + '%）</option>';
+  });
+  h += '</select>';
+  h += '<input id="resBudget" type="number" min="1" placeholder="预算(万)" style="width:90px;padding:7px 9px;background:#0a1218;border:1px solid #2a4055;border-radius:7px;color:#c8d8e8;font-size:11px;font-family:inherit">';
+  h += '<button class="tbtn" onclick="doStartResearch()" style="padding:7px 14px">开始研发</button>';
+  h += '</div>';
+  h += '<div style="font-size:9px;color:#5a7a90;margin-top:6px;line-height:1.7">多投钱能提高成功率（边际递减）｜同时最多研发 2 道｜研发期间团队分心，当月营收略降</div>';
+
+  h += '</div>';
+  el.innerHTML = h;
+}
+
+function doStartResearch() {
+  if (typeof startResearch !== 'function') return;
+  const lvlEl = $('resLvl'), budEl = $('resBudget');
+  if (!lvlEl) return;
+  const lvl = parseInt(lvlEl.value, 10) || 1;
+  const budgetWan = parseFloat(budEl && budEl.value);
+  const budget = (isFinite(budgetWan) && budgetWan > 0) ? budgetWan * 1e4 : 0;
+  const r = startResearch(lvl, budget);
+  alert(r.msg);
+  render();
+  renderResearchPanel();
 }
