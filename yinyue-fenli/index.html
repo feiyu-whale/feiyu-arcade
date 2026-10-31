@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>肥鱼 · 浏览器端 Demucs 分离</title>
+<style>
+  :root { --bg:#0b1220; --panel:#121c30; --line:#1f2f4a; --fg:#dbe7f5; --dim:#7c8ca6; --acc:#4aa8ff; --ok:#3ddc97; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 28px 18px 80px; }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  .sub { color: var(--dim); font-size: 13px; line-height: 1.7; margin-bottom: 20px; }
+  .honest { background:#132033; border:1px solid var(--line); border-left:3px solid var(--acc);
+            padding:10px 14px; border-radius:6px; font-size:13px; color:#a8bddb; margin-bottom:22px; }
+  #drop { border:2px dashed var(--line); border-radius:12px; padding:44px 20px; text-align:center;
+          cursor:pointer; transition:.2s; background:var(--panel); }
+  #drop:hover, #drop.over { border-color: var(--acc); background:#16233a; }
+  #drop .big { font-size:15px; margin-bottom:6px; }
+  #drop .small { font-size:12px; color:var(--dim); }
+  .bar { height:6px; background:var(--line); border-radius:3px; overflow:hidden; margin:18px 0 8px; }
+  .bar > i { display:block; height:100%; width:0; background:var(--acc); transition:width .2s; }
+  #status { font-size:13px; color:var(--dim); min-height:20px; }
+  #tracks { margin-top:24px; display:none; }
+  .track { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+           padding:14px 16px; margin-bottom:12px; }
+  .track h3 { margin:0 0 10px; font-size:14px; display:flex; justify-content:space-between; align-items:center; }
+  .track h3 span { font-size:11px; color:var(--dim); font-weight:400; }
+  audio { width:100%; height:34px; }
+  .dl { display:inline-block; margin-top:8px; font-size:12px; color:var(--acc); text-decoration:none; }
+  .dl:hover { text-decoration:underline; }
+  #ver { position:fixed; right:12px; bottom:10px; font-size:11px; color:#4a5a72; }
+  button { background:var(--acc); border:0; color:#04101f; font-weight:600; padding:9px 18px;
+           border-radius:7px; cursor:pointer; font-size:13px; }
+  button:disabled { background:#2a3a52; color:#5c6d85; cursor:default; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🐳 浏览器端 Demucs 音轨分离</h1>
+  <div class="sub">
+    上传一首歌，把它拆成人声 / 鼓 / 贝斯 / 其他四条音轨。<br>
+    模型在 <b>htdemucs</b> 的基础上导出了频域部分，STFT / ISTFT 全部由前端 JavaScript 实现。
+  </div>
+
+  <div class="honest">
+    <b>说实话：</b>这个页面<b>完全在你的浏览器里跑</b>，音频不上传、不经过任何服务器。
+    模型首次加载要下载 139 MB，分离速度取决于你的显卡（有 WebGPU 会快很多，没有就走 WASM，会很慢）。
+    它存在的意义是<b>证明技术跑得通</b>，不是拿来日常干活的 —— 真要批量处理，还是用命令行快。
+  </div>
+
+  <div id="drop">
+    <div class="big">拖一首歌进来，或者点这里选择文件</div>
+    <div class="small">支持 mp3 / wav / flac / ogg / m4a（浏览器能解的都行）</div>
+    <input type="file" id="file" accept="audio/*" hidden>
+  </div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div id="status">等待中…</div>
+
+  <div id="tracks"></div>
+</div>
+<div id="ver">v1.0.0-浏览器端分离 20261101</div>
+
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.all.min.js"></script>
+<script type="module">
+import { decodeToStereo, separate, SOURCES, CHUNK_SAMPLES } from './pipeline.js';
+import { encodeWav } from './dsp.js';
+
+const MODEL_URL = './model/htdemucs_freq.onnx';
+const MODEL_PARTS = 4;   // 模型超过 GitHub 单文件 100MB 限制，已切成 4 块
+const NAMES = { vocals: '人声 Vocals', drums: '鼓 Drums', bass: '贝斯 Bass', other: '其他 Other' };
+
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('file');
+const bar = document.getElementById('bar');
+const statusEl = document.getElementById('status');
+const tracksEl = document.getElementById('tracks');
+
+let session = null;
+
+function setStatus(t) { statusEl.textContent = t; }
+function setBar(p) { bar.style.width = (p * 100).toFixed(1) + '%'; }
+
+async function fetchModelBytes() {
+  // 优先取单文件（本地开发有完整文件），失败则拉 4 个分块拼起来
+  try {
+    const r = await fetch(MODEL_URL, { method: 'GET' });
+    if (r.ok) {
+      const total = +r.headers.get('Content-Length') || 0;
+      const reader = r.body.getReader();
+      const chunks = [];
+      let got = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        got += value.length;
+        setBar(total ? got / total : 0);
+        setStatus(`正在下载模型… ${(got / 1048576).toFixed(1)} / ${(total / 1048576).toFixed(0)} MB`);
+      }
+      return new Blob(chunks);
+    }
+  } catch (e) {} 
+
+  // 分块拼接
+  const parts = [];
+  let got = 0;
+  for (let i = 0; i < MODEL_PARTS; i++) {
+    const url = `${MODEL_URL}.part${i}`;
+    setStatus(`正在下载模型分块 ${i + 1}/${MODEL_PARTS}…（已 ${(got / 1048576).toFixed(1)} MB）`);
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`模型分块 ${i} 下载失败（HTTP ${r.status}）`);
+    const b = await r.blob();
+    parts.push(b);
+    got += b.size;
+    setBar((i + 1) / MODEL_PARTS);
+  }
+  return new Blob(parts);
+}
+
+async function loadModel() {
+  if (session) return session;
+  setStatus('正在加载模型（139 MB，第一次会慢）…');
+  let provider = 'wasm';
+  try {
+    if (navigator.gpu) provider = 'webgpu';
+  } catch {}
+
+  ort.env.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency || 2);
+  ort.env.wasm.simd = true;
+
+  const blob = await fetchModelBytes();
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  setStatus('模型下载完成，正在初始化推理引擎…');
+
+  try {
+    session = await ort.InferenceSession.create(bytes, {
+      executionProviders: provider === 'webgpu' ? ['webgpu', 'wasm'] : ['wasm'],
+      graphOptimizationLevel: 'all',
+    });
+    setStatus(`模型已加载（后端：${provider === 'webgpu' ? 'WebGPU' : 'WASM'}）`);
+  } catch (e) {
+    // WebGPU 失败退回 WASM
+    setStatus('WebGPU 不可用，退回 WASM…');
+    session = await ort.InferenceSession.create(bytes, {
+      executionProviders: ['wasm'],
+      graphOptimizationLevel: 'all',
+    });
+    setStatus('模型已加载（后端：WASM）');
+  }
+  setBar(0);
+  return session;
+}
+
+async function handleFile(file) {
+  if (!file) return;
+  tracksEl.style.display = 'none';
+  tracksEl.innerHTML = '';
+  setBar(0);
+
+  try {
+    const sess = await loadModel();
+
+    setStatus('正在解码音频…');
+    const buf = await file.arrayBuffer();
+    const [L, R] = await decodeToStereo(buf);
+
+    const dur = (L.length / 44100).toFixed(1);
+    setStatus(`音频 ${dur} 秒，开始分离…（分片长度 ${(CHUNK_SAMPLES / 44100).toFixed(2)} 秒）`);
+
+    const t0 = performance.now();
+    const result = await separate(sess, L, R, {
+      onProgress: (p, audioP) => {
+        setBar(p);
+        const el = (performance.now() - t0) / 1000;
+        setStatus(`分离中…… ${(p * 100).toFixed(0)}%（已用 ${el.toFixed(0)} 秒）`);
+      },
+    });
+    const cost = ((performance.now() - t0) / 1000).toFixed(1);
+
+    setStatus(`完成！用时 ${cost} 秒（音频 ${dur} 秒）。`);
+    setBar(1);
+
+    // 渲染结果
+    tracksEl.style.display = 'block';
+    for (const key of SOURCES) {
+      const [l, r] = result[key];
+      const blob = encodeWav(l, r);
+      const url = URL.createObjectURL(blob);
+      const div = document.createElement('div');
+      div.className = 'track';
+      div.innerHTML = `
+        <h3>${NAMES[key] || key}<span>${(blob.size / 1048576).toFixed(1)} MB</span></h3>
+        <audio controls src="${url}"></audio>
+        <a class="dl" href="${url}" download="${file.name.replace(/\.[^.]+$/, '')}-${key}.wav">下载 WAV</a>
+      `;
+      tracksEl.appendChild(div);
+    }
+  } catch (e) {
+    console.error(e);
+    setStatus('出错了：' + (e?.message || e));
+  }
+}
+
+drop.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+['dragenter', 'dragover'].forEach((ev) =>
+  drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); })
+);
+['dragleave', 'drop'].forEach((ev) =>
+  drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); })
+);
+drop.addEventListener('drop', (e) => handleFile(e.dataTransfer.files[0]));
+</script>
+</body>
+</html>
