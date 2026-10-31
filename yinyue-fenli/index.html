@@ -21,6 +21,13 @@
   .bar { height:6px; background:var(--line); border-radius:3px; overflow:hidden; margin:18px 0 8px; }
   .bar > i { display:block; height:100%; width:0; background:var(--acc); transition:width .2s; }
   #status { font-size:13px; color:var(--dim); min-height:20px; }
+  #pulse { display:none; width:10px; height:10px; border-radius:50%; background:var(--ok);
+           margin-right:8px; animation:pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:.25;transform:scale(.75)} 50%{opacity:1;transform:scale(1.15)} }
+  .statusrow { display:flex; align-items:center; }
+  #timer { margin-left:auto; font-size:12px; color:#5a6b85; font-variant-numeric:tabular-nums; }
+  #limitbar { margin-top:14px; font-size:12px; color:var(--dim); display:none; }
+  #limitbar button { font-size:12px; padding:6px 12px; margin-left:8px; }
   #tracks { margin-top:24px; display:none; }
   .track { background:var(--panel); border:1px solid var(--line); border-radius:10px;
            padding:14px 16px; margin-bottom:12px; }
@@ -58,12 +65,17 @@
   </div>
 
   <div class="bar"><i id="bar"></i></div>
-  <div id="status">等待中…</div>
+  <div class="statusrow">
+    <i id="pulse"></i>
+    <div id="status">等待中…</div>
+    <div id="timer"></div>
+  </div>
+  <div id="limitbar"></div>
 
   <div id="tracks"></div>
   <div id="picker" style="display:none"></div>
 </div>
-<div id="ver">v1.1.0-压缩包自动解压 20261101</div>
+<div id="ver">v1.2.0-实时进度与限时模式 20261101</div>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.all.min.js"></script>
 <script type="module">
@@ -83,9 +95,35 @@ const tracksEl = document.getElementById('tracks');
 const pickerEl = document.getElementById('picker');
 
 let session = null;
+let timerHandle = null;
+let stageStart = 0;
 
-function setStatus(t) { statusEl.textContent = t; }
+const pulseEl = document.getElementById('pulse');
+const timerEl = document.getElementById('timer');
+const limitEl = document.getElementById('limitbar');
+
+function setStatus(t, busy) {
+  statusEl.textContent = t;
+  // busy=true 时开脉冲灯：让用户看到它真的在动
+  pulseEl.style.display = busy ? 'block' : 'none';
+}
+
+/* 计时器：每 200ms 刷新一次，任何时候都有东西在跳 */
+function startTimer(label) {
+  stopTimer();
+  stageStart = performance.now();
+  timerHandle = setInterval(() => {
+    const s = (performance.now() - stageStart) / 1000;
+    timerEl.textContent = `${label} ${s.toFixed(1)}s`;
+  }, 200);
+}
+function stopTimer() {
+  if (timerHandle) { clearInterval(timerHandle); timerHandle = null; }
+}
+
 function setBar(p) { bar.style.width = (p * 100).toFixed(1) + '%'; }
+
+const fmt = (s) => s < 60 ? `${s.toFixed(0)} 秒` : `${Math.floor(s / 60)} 分 ${Math.round(s % 60)} 秒`;
 
 async function fetchModelBytes() {
   // 优先取单文件（本地开发有完整文件），失败则拉 4 个分块拼起来
@@ -96,37 +134,56 @@ async function fetchModelBytes() {
       const reader = r.body.getReader();
       const chunks = [];
       let got = 0;
+      const t0 = performance.now();
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         chunks.push(value);
         got += value.length;
+        const el = (performance.now() - t0) / 1000;
+        const speed = got / 1048576 / Math.max(el, 0.1);
+        const left = total ? (total - got) / 1048576 / Math.max(speed, 0.01) : 0;
         setBar(total ? got / total : 0);
-        setStatus(`正在下载模型… ${(got / 1048576).toFixed(1)} / ${(total / 1048576).toFixed(0)} MB`);
+        setStatus(`正在下载模型  ${(got / 1048576).toFixed(1)} / ${(total / 1048576).toFixed(0)} MB  ·  ${speed.toFixed(1)} MB/s  ·  剩约 ${fmt(left)}`, true);
       }
       return new Blob(chunks);
     }
-  } catch (e) {} 
+  } catch (e) {}
 
   // 分块拼接
   const parts = [];
   let got = 0;
+  const t0 = performance.now();
   for (let i = 0; i < MODEL_PARTS; i++) {
     const url = `${MODEL_URL}.part${i}`;
-    setStatus(`正在下载模型分块 ${i + 1}/${MODEL_PARTS}…（已 ${(got / 1048576).toFixed(1)} MB）`);
+    setStatus(`正在下载模型分块 ${i + 1}/${MODEL_PARTS}  ·  已 ${(got / 1048576).toFixed(1)} MB`, true);
     const r = await fetch(url);
     if (!r.ok) throw new Error(`模型分块 ${i} 下载失败（HTTP ${r.status}）`);
-    const b = await r.blob();
-    parts.push(b);
-    got += b.size;
-    setBar((i + 1) / MODEL_PARTS);
+
+    // 流式读取，每块内部也有进度
+    const total = +r.headers.get('Content-Length') || 0;
+    const reader = r.body.getReader();
+    const chunks = [];
+    let cur = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      cur += value.length;
+      const el = (performance.now() - t0) / 1000;
+      const speed = (got + cur) / 1048576 / Math.max(el, 0.1);
+      setStatus(`正在下载模型分块 ${i + 1}/${MODEL_PARTS}  ·  ${((got + cur) / 1048576).toFixed(1)} / 139 MB  ·  ${speed.toFixed(1)} MB/s`, true);
+      setBar((got + cur) / 146045058);
+    }
+    parts.push(new Blob(chunks));
+    got += cur;
   }
   return new Blob(parts);
 }
 
 async function loadModel() {
   if (session) return session;
-  setStatus('正在加载模型（139 MB，第一次会慢）…');
+  setStatus('准备加载模型（139 MB，第一次会慢）…', true);
   let provider = 'wasm';
   try {
     if (navigator.gpu) provider = 'webgpu';
@@ -137,22 +194,28 @@ async function loadModel() {
 
   const blob = await fetchModelBytes();
   const bytes = new Uint8Array(await blob.arrayBuffer());
-  setStatus('模型下载完成，正在初始化推理引擎…');
+  setBar(0);
+  setStatus(`模型下载完成，正在初始化推理引擎（${provider === 'webgpu' ? 'WebGPU' : 'WASM'}，首次编译约 30 秒）…`, true);
+  startTimer('引擎编译');
 
   try {
     session = await ort.InferenceSession.create(bytes, {
       executionProviders: provider === 'webgpu' ? ['webgpu', 'wasm'] : ['wasm'],
       graphOptimizationLevel: 'all',
     });
-    setStatus(`模型已加载（后端：${provider === 'webgpu' ? 'WebGPU' : 'WASM'}）`);
+    stopTimer();
+    setStatus(`模型已加载（后端：${provider === 'webgpu' ? 'WebGPU' : 'WASM'}）`, false);
+    timerEl.textContent = '';
   } catch (e) {
     // WebGPU 失败退回 WASM
-    setStatus('WebGPU 不可用，退回 WASM…');
+    setStatus('WebGPU 不可用，退回 WASM…', true);
     session = await ort.InferenceSession.create(bytes, {
       executionProviders: ['wasm'],
       graphOptimizationLevel: 'all',
     });
-    setStatus('模型已加载（后端：WASM）');
+    stopTimer();
+    setStatus('模型已加载（后端：WASM）', false);
+    timerEl.textContent = '';
   }
   setBar(0);
   return session;
@@ -195,45 +258,90 @@ async function handleFile(file) {
     }
 
     const sess = await loadModel();
-
-    setStatus('正在解码音频…');
-    const buf = await file.arrayBuffer();
-    const [L, R] = await decodeToStereo(buf);
-
-    const dur = (L.length / 44100).toFixed(1);
-    setStatus(`音频 ${dur} 秒，开始分离…（分片长度 ${(CHUNK_SAMPLES / 44100).toFixed(2)} 秒）`);
-
-    const t0 = performance.now();
-    const result = await separate(sess, L, R, {
-      onProgress: (p, audioP) => {
-        setBar(p);
-        const el = (performance.now() - t0) / 1000;
-        setStatus(`分离中…… ${(p * 100).toFixed(0)}%（已用 ${el.toFixed(0)} 秒）`);
-      },
-    });
-    const cost = ((performance.now() - t0) / 1000).toFixed(1);
-
-    setStatus(`完成！用时 ${cost} 秒（音频 ${dur} 秒）。`);
-    setBar(1);
-
-    // 渲染结果
-    tracksEl.style.display = 'block';
-    for (const key of SOURCES) {
-      const [l, r] = result[key];
-      const blob = encodeWav(l, r);
-      const url = URL.createObjectURL(blob);
-      const div = document.createElement('div');
-      div.className = 'track';
-      div.innerHTML = `
-        <h3>${NAMES[key] || key}<span>${(blob.size / 1048576).toFixed(1)} MB</span></h3>
-        <audio controls src="${url}"></audio>
-        <a class="dl" href="${url}" download="${file.name.replace(/\.[^.]+$/, '')}-${key}.wav">下载 WAV</a>
-      `;
-      tracksEl.appendChild(div);
-    }
+    await runSeparate(sess, file, 30); // 默认只跑前30秒，快出结果
   } catch (e) {
-    console.error(e);
-    setStatus('出错了：' + (e?.message || e));
+    stopTimer();
+    setStatus('出错了：' + (e?.message || e), false);
+  }
+}
+
+/* 跑分离：maxSec=限时；不限时传 0 */
+async function runSeparate(sess, file, maxSec) {
+  setBar(0);
+  setStatus('正在解码音频…', true);
+  startTimer('解码');
+  const buf = await file.arrayBuffer();
+  const [L0, R0] = await decodeToStereo(buf);
+  stopTimer();
+
+  let L = L0, R = R0;
+  const fullDur = L0.length / 44100;
+  if (maxSec > 0 && fullDur > maxSec) {
+    const n = Math.floor(maxSec * 44100);
+    L = L0.subarray(0, n);
+    R = R0.subarray(0, n);
+  }
+
+  const dur = (L.length / 44100).toFixed(1);
+  const totalChunks = Math.max(1, Math.ceil((L.length - CHUNK_SAMPLES) / Math.floor(CHUNK_SAMPLES * 0.75)) + 1);
+  setStatus(`音频 ${dur} 秒（共 ${fullDur.toFixed(0)} 秒），分 ${totalChunks} 片开始分离…`, true);
+
+  const t0 = performance.now();
+  let lastP = 0, lastT = performance.now();
+  startTimer('分离');
+
+  const result = await separate(sess, L, R, {
+    onProgress: (p) => {
+      setBar(p);
+      const now = performance.now();
+      const el = (now - t0) / 1000;
+      // 用最近一片的耗时估剩余时间，比整段平均准
+      const chunkCost = (now - lastT) / 1000;
+      lastT = now;
+      const done = Math.round(p * totalChunks);
+      const left = chunkCost * Math.max(0, totalChunks - done);
+      const eta = (p > 0.03 && isFinite(left)) ? `  ·  剩约 ${fmt(left)}` : '';
+      setStatus(`分离中 · 第 ${Math.min(done + 1, totalChunks)}/${totalChunks} 片  ·  ${(p * 100).toFixed(0)}%${eta}`, true);
+      lastP = p;
+    },
+  });
+  stopTimer();
+
+  const cost = ((performance.now() - t0) / 1000).toFixed(1);
+  setStatus(`完成！${dur} 秒音频用时 ${cost} 秒。`, false);
+  timerEl.textContent = '';
+  setBar(1);
+
+  // 渲染结果
+  tracksEl.style.display = 'block';
+  tracksEl.innerHTML = '';
+  for (const key of SOURCES) {
+    const [l, r] = result[key];
+    const blob = encodeWav(l, r);
+    const url = URL.createObjectURL(blob);
+    const div = document.createElement('div');
+    div.className = 'track';
+    div.innerHTML = `
+      <h3>${NAMES[key] || key}<span>${(blob.size / 1048576).toFixed(1)} MB</span></h3>
+      <audio controls src="${url}"></audio>
+      <a class="dl" href="${url}" download="${file.name.replace(/\.[^.]+$/, '')}-${key}.wav">下载 WAV</a>
+    `;
+    tracksEl.appendChild(div);
+  }
+
+  // 限时模式下，给一个「处理整首歌」按钮
+  limitEl.style.display = 'block';
+  if (maxSec > 0 && fullDur > maxSec + 1) {
+    const advice = (parseFloat(cost) / dur) * fullDur;
+    limitEl.innerHTML =
+      `<span style="color:#7c8ca6">上面只是前 ${dur} 秒。整首歌 ${fullDur.toFixed(0)} 秒，按这个速度约需 <b style="color:#dbe7f5">${fmt(advice)}</b>。</span>` +
+      `<button id="btnFull">处理整首歌</button>`;
+    document.getElementById('btnFull').onclick = async () => {
+      limitEl.innerHTML = '<span style="color:#e0b04a">正在处理整首歌，请勿关页面…</span>';
+      await runSeparate(sess, file, 0);
+    };
+  } else {
+    limitEl.innerHTML = `<span style="color:#7c8ca6">已经是整首歌了。</span>`;
   }
 }
 
