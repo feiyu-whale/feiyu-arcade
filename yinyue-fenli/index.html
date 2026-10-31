@@ -75,7 +75,7 @@
   <div id="tracks"></div>
   <div id="picker" style="display:none"></div>
 </div>
-<div id="ver">v1.2.0-实时进度与限时模式 20261101</div>
+<div id="ver">v1.3.0-WebGPU与多线程加速 20261101</div>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.all.min.js"></script>
 <script type="module">
@@ -183,41 +183,62 @@ async function fetchModelBytes() {
 
 async function loadModel() {
   if (session) return session;
-  setStatus('准备加载模型（139 MB，第一次会慢）…', true);
-  let provider = 'wasm';
-  try {
-    if (navigator.gpu) provider = 'webgpu';
-  } catch {}
 
-  ort.env.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency || 2);
+  // ---- 先探清本机的加速能力，好告诉用户“快不快、为什么” ----
+  let hasGPU = false;
+  try { hasGPU = !!navigator.gpu; } catch {}
+  const hasSAB = typeof SharedArrayBuffer !== 'undefined';
+  const cores = navigator.hardwareConcurrency || 2;
+
+  // WASM 多线程：必须同时有 SharedArrayBuffer（靠服务端 COOP/COEP 头）+ 多核
+  ort.env.wasm.numThreads = hasSAB ? Math.min(8, Math.max(1, cores)) : 1;
   ort.env.wasm.simd = true;
+  // 多线程时打开 proxy，避免主线程被占死（页面能继续响应）
+  ort.env.wasm.proxy = hasSAB && ort.env.wasm.numThreads > 1;
+
+  const modeDesc = hasGPU
+    ? `WebGPU${hasSAB ? ` + WASM ${ort.env.wasm.numThreads} 线程备选` : ''}`
+    : (hasSAB ? `WASM ${ort.env.wasm.numThreads} 线程（无 GPU 加速）` : 'WASM 单线程（无 GPU 也无跨源隔离，最慢）');
 
   const blob = await fetchModelBytes();
   const bytes = new Uint8Array(await blob.arrayBuffer());
   setBar(0);
-  setStatus(`模型下载完成，正在初始化推理引擎（${provider === 'webgpu' ? 'WebGPU' : 'WASM'}，首次编译约 30 秒）…`, true);
+  setStatus(`模型下载完成，正在初始化推理引擎（${modeDesc}，首次编译较慢）…`, true);
   startTimer('引擎编译');
 
-  try {
-    session = await ort.InferenceSession.create(bytes, {
-      executionProviders: provider === 'webgpu' ? ['webgpu', 'wasm'] : ['wasm'],
-      graphOptimizationLevel: 'all',
-    });
-    stopTimer();
-    setStatus(`模型已加载（后端：${provider === 'webgpu' ? 'WebGPU' : 'WASM'}）`, false);
-    timerEl.textContent = '';
-  } catch (e) {
-    // WebGPU 失败退回 WASM
-    setStatus('WebGPU 不可用，退回 WASM…', true);
+  let backend = 'WASM';
+  if (hasGPU) {
+    try {
+      session = await ort.InferenceSession.create(bytes, {
+        executionProviders: ['webgpu', 'wasm'],
+        graphOptimizationLevel: 'all',
+      });
+      backend = 'WebGPU';
+    } catch (e) {
+      setStatus(`WebGPU 初始化失败（${e?.message || e}），改走 WASM…`, true);
+      session = null;
+    }
+  }
+
+  if (!session) {
     session = await ort.InferenceSession.create(bytes, {
       executionProviders: ['wasm'],
       graphOptimizationLevel: 'all',
     });
-    stopTimer();
-    setStatus('模型已加载（后端：WASM）', false);
-    timerEl.textContent = '';
+    backend = hasSAB ? `WASM ×${ort.env.wasm.numThreads}` : 'WASM 单线程';
   }
+
+  stopTimer();
+  setStatus(`模型已加载 · 后端：${backend}`, false);
+  timerEl.textContent = '';
   setBar(0);
+
+  // 把后端信息留在页面上，用户随时能看
+  limitEl.style.display = 'block';
+  limitEl.innerHTML = `<span style="color:#7c8ca6">后端：<b style="color:#dbe7f5">${backend}</b>` +
+    (hasGPU || hasSAB ? '' : ` · <b style="color:#e0b04a">本机无 GPU 加速也无多线程，会很慢</b>`) +
+    `</span>`;
+
   return session;
 }
 
