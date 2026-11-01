@@ -103,7 +103,7 @@
   <div id="tracks"></div>
   <div id="picker" style="display:none"></div>
 </div>
-<div id="ver">v1.4.3-进页面即显后端能力 20261101</div>
+<div id="ver">v1.4.4-session判空暴露真错 20261101</div>
 
 <!-- 老浏览器能力探测提示：不满足就弹，点确认才放行 -->
 <div id="compat">
@@ -475,6 +475,16 @@ async function loadModel() {
     backend = 'WASM 单线程';
   }
 
+  // 保卒：create 没抛错但 session 无效时，也要把真实原因报出来（v1.4.4）
+  if (!session || !session.inputNames || session.inputNames.length === 0) {
+    stopTimer();
+    const tgt = session ? `（后端 ${backend}，但 inputNames 为空）` : '（后端返回 null）';
+    setStatus(`❌ 推理引擎初始化失败 ${tgt}。型号 336MB 的图在 iOS 上可能吃不下，试试用电脑。`, false);
+    limitEl.style.display = 'block';
+    limitEl.innerHTML = '<span style="color:#e0b04a">引擎没能建起来。如果这是在手机上，换电脑基本能跑（手机内存上限太紧）。</span>';
+    return null;
+  }
+
   stopTimer();
   setStatus(`模型已加载 · 后端：${backend}`, false);
   timerEl.textContent = '';
@@ -527,6 +537,7 @@ async function handleFile(file) {
     }
 
     const sess = await loadModel();
+    if (!sess) return;   // 引擎没建起来：loadModel 已把原因写在状态行，别带着 null 往下跑（v1.4.4）
     await runSeparate(sess, file, 30); // 默认只跑前30秒，快出结果
   } catch (e) {
     stopTimer();
