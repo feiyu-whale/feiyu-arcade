@@ -100,7 +100,7 @@
   <div id="tracks"></div>
   <div id="picker" style="display:none"></div>
 </div>
-<div id="ver">v1.4.1-硬件性能预判 20261101</div>
+<div id="ver">v1.4.2-内存闸拦引擎崩溃 20261101</div>
 
 <!-- 老浏览器能力探测提示：不满足就弹，点确认才放行 -->
 <div id="compat">
@@ -351,6 +351,26 @@ async function fetchModelBytes() {
   return new Blob(parts);
 }
 
+function checkMemory() {
+  // 模型 139MB 落盘，加载进 WASM 堆后要展开 + 图优化 + 推理中间张量
+  // 实测经验：峰值常驻上 GB。手机 tab 内存限额往往 1~1.5GB，超了就静默杀 tab（无报错）
+  const dm = navigator.deviceMemory || 0;          // 只有 Chrome 系有，单位 GB
+  const mem = performance.memory;                  // 只有 Chrome 系有
+  const heapLimit = mem ? mem.jsHeapSizeLimit / 1048576 : 0;
+  const used = mem ? mem.usedJSHeapSize / 1048576 : 0;
+  const ua = navigator.userAgent;
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  // 判定：手机端内存 < 4GB 基本跑不动（崩在引擎初始化）
+  let risky = false;
+  let why = '';
+  if (dm && dm <= 4 && isMobile) { risky = true; why = `设备内存 ${dm} GB，不足以加载 139MB 模型`; }
+  else if (isIOS) { risky = true; why = 'iOS 的内存上限对这类大模型很紧，很容易直接崩' }
+  else if (heapLimit && heapLimit < 1024) { risky = true; why = `浏览器 JS 堆上限仅 ${heapLimit.toFixed(0)} MB`; }
+  return { risky, why, dm, heapLimit, used, isMobile, isIOS };
+}
+
 async function loadModel() {
   if (session) return session;
 
@@ -372,6 +392,25 @@ async function loadModel() {
   const blob = await fetchModelBytes();
   const bytes = new Uint8Array(await blob.arrayBuffer());
   setBar(0);
+
+  // 下载完、进引擎前做内存闸：不够就当场停，不动手 create（create 一崩就是整 tab 闪退）
+  const mk = checkMemory();
+  if (mk.risky && !window.__forceLoad) {
+    stopTimer();
+    setStatus(`❌ 这台设备可能撑不住：${mk.why}`, false);
+    limitEl.style.display = 'block';
+    limitEl.innerHTML = `<span style="color:#e0b04a">模型已下载完（139 MB），但加载进内存要占上 GB，` +
+      `你这台设备很可能在初始化时直接崩掉（就是你碰到的那样）。<br>` +
+      `建议换电脑上的新浏览器跑；真要试就点右边按钮，但有概率再崩一次。</span>` +
+      `<button id="btnForce">强行试一次</button>`;
+    document.getElementById('btnForce').onclick = () => {
+      limitEl.innerHTML = '<span style="color:#e0b04a">好吧，强行来 —— 崩了不怪我。</span>';
+      window.__forceLoad = true;
+      loadModel();
+    };
+    return null;
+  }
+
   setStatus(`模型下载完成，正在初始化推理引擎（${modeDesc}，首次编译较慢）…`, true);
   startTimer('引擎编译');
 
