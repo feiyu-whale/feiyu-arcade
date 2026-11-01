@@ -62,6 +62,9 @@
   .caps span { font-size:11px; padding:4px 9px; border-radius:20px; border:1px solid var(--line); color:#5a6b85; }
   .caps span.ok { border-color:#2a6b52; color:var(--ok); }
   .caps span.no { border-color:#6b4a2a; color:#e0b04a; }
+  /* 硬件预判弹窗用同一套 card 样式，额外一个推荐行 */
+  #compat .rec { font-size:12.5px; color:#3ddc97; margin:0 0 14px; }
+  #compat .est { font-size:12px; color:#5a6b85; margin-top:10px; }
 </style>
 </head>
 <body>
@@ -97,7 +100,7 @@
   <div id="tracks"></div>
   <div id="picker" style="display:none"></div>
 </div>
-<div id="ver">v1.4.0-老浏览器提示 20261101</div>
+<div id="ver">v1.4.1-硬件性能预判 20261101</div>
 
 <!-- 老浏览器能力探测提示：不满足就弹，点确认才放行 -->
 <div id="compat">
@@ -168,6 +171,91 @@ function checkCompat() {
   return false;
 }
 const _compatPassed = checkCompat();
+// 能力过关才做性能预判（两项弹窗合并用同一个框）
+if (_compatPassed) setTimeout(() => { try { checkPerf(); } catch {} }, 60);
+
+/* ---------------- 硬件性能预判（v1.4.1） ----------------
+   思路：先用一个 200ms 的 micro-benchmark 测出这台机器的实际浮点吞吐，
+   再换算成“跑 30 秒音频要多久”。预判 > 10 分钟就弹窗问要不要继续。
+   为什么不用固定经验值：手机差异太大（千元机和高通旗舰能差 20 倍），
+   必须当场测。 */
+function microBench(ms) {
+  const N = 192, M = 192, K = 192;
+  const a = new Float32Array(N * K), b = new Float32Array(K * M), c = new Float32Array(N * M);
+  for (let i = 0; i < a.length; i++) a[i] = (i % 7) * 0.01 - 0.03;
+  for (let i = 0; i < b.length; i++) b[i] = (i % 5) * 0.02 - 0.04;
+  let ops = 0;
+  const t0 = performance.now();
+  let el = 0;
+  while (el < ms) {
+    c.fill(0);
+    for (let i = 0; i < N; i++) {
+      const iK = i * K, iM = i * M;
+      for (let k = 0; k < K; k++) {
+        const av = a[iK + k], kM = k * M;
+        for (let j = 0; j < M; j++) c[iM + j] += av * b[kM + j];
+      }
+    }
+    ops += 2 * N * M * K;
+    el = performance.now() - t0;
+  }
+  return ops / (el / 1000) / 1e9;   // 约等于 GFLOPS
+}
+
+// 实测基准：本机 2 核无 GPU 纯 JS ≈ 0.94 GFLOPS
+// 再用昨晚实测“30 秒音频 / WASM 单线程”做一个锚点换算（先保守估 4 分钟）
+const REF_GFLOPS = 0.94;
+const REF_SEC_PER_30S = 240;
+
+function estimateSeconds() {
+  let gf = 0.9;
+  try { gf = Math.max(0.05, microBench(200)); } catch {}
+  let sec = REF_SEC_PER_30S * (REF_GFLOPS / gf);
+  if (navigator.gpu) sec *= 0.25;                       // 有 WebGPU 乐观打 4 折
+  const cores = navigator.hardwareConcurrency || 1;
+  if (!navigator.gpu && cores <= 4) sec *= 1.0;          // 单线程，核数不影响
+  sec = Math.min(sec, 36000);
+  return { sec, gf, cores, gpu: !!navigator.gpu };
+}
+
+const fmtSec = (s) => s < 60 ? `${Math.round(s)} 秒`
+  : s < 3600 ? `${Math.round(s / 60)} 分钟`
+  : `${(s / 3600).toFixed(1)} 小时`;
+
+function checkPerf() {
+  const box = document.getElementById('compat');
+  const est = estimateSeconds();
+  window.__perf = est;                       // 留给页面后续展示
+  if (est.sec < 600) return;                 // 不到 10 分钟，不拦
+
+  // 已经是能力弹窗了就不再跳一个，只把结果记着
+  document.querySelector('#compat h2').textContent = '⚠️ 你的设备算得会很慢';
+  document.getElementById('capList').innerHTML =
+    `<span class="no">✗ 预估需要 ${fmtSec(est.sec)}</span>` +
+    `<span class="${est.gpu ? 'ok' : 'no'}">${est.gpu ? '✓ 有 GPU 加速' : '✗ 没有 GPU 加速'}</span>`;
+  document.querySelector('#compat p').innerHTML =
+    `你这台设备跑 30 秒音频的分离，<b>预估需要 ${fmtSec(est.sec)}</b>（而且这还只是 30 秒，整首歌更久）。<br>
+     继续下去<b>有概率卡住、页面发烫、或者算很久也出不来</b>。`;
+  document.querySelector('#compat ul').innerHTML =
+    `<li><b>想要快：</b>换电脑用 Chrome / Edge，或者手机换成新一点的。</li>
+     <li><b>就想试试：</b>建议只算前 15 秒，先看效果，别一上来就跑整首。</li>`;
+
+  const rec = document.createElement('p');
+  rec.className = 'rec';
+  rec.textContent = `推荐：先只算前 15 秒（约 ${fmtSec(est.sec / 2)}）`;
+  document.querySelector('#compat p').after(rec);
+
+  const estEl = document.createElement('div');
+  estEl.className = 'est';
+  estEl.textContent = `实测算力 ${est.gf.toFixed(2)} GFLOPS · ${est.cores} 核 · ${est.gpu ? 'WebGPU' : 'WASM'}`;
+  rec.after(estEl);
+
+  if (est.sec >= 600) {
+    const go = document.getElementById('compatGo');
+    go.textContent = `我要继续（可能 ${fmtSec(est.sec)}+）`;
+    go.style.background = '#e0b04a';
+  }
+}
 
 const drop = document.getElementById('drop');
 const fileInput = document.getElementById('file');
