@@ -97,10 +97,13 @@
   </div>
   <div id="limitbar"></div>
 
+  <!-- 一进页面就显示后端能力（v1.4.3）：不用等模型也能看到 -->
+  <div id="backendbar" style="margin-top:14px;font-size:12px;color:#7c8ca6;line-height:1.9"></div>
+
   <div id="tracks"></div>
   <div id="picker" style="display:none"></div>
 </div>
-<div id="ver">v1.4.2-内存闸拦引擎崩溃 20261101</div>
+<div id="ver">v1.4.3-进页面即显后端能力 20261101</div>
 
 <!-- 老浏览器能力探测提示：不满足就弹，点确认才放行 -->
 <div id="compat">
@@ -171,6 +174,42 @@ function checkCompat() {
   return false;
 }
 const _compatPassed = checkCompat();
+
+/* ---------------- 一进页面就展示后端能力（v1.4.3） ---------------- */
+(function showBackend() {
+  const el = document.getElementById('backendbar');
+  if (!el) return;
+  const hasGPU = !!navigator.gpu;
+  const cores = navigator.hardwareConcurrency || 1;
+  const dm = navigator.deviceMemory || 0;
+  const ua = navigator.userAgent;
+  const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const tag = (ok, txt) => `<span style="display:inline-block;padding:2px 8px;border-radius:12px;margin-right:6px;border:1px solid ${ok ? '#2a6b52' : '#6b4a2a'};color:${ok ? '#3ddc97' : '#e0b04a'}">${ok ? '✓' : '✗'} ${txt}</span>`;
+
+  // WebGPU 能力探测：光有 navigator.gpu 不一定能拿到 adapter
+  el.innerHTML =
+    `<b style="color:#dbe7f5">本机能力：</b><br>` +
+    `<span id="bkLine">${tag(hasGPU, 'WebGPU 接口')}${tag(typeof SharedArrayBuffer !== 'undefined', '多线程 SAB')}` +
+    `${tag(cores >= 4, cores + ' 核')}${dm ? tag(dm >= 4, dm + ' GB 内存') : ''}${isIOS ? tag(false, 'iOS 受限') : ''}</span>` +
+    `<br><span style="color:#5a6b85">后端：<b id="bkReal" style="color:#a8bddb">检测中…</b></span>`;
+
+  // 真去拿一下 adapter，比只看 navigator.gpu 准
+  (async () => {
+    let ok = false, info = '';
+    try {
+      if (navigator.gpu) {
+        const ad = await navigator.gpu.requestAdapter();
+        ok = !!ad;
+        if (ad && ad.info) info = [ad.info.vendor, ad.info.architecture].filter(Boolean).join(' ');
+      }
+    } catch (e) {}
+    const r = document.getElementById('bkReal');
+    if (r) {
+      r.textContent = ok ? `WebGPU 可用${info ? '（' + info + '）' : ''}` : (navigator.gpu ? 'WebGPU 接口在，但拿不到适配器' : 'WebGPU 不可用 → 只能走 WASM');
+      r.style.color = ok ? '#3ddc97' : '#e0b04a';
+    }
+  })();
+})();
 // 能力过关才做性能预判（两项弹窗合并用同一个框）
 if (_compatPassed) setTimeout(() => { try { checkPerf(); } catch {} }, 60);
 
