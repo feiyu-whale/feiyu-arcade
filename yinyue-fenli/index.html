@@ -40,6 +40,28 @@
   button { background:var(--acc); border:0; color:#04101f; font-weight:600; padding:9px 18px;
            border-radius:7px; cursor:pointer; font-size:13px; }
   button:disabled { background:#2a3a52; color:#5c6d85; cursor:default; }
+  /* ---- 老浏览器提示（v1.4.0） ---- */
+  #compat {
+    position:fixed; inset:0; z-index:9999; display:none;
+    background:rgba(5,10,18,.82); backdrop-filter:blur(3px);
+    align-items:center; justify-content:center; padding:20px;
+  }
+  #compat .card {
+    background:var(--panel); border:1px solid var(--line); border-top:3px solid #e0b04a;
+    border-radius:12px; max-width:520px; width:100%; padding:22px 24px;
+    box-shadow:0 18px 50px rgba(0,0,0,.5);
+  }
+  #compat h2 { font-size:16px; margin:0 0 12px; color:#f0d38a; }
+  #compat p { font-size:13px; line-height:1.8; color:#a8bddb; margin:0 0 14px; }
+  #compat ul { margin:0 0 16px; padding-left:20px; font-size:12.5px; line-height:1.9; color:#8fa4c2; }
+  #compat li b { color:#dbe7f5; font-weight:600; }
+  #compat .btns { display:flex; gap:10px; flex-wrap:wrap; }
+  #compat .ghost { background:transparent; border:1px solid var(--line); color:var(--dim); }
+  #compat .ghost:hover { border-color:#3a4f6d; color:#a8bddb; }
+  .caps { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .caps span { font-size:11px; padding:4px 9px; border-radius:20px; border:1px solid var(--line); color:#5a6b85; }
+  .caps span.ok { border-color:#2a6b52; color:var(--ok); }
+  .caps span.no { border-color:#6b4a2a; color:#e0b04a; }
 </style>
 </head>
 <body>
@@ -75,7 +97,25 @@
   <div id="tracks"></div>
   <div id="picker" style="display:none"></div>
 </div>
-<div id="ver">v1.3.1-修白屏回退单线程 20261101</div>
+<div id="ver">v1.4.0-老浏览器提示 20261101</div>
+
+<!-- 老浏览器能力探测提示：不满足就弹，点确认才放行 -->
+<div id="compat">
+  <div class="card">
+    <h2>⚠️ 检测到你的浏览器偏旧</h2>
+    <p>这个页面要<b>在你自己的浏览器里跑神经网络</b>，对浏览器版本有要求。<br>
+       当前环境缺下面几样，直接跑可能<b>卡死、白屏或者算了半天出不来</b>：</p>
+    <div class="caps" id="capList"></div>
+    <ul>
+      <li><b>建议：</b>升级到 Chrome / Edge 最新版（手机端也一样），或者换一台新一点的设备。</li>
+      <li><b>硬要试也可以：</b>点下面的继续，但请自己做好心理准备 —— 大概率很慢。</li>
+    </ul>
+    <div class="btns">
+      <button id="compatGo">我知道，继续</button>
+      <button id="compatBack" class="ghost">算了，不折腾了</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.all.min.js"></script>
 <script type="module">
@@ -86,6 +126,48 @@ import { isArchive, unarchive } from './archive.js';
 const MODEL_URL = './model/htdemucs_freq.onnx';
 const MODEL_PARTS = 4;   // 模型超过 GitHub 单文件 100MB 限制，已切成 4 块
 const NAMES = { vocals: '人声 Vocals', drums: '鼓 Drums', bass: '贝斯 Bass', other: '其他 Other' };
+
+/* ---------------- 老浏览器能力探测（v1.4.0） ----------------
+   策略：不做降级兼容，直接弹提示。点「继续」写内存标记（刷新不复现，关页失效）。 */
+const CAPS = [
+  { key: 'wasm',  name: 'WebAssembly',  need: true,  test: () => typeof WebAssembly === 'object' && !!WebAssembly.instantiate },
+  { key: 'simd',  name: 'WASM SIMD',     need: true,  test: () => { try { return WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])); } catch { return false; } } },
+  { key: 'gpu',   name: 'WebGPU（显卡加速）', need: false, test: () => !!navigator.gpu },
+  { key: 'audio', name: 'Web Audio',    need: true,  test: () => !!(window.OfflineAudioContext || window.webkitOfflineAudioContext) },
+  { key: 'codec', name: 'WebCodecs（视频输入用）', need: false, test: () => typeof window.VideoDecoder !== 'undefined' },
+];
+
+function checkCompat() {
+  if (sessionStorage.getItem('compatOk') === '1') return true;
+  const miss = [];
+  const list = document.getElementById('capList');
+  list.innerHTML = '';
+  for (const c of CAPS) {
+    let ok = false;
+    try { ok = c.test(); } catch { ok = false; }
+    if (c.need && !ok) miss.push(c.name);
+    const s = document.createElement('span');
+    s.className = ok ? 'ok' : 'no';
+    s.textContent = (ok ? '✓ ' : '✗ ') + c.name;
+    list.appendChild(s);
+  }
+  if (miss.length === 0) return true;   // 缺的只是加速项（GPU/WebCodecs），能跑，不拦
+
+  const box = document.getElementById('compat');
+  box.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  document.getElementById('compatGo').onclick = () => {
+    sessionStorage.setItem('compatOk', '1');
+    box.style.display = 'none';
+    document.body.style.overflow = '';
+  };
+  document.getElementById('compatBack').onclick = () => {
+    box.querySelector('p').innerHTML = '<b style="color:#e0b04a">好吧，那就先不折腾。</b><br>建议换个新版 Chrome / Edge 再回来。';
+    document.querySelector('.btns').style.display = 'none';
+  };
+  return false;
+}
+const _compatPassed = checkCompat();
 
 const drop = document.getElementById('drop');
 const fileInput = document.getElementById('file');
@@ -243,6 +325,7 @@ async function loadModel() {
 
 async function handleFile(file) {
   if (!file) return;
+  if (!_compatPassed && sessionStorage.getItem('compatOk') !== '1') return;
   tracksEl.style.display = 'none';
   tracksEl.innerHTML = '';
   pickerEl.style.display = 'none';
