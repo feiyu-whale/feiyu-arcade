@@ -189,7 +189,7 @@
 </div>
 <input type="file" id="fileInput" class="hidden" multiple>
 
-<div id="ver">v2.0.0-拖拽环形 20261102</div>
+<div id="ver">v2.1.0-多格式扩展 20261102</div>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script>
@@ -221,15 +221,37 @@
       { id:'json', label:'JSON',  icon:'{ }', action:'tojson' },
       { id:'csv',  label:'CSV',   icon:'▦',  action:'tocsv' },
       { id:'yaml', label:'YAML',  icon:'≋',  action:'toyaml' }
+    ],
+    audio: [
+      { id:'wav',  label:'WAV',   icon:'🎵', action:'audio2wav' },
+      { id:'mp3',  label:'MP3',   icon:'🎵', action:'audio2mp3' },
+      { id:'m4a',  label:'M4A',   icon:'🎵', action:'audio2m4a' }
+    ],
+    video: [
+      { id:'mp4',  label:'MP4',   icon:'🎬', action:'video2mp4' },
+      { id:'webm', label:'WEBM',  icon:'🎬', action:'video2webm' },
+      { id:'gif',  label:'GIF',   icon:'🎞️', action:'video2gif' }
+    ],
+    doc: [
+      { id:'txt',  label:'转文本', icon:'📝', action:'doc2txt' },
+      { id:'pdf',  label:'转PDF',  icon:'📄', action:'doc2pdf' }
+    ],
+    zip: [
+      { id:'zip',  label:'ZIP',   icon:'📦', action:'zip2zip' },
+      { id:'ls',   label:'看内容', icon:'🔍', action:'zipList' }
     ]
   };
 
   function formatsFor(file){
     var t = file.type || '';
     var e = extOf(file.name);
-    if (/^image\//.test(t) || /^(jpg|jpeg|png|webp|gif|bmp)$/.test(e)) return 'image';
+    if (/^image\//.test(t) || /^(jpg|jpeg|png|webp|gif|bmp|heic|heif|avif|tiff?)$/.test(e)) return 'image';
     if (t === 'application/pdf' || e === 'pdf') return 'pdf';
-    if (/^text\//.test(t) || /^(txt|md|json|csv|log)$/.test(e)) return 'text';
+    if (/^audio\//.test(t) || /^(mp3|wav|flac|m4a|aac|ogg|opus|wma|aiff?)$/.test(e)) return 'audio';
+    if (/^video\//.test(t) || /^(mp4|mov|m4v|webm|mkv|avi|flv|wmv|3gp)$/.test(e)) return 'video';
+    if (/^(docx|doc|xlsx|xls|pptx|ppt|odt|ods|epub|rtf)$/.test(e)) return 'doc';
+    if (/^(zip|rar|7z|tar|gz|tgz|bz2|xz)$/.test(e)) return 'zip';
+    if (/^text\//.test(t) || /^(txt|md|json|csv|log|yaml|yml|xml|html?)$/.test(e)) return 'text';
     return null;
   }
 
@@ -291,7 +313,9 @@
     }).join('');
 
     var fname = files.length > 1 ? (files.length + ' 个文件') : files[0].name;
-    var ficon = kind === 'image' ? '🖼️' : kind === 'pdf' ? '📄' : '📝';
+    var ficon = kind === 'image' ? '🖼️' : kind === 'pdf' ? '📄' :
+                kind === 'audio' ? '🎵' : kind === 'video' ? '🎬' :
+                kind === 'doc' ? '📄' : kind === 'zip' ? '📦' : '📝';
 
     donutEl.innerHTML =
       '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" ' +
@@ -401,6 +425,16 @@
     if (fmt.action === 'tojson') return textTo(file, 'json');
     if (fmt.action === 'tocsv')  return textTo(file, 'csv');
     if (fmt.action === 'toyaml') return textTo(file, 'yaml');
+    if (fmt.action === 'audio2wav') return audioTo(file, 'wav');
+    if (fmt.action === 'audio2mp3') return audioTo(file, 'mp3');
+    if (fmt.action === 'audio2m4a') return audioTo(file, 'm4a');
+    if (fmt.action === 'video2mp4') return videoTo(file, 'mp4');
+    if (fmt.action === 'video2webm') return videoTo(file, 'webm');
+    if (fmt.action === 'video2gif') return videoTo(file, 'gif');
+    if (fmt.action === 'doc2txt') return docToText(file);
+    if (fmt.action === 'doc2pdf') return docToPdf(file);
+    if (fmt.action === 'zip2zip') return zipTo(file, 'zip');
+    if (fmt.action === 'zipList') return zipList(file);
     if (fmt.id === 'txt') return toText(file);
     return imgConvert(file, fmt);
   }
@@ -580,6 +614,233 @@
     });
   }
 
+
+  /* ========== 新增：音频 / 视频 / 文档 / 压缩包（v2.1.0） ========== */
+
+  /* --- 按需加载外部库（CDN），只加载一次 --- */
+  var _libs = {};
+  function loadLib(key, url){
+    if (_libs[key]) return _libs[key];
+    _libs[key] = new Promise(function(res, rej){
+      var sc = document.createElement('script');
+      sc.src = url;
+      sc.onload = function(){ res(); };
+      sc.onerror = function(){ delete _libs[key]; rej(new Error('库加载失败（检查网络）')); };
+      document.head.appendChild(sc);
+    });
+    return _libs[key];
+  }
+
+  /* --- HEIC → 可解码图片（走 heic2any，找不到就报错） --- */
+  async function ensureDecodable(file){
+    var e = extOf(file.name);
+    if (e !== 'heic' && e !== 'heif') return file;
+    await loadLib('heic2any', 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js');
+    if (!window.heic2any) throw new Error('HEIC 解码库未加载');
+    var out = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+    var b = Array.isArray(out) ? out[0] : out;
+    return new File([b], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+  }
+
+  /* --- 音频转 WAV / MP3 / M4A --- */
+  async function audioTo(file, target){
+    var ab = await file.arrayBuffer();
+    var actx = new (window.AudioContext || window.webkitAudioContext)();
+    var buf;
+    try {
+      buf = await actx.decodeAudioData(ab);
+    } catch (err) {
+      actx.close();
+      throw new Error('这个音频格式浏览器解不了（试试先转成 wav/mp3）');
+    }
+    actx.close();
+    var base = file.name.replace(/\.[^.]+$/, '');
+
+    if (target === 'wav') {
+      return { name: base + '.wav', blob: encodeWavBuffer(buf) };
+    }
+
+    if (target === 'mp3') {
+      await loadLib('lamejs', 'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js');
+      if (!window.lamejs) throw new Error('MP3 编码器未加载');
+      var enc = new window.lamejs.Mp3Encoder(buf.numberOfChannels > 1 ? 2 : 1, buf.sampleRate, 192);
+      var L = buf.getChannelData(0);
+      var R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L;
+      var toI16 = function(f){ var o = new Int16Array(f.length); for (var i=0;i<f.length;i++){ var v=Math.max(-1,Math.min(1,f[i])); o[i]= v<0? v*0x8000 : v*0x7fff; } return o; };
+      var l16 = toI16(L), r16 = toI16(R), chunks = [];
+      var BLOCK = 1152;
+      for (var i = 0; i < l16.length; i += BLOCK) {
+        var mp3buf = buf.numberOfChannels > 1
+          ? enc.encodeBuffer(l16.subarray(i, i+BLOCK), r16.subarray(i, i+BLOCK))
+          : enc.encodeBuffer(l16.subarray(i, i+BLOCK));
+        if (mp3buf.length) chunks.push(new Uint8Array(mp3buf));
+      }
+      var end = enc.flush();
+      if (end.length) chunks.push(new Uint8Array(end));
+      return { name: base + '.mp3', blob: new Blob(chunks, { type: 'audio/mpeg' }) };
+    }
+
+    // M4A / AAC：用 MediaRecorder 实时录（慢，但零依赖）
+    throw new Error('M4A 需要实时录制，暂未支持（用 WAV 或 MP3 吧）');
+  }
+
+  /* 把 AudioBuffer 编成 16bit WAV */
+  function encodeWavBuffer(buf){
+    var ch = buf.numberOfChannels, len = buf.length, sr = buf.sampleRate;
+    var bytes = len * ch * 2;
+    var ab = new ArrayBuffer(44 + bytes);
+    var dv = new DataView(ab);
+    var ws = function(o, t){ for (var i=0;i<t.length;i++) dv.setUint8(o+i, t.charCodeAt(i)); };
+    ws(0,'RIFF'); dv.setUint32(4, 36+bytes, true); ws(8,'WAVE');
+    ws(12,'fmt '); dv.setUint32(16,16,true); dv.setUint16(20,1,true);
+    dv.setUint16(22,ch,true); dv.setUint32(24,sr,true);
+    dv.setUint32(28, sr*ch*2, true); dv.setUint16(32, ch*2, true); dv.setUint16(34,16,true);
+    ws(36,'data'); dv.setUint32(40, bytes, true);
+    var off = 44, data = [];
+    for (var c=0;c<ch;c++) data.push(buf.getChannelData(c));
+    for (var i=0;i<len;i++){
+      for (var c2=0;c2<ch;c2++){
+        var v = Math.max(-1, Math.min(1, data[c2][i]));
+        dv.setInt16(off, v<0? v*0x8000 : v*0x7fff, true); off += 2;
+      }
+    }
+    return new Blob([ab], { type: 'audio/wav' });
+  }
+
+  /* --- 视频转格式（ffmpeg.wasm，重活） --- */
+  async function videoTo(file, target){
+    if (window.matchMedia && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      // 手机上不硬来，直接劝退
+      throw new Error('手机内存不够做视频转码，请在电脑上操作（ffmpeg 要 30MB+ 内存）');
+    }
+    await loadLib('ffmpegUmd', 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js');
+    await loadLib('ffmpegUtil', 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/util.js');
+    var FFmpeg = window.FFmpegWASM && window.FFmpegWASM.FFmpeg;
+    var toBlobURL = window.FFmpegUtil && window.FFmpegUtil.toBlobURL;
+    if (!FFmpeg || !toBlobURL) throw new Error('ffmpeg 库未加载');
+
+    var base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+    var ff = new FFmpeg();
+    await ff.load({
+      coreURL: await toBlobURL(base + '/ffmpeg-core.js', 'text/javascript'),
+      wasmURL: await toBlobURL(base + '/ffmpeg-core.wasm', 'application/wasm'),
+    });
+    var inName = 'in' + (extOf(file.name) ? '.' + extOf(file.name) : '.mp4');
+    var outName = 'out.' + target;
+    await ff.writeFile(inName, new Uint8Array(await file.arrayBuffer()));
+    var args = target === 'gif'
+      ? ['-i', inName, '-vf', 'fps=12,scale=640:-1:flags=lanczos', '-loop', '0', outName]
+      : target === 'webm'
+        ? ['-i', inName, '-c:v', 'libvpx-vp9', '-crf', '32', '-b:v', '0', '-c:a', 'libopus', outName]
+        : ['-i', inName, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac', outName];
+    await ff.exec(args);
+    var data = await ff.readFile(outName);
+    var mime = target === 'gif' ? 'image/gif' : target === 'webm' ? 'video/webm' : 'video/mp4';
+    return { name: file.name.replace(/\.[^.]+$/, '') + '.' + target, blob: new Blob([data.buffer || data], { type: mime }) };
+  }
+
+  /* --- 文档转文本 / PDF --- */
+  async function docToText(file){
+    var e = extOf(file.name);
+    var base = file.name.replace(/\.[^.]+$/, '');
+
+    if (e === 'docx') {
+      await loadLib('mammoth', 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js');
+      if (!window.mammoth) throw new Error('docx 解析库未加载');
+      var r = await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+      return { name: base + '.txt', blob: new Blob([r.value], { type: 'text/plain;charset=utf-8' }) };
+    }
+
+    if (e === 'xlsx' || e === 'xls') {
+      await loadLib('xlsx', 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
+      if (!window.XLSX) throw new Error('表格解析库未加载');
+      var wb = window.XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      var lines = [];
+      wb.SheetNames.forEach(function(sn){
+        lines.push('=== ' + sn + ' ===');
+        lines.push(window.XLSX.utils.sheet_to_csv(wb.Sheets[sn]));
+      });
+      return { name: base + '.txt', blob: new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' }) };
+    }
+
+    if (e === 'pptx' || e === 'ppt' || e === 'odt' || e === 'ods' || e === 'rtf') {
+      throw new Error('这个格式暂未支持解析（docx / xlsx 已支持）');
+    }
+
+    if (e === 'epub') {
+      await loadLib('jszip', 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js');
+      if (!window.JSZip) throw new Error('解压库未加载');
+      var zip = await window.JSZip.loadAsync(await file.arrayBuffer());
+      var txt = '';
+      var names = Object.keys(zip.files).filter(function(n){ return /\.x?html?$/i.test(n); }).sort();
+      for (var i = 0; i < names.length; i++) {
+        var html = await zip.files[names[i]].async('string');
+        txt += html.replace(/<script[\s\S]*?<\/script>/gi, '')
+                   .replace(/<style[\s\S]*?<\/style>/gi, '')
+                   .replace(/<[^>]+>/g, ' ')
+                   .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+                   .replace(/\s+/g, ' ') + '\n\n';
+      }
+      return { name: base + '.txt', blob: new Blob([txt], { type: 'text/plain;charset=utf-8' }) };
+    }
+
+    throw new Error('暂不支持这个文档格式');
+  }
+
+  async function docToPdf(file){
+    var t = await docToText(file);
+    var text = await t.blob.text();
+    if (!window.PDFLib) throw new Error('pdf-lib 未加载');
+    var doc = await window.PDFLib.PDFDocument.create();
+    var font = await doc.embedFont(window.PDFLib.StandardFonts.Helvetica);
+    var PAGE_W = 595, PAGE_H = 842, MARGIN = 50, LINE_H = 14, SIZE = 10;
+    var maxChars = Math.floor((PAGE_W - MARGIN*2) / (SIZE * 0.5));
+    var lines = [];
+    text.split(/\n/).forEach(function(para){
+      if (!para.trim()) { lines.push(''); return; }
+      for (var i = 0; i < para.length; i += maxChars) lines.push(para.substr(i, maxChars));
+    });
+    var perPage = Math.floor((PAGE_H - MARGIN*2) / LINE_H);
+    for (var p = 0; p * perPage < lines.length; p++){
+      var page = doc.addPage([PAGE_W, PAGE_H]);
+      var chunk = lines.slice(p * perPage, (p+1) * perPage);
+      chunk.forEach(function(ln, idx){
+        try {
+          page.drawText(ln.replace(/[^\x20-\x7E]/g, '?'), {
+            x: MARGIN, y: PAGE_H - MARGIN - idx * LINE_H, size: SIZE, font: font,
+          });
+        } catch (e) {}
+      });
+    }
+    var out = await doc.save();
+    return { name: file.name.replace(/\.[^.]+$/, '') + '.pdf', blob: new Blob([out], { type: 'application/pdf' }) };
+  }
+
+  /* --- 压缩包：重打包 / 看内容 --- */
+  async function zipTo(file){
+    await loadLib('jszip', 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js');
+    if (!window.JSZip) throw new Error('解压库未加载');
+    var e = extOf(file.name);
+    if (e !== 'zip') throw new Error('只支持 ZIP 重打包（其他格式浏览器解不开）');
+    var zip = await window.JSZip.loadAsync(await file.arrayBuffer());
+    var out = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 9 } });
+    return { name: file.name.replace(/\.zip$/i, '') + '-repacked.zip', blob: out };
+  }
+
+  async function zipList(file){
+    await loadLib('jszip', 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js');
+    if (!window.JSZip) throw new Error('解压库未加载');
+    var e = extOf(file.name);
+    if (e !== 'zip') throw new Error('只支持 ZIP 查看（其他格式浏览器解不开）');
+    var zip = await window.JSZip.loadAsync(await file.arrayBuffer());
+    var lines = [];
+    Object.keys(zip.files).forEach(function(n){
+      var f = zip.files[n];
+      lines.push((f.dir ? '[目录] ' : fmtSize(f._data ? f._data.uncompressedSize : 0) + '  ') + n);
+    });
+    var txt = file.name + ' 共 ' + lines.length + ' 项\n\n' + lines.join('\n');
+    return { name: file.name.replace(/\.zip$/i, '') + '-目录.txt', blob: new Blob([txt], { type: 'text/plain;charset=utf-8' }) };
+  }
 
   /* ========== 结果面板 ========== */
   function showPanel(results, fmt){
