@@ -294,10 +294,17 @@ function sunLambda(jd){
   let lam=lon-0.00569-0.004779*Math.sin(om);
   return ((lam%360)+360)%360;
 }
-function sunReach(target){
-  const t0=2451545.0, k=((target-280.46646)%360+360)%360;
-  let jd=t0+(k/360)*365.25+4;
-  for(let i=0;i<4;i++){
+function sunReach(target, year){
+  // [2026-11-02 修] 原版忽略年份，永远从 J2000 起算 → 返回 2000 年的节气。
+  // 现在以该年 1 月 1 日为起点，向前找最近的交节时刻。
+  let jd;
+  if (year === undefined || year === null) {
+    const k=((target-280.46646)%360+360)%360;
+    jd=2451545.0+(k/360)*365.25+4;
+  } else {
+    jd = g2jd(year, 1, 1) + 3;   // 从 1 月 1 日附近起步，稍留余量
+  }
+  for(let i=0;i<8;i++){
     let d=((sunLambda(jd)-target+540)%360)-180;
     jd-=d/360*365.25;
   }
@@ -306,7 +313,20 @@ function sunReach(target){
 const termCache={};
 function yearTerms(y){
   if(termCache[y])return termCache[y];
-  const arr=TERM24.map((t,i)=>({name:t[0],lon:t[1],idx:i,jd:sunReach(t[1])}));
+  // [2026-11-02 修] 原版没用参数 y，导致任何年份都算成 2000 年
+  const arr=TERM24.map((t,i)=>{
+    // 黄经 target 落在该年时，起点应在 1 月或上一年 12 月；按目标黄经粗定位月份
+    let jd = sunReach(t[1], y);
+    // 若算出的时刻偏到相邻年份，向回/向前收敛一次
+    const cy = fmtJd(jd + 8/24).y;
+    if (cy < y) jd = sunReach(t[1], y + 1) - 0;      // 落在上一年 → 取下一轮
+    else if (cy > y) jd = sunReach(t[1], y - 1);
+    // 重新核对，仍未落在 y 年则用最近一轮
+    if (fmtJd(jd + 8/24).y !== y) {
+      jd = sunReach(t[1], y);
+    }
+    return {name:t[0], lon:t[1], idx:i, jd};
+  });
   arr.sort((a,b)=>a.jd-b.jd);
   termCache[y]=arr; return arr;
 }
@@ -314,7 +334,7 @@ function fmtJd(jd){
   const z=Math.floor(jd+0.5), f=jd+0.5-z;
   let A=z; if(z>=2299161){const a=Math.floor((z-1867216.25)/36524.25);A=z+1+a-Math.floor(a/4);}
   const B=A+1524, C=Math.floor((B-122.1)/365.25), D=Math.floor(365.25*C), E=Math.floor((B-D)/30.6001);
-  const day=B-D-Math.floor(30.6001*E)+(f*24);
+  const day=B-D-Math.floor(30.6001*E)+f;   // [2026-11-02 修] 原为 (f*24)，导致日期偏约 12 天
   const m=E<14?E-1:E-13, yy=m>2?C-4716:C-4715;
   const dd=Math.floor(day);
   let hh=Math.round((day-dd)*24*60);
