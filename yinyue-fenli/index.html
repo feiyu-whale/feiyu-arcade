@@ -103,7 +103,7 @@
   <div id="tracks"></div>
   <div id="picker" style="display:none"></div>
 </div>
-<div id="ver">v1.4.4-session判空暴露真错 20261101</div>
+<div id="ver">v1.5.0-设备分流+安卓App入口 20261102</div>
 
 <!-- 老浏览器能力探测提示：不满足就弹，点确认才放行 -->
 <div id="compat">
@@ -123,6 +123,17 @@
   </div>
 </div>
 
+<!-- 设备分流（v1.5.0）：安卓推 App，苹果退回网页但先劝退 -->
+<div id="devicegate" style="display:none;position:fixed;inset:0;background:rgba(5,10,20,.86);z-index:9999;
+     align-items:center;justify-content:center;padding:20px">
+  <div style="background:#121c30;border:1px solid #1f2f4a;border-radius:14px;max-width:460px;width:100%;
+       padding:24px 22px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+    <div id="dgTitle" style="font-size:18px;font-weight:600;margin-bottom:12px"></div>
+    <div id="dgBody" style="font-size:13.5px;line-height:1.85;color:#a8bddb"></div>
+    <div id="dgBtns" style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap"></div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.all.min.js"></script>
 <script type="module">
 import { decodeToStereo, separate, SOURCES, CHUNK_SAMPLES } from './pipeline.js';
@@ -132,6 +143,67 @@ import { isArchive, unarchive } from './archive.js';
 const MODEL_URL = './model/htdemucs_freq.onnx';
 const MODEL_PARTS = 4;   // 模型超过 GitHub 单文件 100MB 限制，已切成 4 块
 const NAMES = { vocals: '人声 Vocals', drums: '鼓 Drums', bass: '贝斯 Bass', other: '其他 Other' };
+
+/* ---------------- 设备分流（v1.5.0 · 2026-11-02） ----------------
+   安卓 → 推 App 下载（内存够，原生跑得动）
+   苹果 → 退回网页版，但先劝退（iOS 内存限额，大概率跑不完）
+   其他 → 不拦，直接进网页版 */
+const APK_URL = '/download/feiyu-demucs-v1.0.0.apk';
+
+function dgShow(title, bodyHtml, buttons) {
+  const g = document.getElementById('devicegate');
+  document.getElementById('dgTitle').textContent = title;
+  document.getElementById('dgBody').innerHTML = bodyHtml;
+  const box = document.getElementById('dgBtns');
+  box.innerHTML = '';
+  buttons.forEach(b => {
+    const el = document.createElement('button');
+    el.textContent = b.text;
+    el.style.cssText = 'padding:10px 18px;border-radius:8px;border:none;cursor:pointer;font-size:14px;' +
+      (b.ghost ? 'background:transparent;border:1px solid #2c4468;color:#8fa6c4' : 'background:#4aa8ff;color:#04121f;font-weight:600');
+    el.onclick = b.onClick || (() => { g.style.display = 'none'; });
+    box.appendChild(el);
+  });
+  g.style.display = 'flex';
+}
+
+function deviceGate() {
+  const ua = navigator.userAgent || '';
+  const isAndroid = /Android/i.test(ua);
+  const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+
+  if (isAndroid) {
+    // 已装过 App 的，sessionStorage 记一下，本轮不再打扰
+    if (sessionStorage.getItem('dgApkSkip') === '1') return false;
+    dgShow('📱 安卓手机，建议用 App 版', `
+      <p style="margin:0 0 10px">这个网页版要在浏览器里跑神经网络，手机浏览器内存卡得死，容易白屏或者算到一半被杀掉。</p>
+      <p style="margin:0 0 10px"><b>推荐装 App 版本</b>：同一个模型，装到手机上用，内存宽松得多，能跑完整首歌。</p>
+      <p style="margin:0;color:#7c8ca6;font-size:12.5px">装的时候系统可能弹「未知来源」，允许即可（我们自己打的包，不是商店下载）。</p>
+    `, [
+      { text: '下载 App（84 MB）', onClick: () => { location.href = APK_URL; } },
+      { text: '我就要用网页版', ghost: true, onClick: () => { sessionStorage.setItem('dgApkSkip', '1'); document.getElementById('devicegate').style.display = 'none'; } },
+    ]);
+    return true;
+  }
+
+  if (isIOS) {
+    if (sessionStorage.getItem('dgIosSkip') === '1') return false;
+    dgShow('⚠️ iPhone 上大概率跑不完', `
+      <p style="margin:0 0 10px">技术上这个页面在 iPhone 上<b>是能跑的</b>（Safari 支持 WebGPU），但是——</p>
+      <p style="margin:0 0 10px"><b>Safari 给单个网页的内存上限很小</b>，这个模型要吃掉几百 MB，稍微长一点的歌就会在算到一半时被系统直接杀掉，表现为<b>白屏 / 直接闪退</b>。</p>
+      <p style="margin:0 0 10px">不是不能试：<b>短音频（十几秒）有机会跑完</b>，长歌基本没戏。</p>
+      <p style="margin:0;color:#7c8ca6;font-size:12.5px">另外：分模块开源，源码在仓库里，需要自己拿走改也行。</p>
+    `, [
+      { text: '继续用网页版', onClick: () => { sessionStorage.setItem('dgIosSkip', '1'); document.getElementById('devicegate').style.display = 'none'; } },
+      { text: '算了，不折腾', ghost: true, onClick: () => { history.length > 1 ? history.back() : location.href = '../'; } },
+    ]);
+    return true;
+  }
+
+  return false;
+}
+
+document.addEventListener('DOMContentLoaded', () => { deviceGate(); });
 
 /* ---------------- 老浏览器能力探测（v1.4.0） ----------------
    策略：不做降级兼容，直接弹提示。点「继续」写内存标记（刷新不复现，关页失效）。 */
