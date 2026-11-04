@@ -71,7 +71,10 @@
   document.getElementById('enterbtn').addEventListener('click', goArcade);
   document.getElementById('skipbtn').addEventListener('click', goArcade);
 
-  /* 开机动画跑完后浮现「进入游戏厅」按钮 */
+  /* 开机动画一结束就出按钮（splash.js 结束时派发 dsh-startup:done 事件） */
+  window.addEventListener('dsh-startup:done', showEnter);
+
+  /* 兜底一：等 #dsh-startup-root 消失 */
   var tries = 0;
   var timer = setInterval(function () {
     tries++;
@@ -80,9 +83,9 @@
       clearInterval(timer);
       showEnter();
     }
-  }, 500);
+  }, 400);
 
-  /* 兜底：最多 12 秒后一定出按钮 */
+  /* 兜底二：最多 12 秒后一定出按钮（防脚本没跑起来） */
   setTimeout(function () { clearInterval(timer); showEnter(); }, 12000);
 
   /* Esc 直接进 */
