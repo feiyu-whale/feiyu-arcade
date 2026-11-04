@@ -1,0 +1,85 @@
+# 贡献与开源声明 · Credits & Open Source
+
+肥鱼游戏厅站在一堆开源项目肩膀上。这个页面把用到的每一份都列清楚——
+协议照最宽松的选，出处写最清的。
+
+> 本项目底层代码由 AI 辅助生成，结构粗犷，主打能跑。如有洁癖，欢迎提交 PR 优化。
+
+---
+
+## 一、核心依赖
+
+| 项目 | 用途 | 协议 | 出处 |
+|---|---|---|---|
+| **Three.js** r182 | 3D 渲染（档案环、部分小游戏） | MIT | [mrdoob/three.js](https://github.com/mrdoob/three.js) |
+| **ONNX Runtime Web** 1.19.2 | 浏览器里跑音频分离模型 | MIT | [microsoft/onnxruntime](https://github.com/microsoft/onnxruntime) |
+| **Demucs** htdemucs | 音乐源分离（人声/鼓/贝斯/钢琴等） | MIT | [facebookresearch/demucs](https://github.com/facebookresearch/demucs) |
+| **FFmpeg** | 音视频转码与合成 | LGPL-2.1 / GPL-2.0（视构建） | [FFmpeg](https://ffmpeg.org) |
+
+## 二、视觉与动效
+
+| 项目 | 用途 | 协议 | 作者 |
+|---|---|---|---|
+| **dsh-startup-screen** | 开屏动画（黑幕标识 → 过曝洗白 → 档案底板 → 五步授权 → 色散揭幕） | MIT | © 2026 沈宏宏 · [QIFANAI](https://github.com/QIFANAI/dsh-startup-screen) |
+| **rhine-lab-motion** | 莱茵生命风格 3D 档案环与 UI 视觉语言 | MIT | © 2026 Rad-Weed · [Rad-Weed](https://github.com/Rad-Weed/rhine-lab-motion) |
+
+### rhine-lab-motion 的二级出处
+
+它本身声明「所有代码、文档、音效均为原创，未复制任何受版权保护的素材」，
+以下项目仅在**思想/方法论层面**作为风格参考：
+
+- **laiyin-video** — 同人逐帧渲染短片「＋−＝∞」（代码 AGPL-3.0；仅借鉴思路，未使用其代码）
+- **RhineLabUI** — 交互式 3D 终端复刻（MIT；借鉴设计约束方法论）
+- **rhine-lab-art** — 交互艺术网站（借鉴开场叙事结构）
+- **Multiplane** — 无头 HTML 视频渲染器（Apache-2.0；仅推荐提及）
+
+> **《明日方舟》、莱茵生命**的名称、标志、设定、角色、原 PV 权利归 **鹰角网络（Hypergryph）**。
+> 本项目为非官方同人风格实现，**不包含任何官方美术素材**；开屏与档案环中的
+> 音效均为 **Web Audio 实时合成**，不使用原片采样。
+
+## 三、历法与术数
+
+| 项目 | 用途 | 协议 | 出处 |
+|---|---|---|---|
+| **lunar-javascript** | 农历、干支、节气、黄历 | MIT | [6tail/lunar-javascript](https://github.com/6tail/lunar-javascript) |
+| **iztro** | 紫微斗数排盘 | MIT | [SylarLong/iztro](https://github.com/SylarLong/iztro) |
+
+## 四、数据集与参考资料
+
+| 项目 | 用途 | 协议 |
+|---|---|---|
+| **MUSDB18-HQ** | 音乐源分离评测数据集 | 学术/非商业 |
+| **拼音字库** | 汉字注音（20992 字） | 公开数据整理 |
+
+## 五、贡献者名单
+
+### 项目作者
+
+- **大肥鱼（鲸鱼娘）** — 主体设计与实现，AI 助手，受主人长期指导与打磨
+- **老爹（主人）** — 需求提出、架构决策、验收与兜底
+
+### 上游作者
+
+- **沈宏宏** — dsh-startup-screen 开屏动画
+- **Rad-Weed** — rhine-lab-motion 莱茵视觉语言
+- **mrdoob 与 Three.js 贡献者** — 3D 渲染引擎
+- **Demucs 团队（Meta AI）** — 音乐源分离模型
+- **Microsoft ONNX Runtime 团队** — 浏览器推理运行时
+- **6tail** — lunar-javascript 历法库
+- **SylarLong** — iztro 紫微斗数库
+- **FFmpeg 全体贡献者** — 音视频基础设施
+
+### 致谢
+
+所有把代码开源出来的作者。没有你们，这条鱼只能从头啃。
+
+---
+
+## 关于协议
+
+本项目采用 **MIT** 协议开源。
+
+> 我们的东西本身借鉴了别人的创意，再收紧就是占便宜还上锁——
+> **协议挑最松的，出处写最清的。**
+
+如果你发现哪个依赖漏标了，或者标注有误，欢迎指出来，会改。
