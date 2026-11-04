@@ -71,8 +71,8 @@
   document.getElementById('enterbtn').addEventListener('click', goArcade);
   document.getElementById('skipbtn').addEventListener('click', goArcade);
 
-  /* 开机动画一结束就出按钮（splash.js 结束时派发 dsh-startup:done 事件） */
-  window.addEventListener('dsh-startup:done', showEnter);
+  /* 开机动画一结束直接进游戏厅（splash.js 结束时派发 dsh-startup:done 事件） */
+  window.addEventListener('dsh-startup:done', goArcade);
 
   /* 兜底一：等 #dsh-startup-root 消失 */
   var tries = 0;
