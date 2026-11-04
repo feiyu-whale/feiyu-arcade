@@ -6,26 +6,17 @@
 <title>肥鱼游戏厅</title>
 <!--
   startup/index.html —— 游戏厅开屏
-  干什么：先播 dsh-startup-screen 的开机动画，揭幕时无缝滑进莱茵 3D 档案环
+  干什么：播 dsh-startup-screen 的开机动画，揭幕后浮现「进入游戏厅」按钮
   用了什么：
     · splash.js / splash.css —— dsh-startup-screen (MIT, © 2026 沈宏宏)
-    · scene3d —— rhine-lab-motion (MIT, © 2026 Rad-Weed)
-    · Three.js r182 (MIT) —— 已本地化到 rhine-lab/vendor/
+    · 3D 档案环（彩蛋）见 ../rhine-lab/，入口在游戏厅首页
   输入：无（纯前端）
   输出：点击「进入游戏厅」跳转 ../arcade.html
 -->
 <link rel="stylesheet" href="./lib/splash.css">
 <style>
   html, body { margin: 0; padding: 0; background: #0a0e15; }
-  #stage {
-    position: fixed; inset: 0; opacity: 0; pointer-events: none;
-    transition: opacity .9s ease;
-  }
-  #stage.on { opacity: 1; pointer-events: auto; }
-  #stage iframe {
-    width: 100%; height: 100%; border: 0; display: block;
-  }
-  /* 进入按钮：贴在 3D 环底部 */
+  /* 进入按钮：动画揭幕后浮现 */
   #enterbar {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 999999;
     display: none; justify-content: center; align-items: center; gap: 14px;
@@ -58,49 +49,46 @@
 </head>
 <body>
 
-<div id="stage"><iframe id="scene" src="../rhine-lab/scene3d.html" title="档案环"></iframe></div>
-
 <div id="enterbar">
   <button id="enterbtn">进入游戏厅 →</button>
   <button id="skipbtn">跳过动画</button>
 </div>
 
 <script>
-/* 先把 3D 环藏起来预热，等动画揭幕再显示 */
 (function () {
-  var stage = document.getElementById('stage');
   var enterbar = document.getElementById('enterbar');
 
-  function revealScene() {
-    if (stage.classList.contains('on')) return;
-    stage.classList.add('on');
-    setTimeout(function () { enterbar.classList.add('on'); }, 700);
+  function showEnter() {
+    if (enterbar.classList.contains('on')) return;
+    enterbar.classList.add('on');
   }
 
-  document.getElementById('enterbtn').addEventListener('click', function () {
-    try { sessionStorage.setItem('feiyuEntered','1'); } catch(e){}
+  function goArcade() {
+    try { sessionStorage.setItem('feiyuEntered', '1'); } catch (e) {}
     location.href = '../arcade.html';
-  });
+  }
 
-  document.getElementById('skipbtn').addEventListener('click', function () {
-    try { sessionStorage.setItem('feiyuEntered','1'); } catch(e){}
-    location.href = '../arcade.html';
-  });
+  document.getElementById('enterbtn').addEventListener('click', goArcade);
+  document.getElementById('skipbtn').addEventListener('click', goArcade);
 
-  /* 动画跑完后接上 3D 环：
-     splash.js 结束时会移除 #dsh-startup-root，这里轮询等它消失 */
+  /* 开机动画跑完后浮现「进入游戏厅」按钮 */
   var tries = 0;
   var timer = setInterval(function () {
     tries++;
     var root = document.getElementById('dsh-startup-root');
     if (!root || root.classList.contains('dsu-gone') || tries > 120) {
       clearInterval(timer);
-      revealScene();
+      showEnter();
     }
   }, 500);
 
-  /* 兜底：无论动画跑没跑，最多 12 秒后一定进环 */
-  setTimeout(function () { clearInterval(timer); revealScene(); }, 12000);
+  /* 兜底：最多 12 秒后一定出按钮 */
+  setTimeout(function () { clearInterval(timer); showEnter(); }, 12000);
+
+  /* Esc 直接进 */
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') goArcade();
+  });
 })();
 </script>
 
