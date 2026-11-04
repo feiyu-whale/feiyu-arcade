@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>肥鱼游戏厅</title>
+<!--
+  startup/index.html —— 游戏厅开屏
+  干什么：先播 dsh-startup-screen 的开机动画，揭幕时无缝滑进莱茵 3D 档案环
+  用了什么：
+    · splash.js / splash.css —— dsh-startup-screen (MIT, © 2026 沈宏宏)
+    · scene3d —— rhine-lab-motion (MIT, © 2026 Rad-Weed)
+    · Three.js r182 (MIT) —— 已本地化到 rhine-lab/vendor/
+  输入：无（纯前端）
+  输出：点击「进入游戏厅」跳转 ../arcade.html
+-->
+<link rel="stylesheet" href="./lib/splash.css">
+<style>
+  html, body { margin: 0; padding: 0; background: #0a0e15; }
+  #stage {
+    position: fixed; inset: 0; opacity: 0; pointer-events: none;
+    transition: opacity .9s ease;
+  }
+  #stage.on { opacity: 1; pointer-events: auto; }
+  #stage iframe {
+    width: 100%; height: 100%; border: 0; display: block;
+  }
+  /* 进入按钮：贴在 3D 环底部 */
+  #enterbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 999999;
+    display: none; justify-content: center; align-items: center; gap: 14px;
+    padding: 22px 16px calc(22px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, rgba(6,10,16,.92), rgba(6,10,16,0));
+    pointer-events: none;
+  }
+  #enterbar.on { display: flex; }
+  #enterbtn {
+    pointer-events: auto;
+    font: 500 15px/1 "JetBrains Mono", Consolas, monospace;
+    letter-spacing: .14em;
+    color: #0b1016; background: #f6f3eb;
+    border: 0; border-radius: 2px;
+    padding: 15px 40px; cursor: pointer;
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+    box-shadow: 0 0 0 1px rgba(246,243,235,.35), 0 8px 30px rgba(0,0,0,.55);
+  }
+  #enterbtn:hover { transform: translateY(-2px); background: #fff; box-shadow: 0 0 0 1px #fff, 0 12px 34px rgba(255,255,255,.16); }
+  #enterbtn:active { transform: translateY(0); }
+  #skipbtn {
+    pointer-events: auto;
+    font: 400 12px/1 "JetBrains Mono", Consolas, monospace;
+    letter-spacing: .1em; color: #8d99a8;
+    background: transparent; border: 1px solid rgba(141,153,168,.3);
+    border-radius: 2px; padding: 11px 18px; cursor: pointer;
+  }
+  #skipbtn:hover { color: #dbe7f5; border-color: rgba(219,231,245,.5); }
+</style>
+</head>
+<body>
+
+<div id="stage"><iframe id="scene" src="../rhine-lab/scene3d.html" title="档案环"></iframe></div>
+
+<div id="enterbar">
+  <button id="enterbtn">进入游戏厅 →</button>
+  <button id="skipbtn">跳过动画</button>
+</div>
+
+<script>
+/* 先把 3D 环藏起来预热，等动画揭幕再显示 */
+(function () {
+  var stage = document.getElementById('stage');
+  var enterbar = document.getElementById('enterbar');
+
+  function revealScene() {
+    if (stage.classList.contains('on')) return;
+    stage.classList.add('on');
+    setTimeout(function () { enterbar.classList.add('on'); }, 700);
+  }
+
+  document.getElementById('enterbtn').addEventListener('click', function () {
+    try { sessionStorage.setItem('feiyuEntered','1'); } catch(e){}
+    location.href = '../arcade.html';
+  });
+
+  document.getElementById('skipbtn').addEventListener('click', function () {
+    try { sessionStorage.setItem('feiyuEntered','1'); } catch(e){}
+    location.href = '../arcade.html';
+  });
+
+  /* 动画跑完后接上 3D 环：
+     splash.js 结束时会移除 #dsh-startup-root，这里轮询等它消失 */
+  var tries = 0;
+  var timer = setInterval(function () {
+    tries++;
+    var root = document.getElementById('dsh-startup-root');
+    if (!root || root.classList.contains('dsu-gone') || tries > 120) {
+      clearInterval(timer);
+      revealScene();
+    }
+  }, 500);
+
+  /* 兜底：无论动画跑没跑，最多 12 秒后一定进环 */
+  setTimeout(function () { clearInterval(timer); revealScene(); }, 12000);
+})();
+</script>
+
+<script src="./lib/splash.js"></script>
+</body>
+</html>

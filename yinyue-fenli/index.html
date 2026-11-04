@@ -9,6 +9,47 @@
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
   .wrap { max-width: 880px; margin: 0 auto; padding: 28px 18px 80px; }
+
+  /* ---------- 原视频虚化背景（v1.6.0） ---------- */
+  #bgvideo {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; z-index: 0;
+    filter: blur(28px) brightness(.42) saturate(1.15);
+    transform: scale(1.12);          /* 边缘模糊后补一圈，避免露出黑边 */
+    opacity: 0; transition: opacity .6s;
+    pointer-events: none;
+  }
+  #bgvideo.on { opacity: 1; }
+  /* 背景上再盖一层暗色，保证文字可读 */
+  #bgmask {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background: radial-gradient(120% 90% at 50% 0%, rgba(11,18,32,.55) 0%, rgba(11,18,32,.86) 60%, rgba(11,18,32,.95) 100%);
+    opacity: 0; transition: opacity .6s;
+  }
+  #bgmask.on { opacity: 1; }
+  /* 内容层抬到背景之上 */
+  .wrap { position: relative; z-index: 2; }
+  #ver { z-index: 3; }
+  /* 背景选择按钮 */
+  #bgpick {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 14px; padding: 7px 13px; font-size: 12.5px;
+    background: rgba(30,45,68,.75); color: #a8bddb;
+    border: 1px solid var(--line); border-radius: 7px; cursor: pointer;
+    backdrop-filter: blur(6px);
+  }
+  #bgpick:hover { border-color: var(--acc); color: #dbe7f5; }
+  #bgpick.on { border-color: var(--ok); color: var(--ok); }
+
+  /* 窄屏/手机：模糊半径调小，避免 GPU 吃不住掉帧 */
+  @media (max-width: 640px) {
+    #bgvideo { filter: blur(16px) brightness(.45) saturate(1.1); }
+  }
+  /* 用户开了省流/降级动画时，直接关掉背景 */
+  @media (prefers-reduced-motion: reduce) {
+    #bgvideo { display: none; }
+    #bgmask { display: none; }
+  }
   h1 { font-size: 20px; margin: 0 0 6px; }
   .sub { color: var(--dim); font-size: 13px; line-height: 1.7; margin-bottom: 20px; }
   .honest { background:#132033; border:1px solid var(--line); border-left:3px solid var(--acc);
@@ -68,6 +109,10 @@
 </style>
 </head>
 <body>
+<!-- 原视频虚化背景（v1.6.0） -->
+<video id="bgvideo" muted playsinline loop preload="auto"></video>
+<div id="bgmask"></div>
+
 <div class="wrap">
   <h1>🐳 浏览器端 Demucs 音轨分离</h1>
   <div class="sub">
@@ -84,10 +129,15 @@
   <div id="drop">
     <div class="big">拖一首歌进来，或者点这里选择文件</div>
     <div class="small">音频：mp3 / wav / flac / ogg / m4a / aac / opus…<br>
-      压缩包：zip / tar / tar.gz / tgz（自动解开，自己挑里面的音频）</div>
+      压缩包：zip / tar / tar.gz / tgz（自动解开，自己挑里面的音频）<br>
+      视频：mp4 / mov / webm（自动抽音轨，画面可选作背景）</div>
     <input type="file" id="file"
            accept="audio/*,video/*,.zip,.tar,.gz,.tgz,.mp3,.wav,.flac,.ogg,.m4a,.aac,.opus" hidden>
   </div>
+
+  <!-- 背景选择（v1.6.0） -->
+  <button id="bgpick" title="选一个视频，把它的画面虚化后铺在后面">🎞️ 加个背景视频</button>
+  <input type="file" id="bgfile" accept="video/*" hidden>
 
   <div class="bar"><i id="bar"></i></div>
   <div class="statusrow">
@@ -103,7 +153,7 @@
   <div id="tracks"></div>
   <div id="picker" style="display:none"></div>
 </div>
-<div id="ver">v1.5.0-设备分流+安卓App入口 20261102</div>
+<div id="ver">v1.6.0-原视频虚化背景 20261104</div>
 
 <!-- 老浏览器能力探测提示：不满足就弹，点确认才放行 -->
 <div id="compat">
@@ -375,6 +425,90 @@ const statusEl = document.getElementById('status');
 const tracksEl = document.getElementById('tracks');
 const pickerEl = document.getElementById('picker');
 
+/* ---------- 原视频虚化背景（v1.6.0） ---------- */
+const bgVideo = document.getElementById('bgvideo');
+const bgMask = document.getElementById('bgmask');
+const bgPick = document.getElementById('bgpick');
+const bgFile = document.getElementById('bgfile');
+let bgUrl = null;
+
+/** 装载背景视频（不抽音，只出画面） */
+function setBgVideo(file) {
+  if (!file) return;
+  if (bgUrl) URL.revokeObjectURL(bgUrl);
+  bgUrl = URL.createObjectURL(file);
+  bgVideo.src = bgUrl;
+  bgVideo.muted = true;          // 背景绝不出声，避免和分离结果抢耳朵
+  bgVideo.loop = true;           // 音频比视频长时循环
+  bgVideo.load();
+  bgVideo.play().catch(() => {});
+  bgVideo.classList.add('on');
+  bgMask.classList.add('on');
+  bgPick.classList.add('on');
+  bgPick.textContent = `🎞️ ${file.name.slice(0, 18)}  ✓`;
+}
+
+/** 去掉背景 */
+function clearBg() {
+  bgVideo.pause();
+  bgVideo.removeAttribute('src');
+  bgVideo.load();
+  if (bgUrl) { URL.revokeObjectURL(bgUrl); bgUrl = null; }
+  bgVideo.classList.remove('on');
+  bgMask.classList.remove('on');
+  bgPick.classList.remove('on');
+  bgPick.textContent = '🎞️ 加个背景视频';
+}
+
+bgPick.addEventListener('click', (e) => {
+  e.stopPropagation();
+  // 已经有背景时，再点就哔掉（想换就直接选新文件）
+  if (bgPick.classList.contains('on')) {
+    if (confirm('现在有背景视频，要去掉吗？\n（点“取消”可以选新的）')) {
+      clearBg();
+      return;
+    }
+  }
+  bgFile.click();
+});
+bgFile.addEventListener('change', (e) => {
+  const f = e.target.files?.[0];
+  if (f) setBgVideo(f);
+  e.target.value = '';     // 同一文件能重复选
+});
+
+/** 让背景视频跟着某条音轨一起播/停 */
+function bindAudio(el) {
+  el.addEventListener('play', () => {
+    if (!bgVideo.classList.contains('on')) return;
+    // 对齐时间：视频短就取模，长就直接对应
+    try {
+      const d = bgVideo.duration || 0;
+      if (d > 0 && el.currentTime <= d) bgVideo.currentTime = el.currentTime % d;
+    } catch {}
+    bgVideo.play().catch(() => {});
+  });
+  el.addEventListener('pause', () => {
+    // 其他音轨还在放的话，背景别停
+    if (!anyAudioPlaying()) bgVideo.pause();
+  });
+  el.addEventListener('ended', () => {
+    if (!anyAudioPlaying()) bgVideo.pause();
+  });
+  el.addEventListener('seeked', () => {
+    if (!bgVideo.classList.contains('on') || bgVideo.paused) return;
+    try {
+      const d = bgVideo.duration || 0;
+      if (d > 0) bgVideo.currentTime = el.currentTime % d;
+    } catch {}
+  });
+}
+
+/** 是否还有任意一条音轨在播 */
+function anyAudioPlaying() {
+  return Array.from(tracksEl.querySelectorAll('audio')).some(a => !a.paused);
+}
+
 let session = null;
 let timerHandle = null;
 let stageStart = 0;
@@ -580,6 +714,11 @@ async function handleFile(file) {
   pickerEl.innerHTML = '';
   setBar(0);
 
+  // 传进来的是视频 → 自动拿它当背景（不用用户再选一遍）
+  if (/^video\//.test(file.type) || /\.(mp4|mov|webm|mkv|m4v)$/i.test(file.name)) {
+    try { setBgVideo(file) } catch { /* 背景失败不影响分离 */ }
+  }
+
   try {
     // ① 压缩包 → 先解开，挑里面的媒体文件
     if (isArchive(file.name)) {
@@ -679,6 +818,9 @@ async function runSeparate(sess, file, maxSec) {
       <a class="dl" href="${url}" download="${file.name.replace(/\.[^.]+$/, '')}-${key}.wav">下载 WAV</a>
     `;
     tracksEl.appendChild(div);
+    // 把背景视频挂到这条音轨上（v1.6.0）
+    const audioEl = div.querySelector('audio');
+    if (audioEl) bindAudio(audioEl);
   }
 
   // 限时模式下，给一个「处理整首歌」按钮
