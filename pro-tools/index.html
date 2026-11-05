@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🔧 工具区</title>
+<script>
+/* 2026-11-05 开屏引导：本次会话没看过 → 跳 startup/；看过 → 直接进 */
+try {
+  if (!sessionStorage.getItem('feiyuEntered_pro-tools')) { location.replace('./startup/'); }
+} catch (e) { /* 隐私模式禁存储时直接进 */ }
+</script>
+
 <style>
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
   html,body { min-height:100%; background:linear-gradient(160deg,#0a1628 0%,#123 60%,#0a1f33 100%); }
