@@ -6,87 +6,34 @@
 <title>肥鱼游戏厅</title>
 <!--
   startup/index.html —— 游戏厅开屏
-  干什么：播 dsh-startup-screen 的开机动画，揭幕后浮现「进入游戏厅」按钮
+  干什么：播 dsh-startup-screen 的开机动画，动画放完自动进游戏厅（无按钮）
   用了什么：
     · splash.js / splash.css —— dsh-startup-screen (MIT, © 2026 沈宏宏)
     · 3D 档案环（彩蛋）见 ../rhine-lab/，入口在游戏厅首页
   输入：无（纯前端）
-  输出：点击「进入游戏厅」跳转 ../arcade.html
+  输出：动画结束自动跳转 ../arcade.html（Esc 可提前跳）
+  版本：v1.1-自动跳转·去按钮 20261105
 -->
 <link rel="stylesheet" href="./lib/splash.css">
 <style>
   html, body { margin: 0; padding: 0; background: #0a0e15; }
-  /* 进入按钮：动画揭幕后浮现 */
-  #enterbar {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 999999;
-    display: none; justify-content: center; align-items: center; gap: 14px;
-    padding: 22px 16px calc(22px + env(safe-area-inset-bottom));
-    background: linear-gradient(to top, rgba(6,10,16,.92), rgba(6,10,16,0));
-    pointer-events: none;
-  }
-  #enterbar.on { display: flex; }
-  #enterbtn {
-    pointer-events: auto;
-    font: 500 15px/1 "JetBrains Mono", Consolas, monospace;
-    letter-spacing: .14em;
-    color: #0b1016; background: #f6f3eb;
-    border: 0; border-radius: 2px;
-    padding: 15px 40px; cursor: pointer;
-    transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
-    box-shadow: 0 0 0 1px rgba(246,243,235,.35), 0 8px 30px rgba(0,0,0,.55);
-  }
-  #enterbtn:hover { transform: translateY(-2px); background: #fff; box-shadow: 0 0 0 1px #fff, 0 12px 34px rgba(255,255,255,.16); }
-  #enterbtn:active { transform: translateY(0); }
-  #skipbtn {
-    pointer-events: auto;
-    font: 400 12px/1 "JetBrains Mono", Consolas, monospace;
-    letter-spacing: .1em; color: #8d99a8;
-    background: transparent; border: 1px solid rgba(141,153,168,.3);
-    border-radius: 2px; padding: 11px 18px; cursor: pointer;
-  }
-  #skipbtn:hover { color: #dbe7f5; border-color: rgba(219,231,245,.5); }
 </style>
 </head>
 <body>
 
-<div id="enterbar">
-  <button id="enterbtn">进入游戏厅 →</button>
-  <button id="skipbtn">跳过动画</button>
-</div>
-
 <script>
 (function () {
-  var enterbar = document.getElementById('enterbar');
-
-  function showEnter() {
-    if (enterbar.classList.contains('on')) return;
-    enterbar.classList.add('on');
-  }
-
   function goArcade() {
     try { sessionStorage.setItem('feiyuEntered', '1'); } catch (e) {}
     location.href = '../arcade.html';
   }
 
-  document.getElementById('enterbtn').addEventListener('click', goArcade);
-  document.getElementById('skipbtn').addEventListener('click', goArcade);
-
-  /* 开机动画一结束直接进游戏厅（splash.js 结束时派发 dsh-startup:done 事件） */
+  /* 2026-11-05 老爹要求：动画放完直接进，不要按钮。
+     原来的「进入游戏厅 / 跳过动画」两个按钮已移除 —— 会在动画尾巴上闪一下。 */
   window.addEventListener('dsh-startup:done', goArcade);
 
-  /* 兜底一：等 #dsh-startup-root 消失 */
-  var tries = 0;
-  var timer = setInterval(function () {
-    tries++;
-    var root = document.getElementById('dsh-startup-root');
-    if (!root || root.classList.contains('dsu-gone') || tries > 120) {
-      clearInterval(timer);
-      showEnter();
-    }
-  }, 400);
-
-  /* 兜底二：最多 12 秒后一定出按钮（防脚本没跑起来） */
-  setTimeout(function () { clearInterval(timer); showEnter(); }, 12000);
+  /* 极端兜底：脚本压根没跑起来（90 秒还停在开屏）才直接跳，不显示按钮 */
+  setTimeout(goArcade, 90000);
 
   /* Esc 直接进 */
   document.addEventListener('keydown', function (e) {
