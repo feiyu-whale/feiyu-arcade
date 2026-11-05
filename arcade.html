@@ -58,17 +58,17 @@
 
   <div class="sec-title">📚 专区</div>
   <div class="grid">
-    <a class="zone" href="calendar/">
+    <a class="zone" data-splash="calendar" href="calendar/">
       <span class="icon">📅</span>
       <span class="name">历法区</span>
       <span class="desc">黄历・玛雅历・回历・藏历・东正教历</span>
     </a>
-    <a class="zone" href="divination/">
+    <a class="zone" data-splash="divination" href="divination/">
       <span class="icon">🔮</span>
       <span class="name">术数区</span>
       <span class="desc">八字・紫微・奇门・太乙・塔罗・六爻…</span>
     </a>
-    <a class="zone" href="games/">
+    <a class="zone" data-splash="games" href="games/">
       <span class="icon">🎮</span>
       <span class="name">游戏区</span>
       <span class="desc">围棋・五子棋・象棋・三国・2048・Roguelike…</span>
@@ -78,7 +78,7 @@
       <span class="name">工具总目录</span>
       <span class="desc">理科・文科・娱乐・食品标准（三层：大类→学科→工具）</span>
     </a>
-    <a class="zone" href="pro-tools/">
+    <a class="zone" data-splash="pro-tools" href="pro-tools/">
       <span class="icon">📦</span>
       <span class="name">工具区（旧版）</span>
       <span class="desc">文科・理科・食品标准・娱乐（已审/未审分区）</span>
@@ -88,7 +88,7 @@
       <span class="name">天文地理</span>
       <span class="desc">星空图・本命星盘・古天文・经纬度</span>
     </a>
-    <a class="zone" href="finance-sim/">
+    <a class="zone" data-splash="finance-sim" href="finance-sim/">
       <span class="icon">💰</span>
       <span class="name">模拟金融</span>
       <span class="desc">虚拟炒股・练手用・非真钱</span>
@@ -116,7 +116,7 @@
       <span class="desc">同一问题同时问多个源 · 技术演示·可能有 bug</span>
     </a>
 
-    <a class="zone" href="life-tools/">
+    <a class="zone" data-splash="life-tools" href="life-tools/">
       <span class="icon">🧪</span>
       <span class="name">生活工具箱</span>
       <span class="desc">元素周期表・试剂库・调酒・文件转换</span>
@@ -147,6 +147,24 @@
     <a href="credits.html">开源声明</a>
   </div>
 
-  <div class="foot">🐳 大肥鱼出品 · 想加新东西就在这儿开个口<br><span style="font-size:10px;color:#22383c">v2.6.2-环改彩蛋 20261104</span></div>
+  <div class="foot">🐳 大肥鱼出品 · 想加新东西就在这儿开个口<br><span style="font-size:10px;color:#22383c">v2.7.0-跳过中转页 20261105</span></div>
+
+<script>
+/* 2026-11-05 修：点专区时若本次会话还没看过该专区开屏 → 直接跳开屏，
+   跳过「专区首页先加载再重定向」那 2 秒白屏/丑页面 */
+(function () {
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest ? e.target.closest('a.zone[data-splash]') : null;
+    if (!a) return;
+    var key = a.getAttribute('data-splash');
+    try {
+      if (!sessionStorage.getItem('feiyuEntered_' + key)) {
+        e.preventDefault();
+        location.href = './' + key + '/startup/';
+      }
+    } catch (err) { /* 隐私模式禁存储 → 走正常链接 */ }
+  }, true);
+})();
+</script>
 </body>
 </html>

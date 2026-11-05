@@ -7,7 +7,15 @@
 <script>
 /* 2026-11-05 开屏引导：本次会话没看过 → 跳 startup/；看过 → 直接进 */
 try {
-  if (!sessionStorage.getItem('feiyuEntered_calendar')) { location.replace('./startup/'); }
+  if (!sessionStorage.getItem('feiyuEntered_calendar')) {
+    /* 修：跳转前先遮黑，避免专区首页闪出来一瞬（等开屏资源那 2 秒） */
+    var _h = document.documentElement;
+    _h.style.background = '#0a0e15';
+    var _s = document.createElement('style');
+    _s.textContent = 'html,body{background:#0a0e15!important}body{visibility:hidden!important}';
+    (document.head || _h).appendChild(_s);
+    location.replace('./startup/');
+  }
 } catch (e) { /* 隐私模式禁存储时直接进 */ }
 </script>
 
@@ -75,6 +83,6 @@ try {
   </div>
 
   <div class="foot">🐳 大肥鱼出品 · 历法编年<br>纯前端 · 零依赖 · 零服务器</div>
-  <div class="ver">v3-统一紧凑 20261016</div>
+  <div class="ver">v3.1-修开屏白闪 20261105</div>
 </body>
 </html>

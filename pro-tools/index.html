@@ -7,7 +7,15 @@
 <script>
 /* 2026-11-05 开屏引导：本次会话没看过 → 跳 startup/；看过 → 直接进 */
 try {
-  if (!sessionStorage.getItem('feiyuEntered_pro-tools')) { location.replace('./startup/'); }
+  if (!sessionStorage.getItem('feiyuEntered_pro-tools')) {
+    /* 修：跳转前先遮黑，避免专区首页闪出来一瞬（等开屏资源那 2 秒） */
+    var _h = document.documentElement;
+    _h.style.background = '#0a0e15';
+    var _s = document.createElement('style');
+    _s.textContent = 'html,body{background:#0a0e15!important}body{visibility:hidden!important}';
+    (document.head || _h).appendChild(_s);
+    location.replace('./startup/');
+  }
 } catch (e) { /* 隐私模式禁存储时直接进 */ }
 </script>
 
@@ -284,7 +292,7 @@ try {
   <div style="text-align:center;color:#3a5068;font-size:10px;margin-top:4px;line-height:1.6">
     2026-10-23 补丁：修 8 处「已审→未审」错挂链接（v-belt / pf-correction / transformer / interest-simple / pet-age / time-zone / lighting / lightning），原指向 unverified/ 实为 404，已改为 verified/
   </div>
-  <div class="ver">v3.14.0-文科13工具入已审 20261027</div>
+  <div class="ver">v3.14.1-修开屏白闪 20261105</div>
 </div>
 
 <script>

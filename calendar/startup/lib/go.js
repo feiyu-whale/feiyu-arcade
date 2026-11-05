@@ -5,7 +5,7 @@
 */
 window.addEventListener('mist:enter', function () {
   // 记一下，同一标签页不必每次进都看开屏
-  try { sessionStorage.setItem('feiyuCalendarEntered', '1'); } catch (e) {}
+  try { sessionStorage.setItem('feiyuEntered_calendar', '1'); } catch (e) {}
   window.mistSplashStop?.();
   location.href = '../index.html';
 }, { once: true });
